@@ -13,6 +13,8 @@ AI Spend Live reads local JSONL usage logs from Claude Code and Codex, estimates
 - Provider and model split
 - Daily token burn chart
 - Recent-session hints inferred from log activity
+- Actionable recommendations for when to split, summarize, restart, `/clear`, close stale CLI windows, or route work between Claude and Codex
+- Suggested prompts to ask Claude/Codex before continuing expensive sessions
 
 No prompt text is exposed in the dashboard payload. Session names come from metadata only:
 

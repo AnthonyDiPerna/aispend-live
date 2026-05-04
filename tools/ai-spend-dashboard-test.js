@@ -134,6 +134,10 @@ async function run() {
   assert(summary.totals.totalTokens >= 6720);
   assert(summary.topSessions.some((session) => session.displayName === "AIV dashboard polish"));
   assert(summary.topSessions.some((session) => session.displayName === "Build spend dashboard"));
+  assert(summary.recommendations.length > 0);
+  assert(summary.recommendations[0].ask.includes("Summarize"));
+  assert(summary.topSessions.some((session) => session.recommendation && session.recommendation.label));
+  assert(summary.topEvents.some((event) => event.recommendation && event.recommendation.label));
 
   const payloadText = JSON.stringify(summary);
   assert(!payloadText.includes("SECRET_PROMPT_TEXT"), "summary must not expose prompt text");

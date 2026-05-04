@@ -4,9 +4,7 @@ const os = require("os");
 const path = require("path");
 const readline = require("readline");
 
-const repoRoot = path.resolve(__dirname, "..");
 const dashboardPath = path.resolve(__dirname, "ai-spend-dashboard.html");
-const publicSitePath = path.resolve(repoRoot, "docs", "index.html");
 
 const DEFAULT_PORT = Number(process.env.AI_SPEND_PORT || 9020);
 const DEFAULT_DAYS = 7;
@@ -596,6 +594,7 @@ function compactEvent(event) {
     costKnown: event.costKnown,
     pricingLabel: event.pricingLabel,
     pricingEstimated: event.pricingEstimated,
+    recommendation: buildTurnRecommendation(event),
   };
 }
 
@@ -679,6 +678,11 @@ function buildSummary(parsed, options) {
     .sort((a, b) => b.totalTokens - a.totalTokens)
     .slice(0, MAX_TOP_SESSIONS)
     .map(stripRangeSession);
+  for (const session of topSessions) {
+    session.recommendation = buildSessionRecommendation(session, totals);
+  }
+
+  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents };
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -695,7 +699,8 @@ function buildSummary(parsed, options) {
     hourly,
     topSessions,
     topEvents,
-    insights: buildInsights({ totals, windows, providerTotals, modelTotals, topSessions, topEvents }),
+    insights: buildInsights(insightContext),
+    recommendations: buildRecommendations(insightContext),
     pricingNotice: "Costs are API-equivalent estimates from local token logs, not provider invoices or subscription limit counters.",
   };
 }
@@ -788,6 +793,356 @@ function addWindowTotal(target, event) {
   target.eventCount += 1;
   addTokens(target.tokens, event.tokens);
   target.totalTokens = tokenTotal(target.tokens);
+}
+
+function providerDisplay(provider) {
+  if (provider === "claude") return "Claude Code";
+  if (provider === "codex") return "Codex CLI";
+  return sanitizeSessionTitle(provider || "AI CLI");
+}
+
+function sessionDisplayName(session) {
+  return sanitizeSessionTitle(
+    session.displayName
+      || session.title
+      || session.project
+      || session.id
+      || session.sessionId
+      || "Unknown session",
+    88,
+  );
+}
+
+function contextTokenRatio(tokens) {
+  const inputLike = numberValue(tokens.inputTokens)
+    + numberValue(tokens.cachedInputTokens)
+    + numberValue(tokens.cacheCreationInputTokens)
+    + numberValue(tokens.cacheCreation1hInputTokens)
+    + numberValue(tokens.cacheReadInputTokens);
+  const total = tokenTotal(tokens);
+  return total > 0 ? inputLike / total : 0;
+}
+
+function quotePowerShellPath(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return `'${text.replace(/'/g, "''")}'`;
+}
+
+function launchCommandForSession(session) {
+  const tool = session.provider === "claude" ? "claude" : session.provider === "codex" ? "codex" : "";
+  if (!tool) return "";
+  const cwd = quotePowerShellPath(session.cwd);
+  return cwd ? `cd ${cwd}; ${tool}` : tool;
+}
+
+function targetCliWindow(session) {
+  const cwd = sanitizeSessionTitle(session.cwd || session.project || "", 120);
+  const suffix = cwd ? ` in ${cwd}` : "";
+  return `${providerDisplay(session.provider)} window for "${sessionDisplayName(session)}"${suffix}`;
+}
+
+function handoffPrompt(session) {
+  return [
+    `Summarize this ${providerDisplay(session.provider)} session so I can restart cleanly.`,
+    "Include: current goal, files touched, commands/tests run, decisions made, blockers, and the next 3 actions.",
+    "Keep it compact and do not restate old conversation history.",
+  ].join(" ");
+}
+
+function scopePrompt(session) {
+  if (session.provider === "codex") {
+    return "Before editing, inspect only the files needed for the next step and tell me the smallest safe write set. Do not sweep the whole repo unless I ask.";
+  }
+  return "Before continuing, ask me for the exact files, screenshots, or failing command output you need. Do not keep pulling the whole prior thread forward.";
+}
+
+function buildSessionRecommendation(session, totals) {
+  const totalTokens = tokenTotal(session.tokens);
+  const share = totals && totals.totalTokens > 0 ? totalTokens / totals.totalTokens : 0;
+  const cacheRatio = cacheHitRatio(session.tokens);
+  const contextRatio = contextTokenRatio(session.tokens);
+  const durationMinutes = numberValue(session.durationMinutes);
+  const name = sessionDisplayName(session);
+  const launch = launchCommandForSession(session);
+  const restartCli = session.provider === "claude"
+    ? "After the summary, type /clear in that Claude Code window or close the terminal and start a new Claude session."
+    : "After the handoff, close that Codex CLI tab/window and start a new Codex session for the next task.";
+
+  if (share >= 0.25 || (durationMinutes >= 240 && totalTokens >= 100000)) {
+    return {
+      label: "Summarize and restart",
+      severity: "high",
+      detail: `"${name}" is ${Math.round(share * 100)}% of the selected range and has been active for ${formatDurationMinutes(durationMinutes)}.`,
+      ask: handoffPrompt(session),
+      cli: [
+        `Target: ${targetCliWindow(session)}`,
+        restartCli,
+        launch,
+      ].filter(Boolean),
+    };
+  }
+
+  if (cacheRatio < 0.2 && totalTokens >= 10000) {
+    return {
+      label: "Narrow context first",
+      severity: "high",
+      detail: `Only ${Math.round(cacheRatio * 100)}% cache reuse. The next broad ask will likely burn fresh input tokens again.`,
+      ask: scopePrompt(session),
+      cli: [
+        `Target: ${targetCliWindow(session)}`,
+        "Run a local search first, then paste only the relevant files or errors.",
+        'rg -n "<symbol-or-error>" .',
+      ],
+    };
+  }
+
+  if (session.provider === "claude" && contextRatio >= 0.9 && totalTokens >= 10000) {
+    return {
+      label: "Clear stale context",
+      severity: "high",
+      detail: "Most of the burn is context. Keep the decisions, not the whole conversation.",
+      ask: handoffPrompt(session),
+      cli: [
+        `Target: ${targetCliWindow(session)}`,
+        "Type /clear after saving the handoff, then continue with the compact summary only.",
+        launch,
+      ].filter(Boolean),
+    };
+  }
+
+  if (session.provider === "codex" && durationMinutes >= 180) {
+    return {
+      label: "Checkpoint the Codex run",
+      severity: "info",
+      detail: `This Codex session has run for ${formatDurationMinutes(durationMinutes)}. Long agent runs should leave a compact handoff before the next task.`,
+      ask: "List changed files, tests run, current blockers, and the smallest next task. Do not continue into a new feature without my approval.",
+      cli: [
+        `Target: ${targetCliWindow(session)}`,
+        "Close this Codex window after the checkpoint if it is not actively working.",
+        launch,
+      ].filter(Boolean),
+    };
+  }
+
+  return {
+    label: "Keep scoped",
+    severity: "info",
+    detail: "This session is not the main limit driver in the selected range. Keep the next ask narrow.",
+    ask: scopePrompt(session),
+    cli: [
+      `Target: ${targetCliWindow(session)}`,
+      "Keep one terminal window per task and close stale duplicates.",
+    ],
+  };
+}
+
+function buildTurnRecommendation(event) {
+  const total = numberValue(event.totalTokens);
+  const tokens = event.tokens || emptyTokens();
+  const contextRatio = contextTokenRatio(tokens);
+  const cached = numberValue(tokens.cachedInputTokens) + numberValue(tokens.cacheReadInputTokens);
+  const inputLike = numberValue(tokens.inputTokens)
+    + numberValue(tokens.cachedInputTokens)
+    + numberValue(tokens.cacheCreationInputTokens)
+    + numberValue(tokens.cacheCreation1hInputTokens)
+    + numberValue(tokens.cacheReadInputTokens);
+
+  if (total >= 1000000 || contextRatio >= 0.9) {
+    return {
+      label: "Break into smaller asks",
+      detail: "Ask for a file list or plan first, then run the edit/review in a second turn.",
+      ask: "First identify the 5-10 files or decisions that matter. Do not analyze the whole repo yet.",
+      cli: [
+        'rg -n "<symbol-or-error>" .',
+        "Paste the narrowed file list into the next agent turn.",
+      ],
+    };
+  }
+
+  if (inputLike > 0 && cached / inputLike < 0.2 && total >= 10000) {
+    return {
+      label: "Avoid fresh-context repeat",
+      detail: "This turn did not reuse much cache. Repeating it broadly will spend again.",
+      ask: "Before continuing, tell me exactly what context you still need and which files can be ignored.",
+      cli: [
+        "Start a fresh task with only the relevant files, command output, and desired result.",
+      ],
+    };
+  }
+
+  return {
+    label: "Use as spike clue",
+    detail: "If this turn caused the limit event, reduce the next prompt to one subsystem or one failing command.",
+    ask: "Restate the next step as a narrow task with explicit files and acceptance criteria.",
+    cli: [],
+  };
+}
+
+function buildRecommendations(summary) {
+  const recommendations = [];
+  const used = new Set();
+  const topSession = summary.topSessions[0];
+  const topEvent = summary.topEvents[0];
+  const claude = summary.providerTotals.find((item) => item.provider === "claude");
+  const codex = summary.providerTotals.find((item) => item.provider === "codex");
+  const last24 = summary.windows.last24h;
+  const lastHour = summary.windows.lastHour;
+  const recentCutoffMs = Date.now() - 2 * 3600000;
+
+  function push(key, item) {
+    if (!item || used.has(key)) return;
+    used.add(key);
+    recommendations.push(item);
+  }
+
+  if (topSession) {
+    const action = topSession.recommendation || buildSessionRecommendation(topSession, summary.totals);
+    push(`session:${topSession.provider}:${topSession.id}:${topSession.file}`, {
+      severity: action.severity,
+      title: action.label,
+      target: targetCliWindow(topSession),
+      reason: action.detail,
+      doNow: [
+        "Save a compact handoff before doing more work in this session.",
+        topSession.provider === "claude" ? "Use /clear or start a fresh Claude Code window after the handoff." : "Close this Codex CLI window after the handoff if the task is done or stale.",
+      ],
+      ask: action.ask,
+      cli: action.cli,
+    });
+  }
+
+  const recentSessions = summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
+  if (recentSessions.length >= 2) {
+    const names = recentSessions.slice(0, 4).map((session) => `${providerDisplay(session.provider)}: ${sessionDisplayName(session)}`).join("; ");
+    push("recent-sessions", {
+      severity: "high",
+      title: "Close duplicate active agents",
+      target: `${recentSessions.length} sessions had log activity in the last 2 hours`,
+      reason: "Parallel stale terminals can keep adding turns, miss cache, and make it unclear which agent is burning tokens.",
+      doNow: [
+        `Check these windows first: ${names}.`,
+        "Keep the one doing active useful work; close or Ctrl+C the others.",
+        "Before closing, ask each uncertain session for a 6-bullet checkpoint.",
+      ],
+      ask: "Give me a checkpoint only: current task, files changed, command currently running, blockers, and whether this session should be closed.",
+      cli: [
+        "In stale Claude Code windows: ask for the checkpoint, then type /clear or close the tab.",
+        "In stale Codex CLI windows: ask for the checkpoint, then Ctrl+C or close the terminal tab.",
+      ],
+    });
+  }
+
+  if (lastHour.totalTokens > 0 && last24.totalTokens > 0 && lastHour.totalTokens > (last24.totalTokens / 24) * 2.5) {
+    push("hour-spike", {
+      severity: "high",
+      title: "Pause the current spike",
+      target: "Last-hour usage",
+      reason: `The last hour used ${formatCount(lastHour.totalTokens)} tokens, above the 24 hour average pace.`,
+      doNow: [
+        "Stop broad follow-up prompts until you know which session caused the spike.",
+        "Open Largest Turns, find the matching session, and split the next ask by file group or failing command.",
+      ],
+      ask: "Before continuing, propose a smaller next step that uses the fewest files and avoids re-reading old context.",
+      cli: [
+        'rg -n "<error-or-symbol>" .',
+        "Paste only the relevant output into the next Claude/Codex turn.",
+      ],
+    });
+  }
+
+  const lowCacheSession = summary.topSessions
+    .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens) < 0.2)
+    .sort((a, b) => b.totalTokens - a.totalTokens)[0];
+  if (lowCacheSession) {
+    push(`low-cache:${lowCacheSession.provider}:${lowCacheSession.id}:${lowCacheSession.file}`, {
+      severity: "high",
+      title: "Stop repeating uncached context",
+      target: targetCliWindow(lowCacheSession),
+      reason: `"${sessionDisplayName(lowCacheSession)}" has ${Math.round(cacheHitRatio(lowCacheSession.tokens) * 100)}% cache reuse in this range.`,
+      doNow: [
+        "Do a local search or file list first.",
+        "Ask the agent to work only from that narrowed context.",
+        "If the task changed, start a fresh session instead of dragging old context forward.",
+      ],
+      ask: scopePrompt(lowCacheSession),
+      cli: [
+        'rg -n "<symbol-or-error>" .',
+        launchCommandForSession(lowCacheSession),
+      ].filter(Boolean),
+    });
+  }
+
+  if (claude && summary.totals.totalTokens > 0 && claude.totalTokens / summary.totals.totalTokens >= 0.65) {
+    push("route-claude", {
+      severity: "info",
+      title: "Route mechanical sweeps to Codex",
+      target: "Provider split",
+      reason: `Claude is ${Math.round((claude.totalTokens / summary.totals.totalTokens) * 100)}% of selected tokens.`,
+      doNow: [
+        "Use Codex for repo search, mechanical edits, and test-loop fixes.",
+        "Bring Claude the narrowed result for architecture, UX, or review decisions.",
+      ],
+      ask: "Codex: inspect the repo for this exact issue, return the relevant files and a minimal patch plan, and do not edit until I approve the write set.",
+      cli: [
+        "codex",
+        "claude",
+      ],
+    });
+  }
+
+  if (topEvent) {
+    push(`turn:${topEvent.provider}:${topEvent.sessionId}:${topEvent.turnIndex}`, {
+      severity: topEvent.totalTokens >= 1000000 ? "high" : "info",
+      title: topEvent.recommendation ? topEvent.recommendation.label : "Reduce the largest turn",
+      target: `${providerDisplay(topEvent.provider)} turn ${topEvent.turnIndex} in "${sessionDisplayName(topEvent)}"`,
+      reason: `The largest turn used ${formatCount(topEvent.totalTokens)} tokens.`,
+      doNow: [
+        "Do not repeat that prompt shape.",
+        "Ask for a plan or file list first, then run the expensive reasoning step second.",
+      ],
+      ask: topEvent.recommendation ? topEvent.recommendation.ask : "Restate the next step as a narrow task with explicit files and acceptance criteria.",
+      cli: topEvent.recommendation ? topEvent.recommendation.cli : [],
+    });
+  }
+
+  if (codex && codex.tokens && numberValue(codex.tokens.inputTokens) > 0) {
+    const codexCache = numberValue(codex.tokens.cachedInputTokens) / numberValue(codex.tokens.inputTokens);
+    if (codexCache < 0.35) {
+      push("codex-cache", {
+        severity: "info",
+        title: "Make Codex tasks more repeatable",
+        target: "Codex cache reuse",
+        reason: `Codex cache reuse is ${Math.round(codexCache * 100)}% in this range.`,
+        doNow: [
+          "Keep Codex prompts deterministic: exact files, exact command, exact acceptance criteria.",
+          "Avoid bouncing one Codex session between unrelated repos or feature areas.",
+        ],
+        ask: "Work only on this file set and this failing command. If more context is required, ask before scanning more of the repo.",
+        cli: [
+          "npm test",
+          'rg -n "<failing-test-or-symbol>" .',
+        ],
+      });
+    }
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      severity: "info",
+      title: "Narrow the time window",
+      target: "Selected range",
+      reason: "No single obvious limit driver stands out in this range.",
+      doNow: [
+        "Switch to 1 day or Claude-only/Codex-only.",
+        "Start with the largest session and largest turn after the range changes.",
+      ],
+      ask: "Given this smaller range, identify the one session I should close, clear, split, or reroute first.",
+      cli: [],
+    });
+  }
+
+  return recommendations.slice(0, 6);
 }
 
 function buildInsights(summary) {
@@ -980,18 +1335,6 @@ function createServer() {
       return;
     }
 
-    if (parsed.path === "/site") {
-      res.statusCode = 302;
-      res.setHeader("Location", "/site/");
-      res.end();
-      return;
-    }
-
-    if (parsed.path === "/site/") {
-      serveFile(res, publicSitePath, "text/html; charset=utf-8");
-      return;
-    }
-
     if (parsed.path === "/health") {
       respondJson(res, 200, { ok: true, name: "ai-spend-dashboard" });
       return;
@@ -1041,6 +1384,7 @@ async function main() {
       totals: summary.totals,
       providerTotals: summary.providerTotals,
       insights: summary.insights,
+      recommendations: summary.recommendations,
     }, null, 2));
     return;
   }
@@ -1048,7 +1392,6 @@ async function main() {
   const server = createServer();
   server.listen(args.port, "127.0.0.1", () => {
     console.log(`AI Spend dashboard: http://127.0.0.1:${args.port}/`);
-    console.log(`Public static page: http://127.0.0.1:${args.port}/site/`);
   });
 }
 
