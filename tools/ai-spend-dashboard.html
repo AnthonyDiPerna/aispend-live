@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Spend Local Dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101113;
+      --surface: #181b1f;
+      --surface-2: #20252a;
+      --surface-3: #252a31;
+      --line: #343b43;
+      --text: #eef2f3;
+      --muted: #9aa7ae;
+      --green: #49c58f;
+      --gold: #e3bd5f;
+      --cyan: #5fb8db;
+      --red: #ea6a6a;
+      --ink: #0d1114;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: linear-gradient(180deg, #151719 0%, var(--bg) 52%, #0c0e10 100%);
+      font: 14px/1.45 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button, select {
+      font: inherit;
+    }
+    .shell {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 22px 18px 42px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--green), var(--cyan));
+      color: var(--ink);
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+    .caption {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .control {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      min-height: 38px;
+    }
+    .control span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    select {
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      outline: 0;
+    }
+    button {
+      color: var(--ink);
+      background: var(--green);
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 13px;
+      font-weight: 750;
+      cursor: pointer;
+      min-height: 38px;
+    }
+    button.secondary {
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+    }
+    .notice {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: rgba(227, 189, 95, 0.08);
+      border: 1px solid rgba(227, 189, 95, 0.22);
+      border-radius: 8px;
+      color: #e8d7ad;
+      font-size: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .stat {
+      grid-column: span 2;
+      padding: 14px;
+      min-height: 104px;
+    }
+    .stat.wide { grid-column: span 3; }
+    .label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      font-weight: 750;
+      margin-bottom: 8px;
+    }
+    .value {
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+    .subvalue {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .chart-panel {
+      grid-column: span 8;
+      padding: 14px;
+    }
+    .side-panel {
+      grid-column: span 4;
+      padding: 14px;
+    }
+    .table-panel {
+      grid-column: span 12;
+      padding: 0;
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .panel-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    canvas {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+    .insights {
+      display: grid;
+      gap: 9px;
+    }
+    .insight {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .insight.high {
+      background: rgba(234, 106, 106, 0.08);
+      border-color: rgba(234, 106, 106, 0.24);
+    }
+    .insight-title {
+      font-weight: 800;
+    }
+    .insight-detail {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .bar-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .bar-item {
+      display: grid;
+      gap: 5px;
+    }
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #111417;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .bar-fill {
+      height: 100%;
+      min-width: 2px;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 10px;
+      background: var(--surface-3);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    td.num, th.num {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .table-scroll {
+      max-height: 420px;
+      overflow: auto;
+    }
+    .provider {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      text-transform: capitalize;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .dot.codex { background: var(--cyan); }
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      word-break: break-all;
+    }
+    .muted { color: var(--muted); }
+    .session-cell {
+      min-width: 230px;
+      max-width: 340px;
+    }
+    .session-title {
+      color: var(--text);
+      font-weight: 850;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .session-meta {
+      margin-top: 3px;
+      font-size: 11px;
+    }
+    .cache-low {
+      color: var(--red);
+      font-weight: 850;
+    }
+    .cache-mid {
+      color: var(--gold);
+      font-weight: 800;
+    }
+    .error {
+      padding: 16px;
+      border: 1px solid rgba(234, 106, 106, 0.3);
+      background: rgba(234, 106, 106, 0.08);
+      color: #ffd1d1;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    @media (max-width: 980px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .controls { justify-content: flex-start; }
+      .stat, .stat.wide { grid-column: span 6; }
+      .chart-panel, .side-panel { grid-column: span 12; }
+    }
+    @media (max-width: 620px) {
+      .shell { padding: 16px 12px 32px; }
+      .stat, .stat.wide { grid-column: span 12; }
+      .notice { flex-direction: column; }
+      canvas { height: 220px; }
+      th, td { padding: 9px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">AI</div>
+        <div>
+          <h1>AI Spend Local Dashboard</h1>
+          <div class="caption">Claude + Codex token burn from local JSONL logs</div>
+        </div>
+      </div>
+      <div class="controls">
+        <label class="control">
+          <span>Range</span>
+          <select id="days">
+            <option value="1">1 day</option>
+            <option value="7" selected>7 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Provider</span>
+          <select id="provider">
+            <option value="all" selected>All</option>
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
+        <button id="refresh" type="button">Refresh</button>
+        <button id="publicSite" class="secondary" type="button">Public page</button>
+      </div>
+    </header>
+
+    <div id="error" class="error"></div>
+    <section class="notice">
+      <div id="pricingNotice">Loading local usage...</div>
+      <div id="generatedAt" class="muted"></div>
+    </section>
+
+    <section class="grid">
+      <article class="panel stat">
+        <div class="label">Today</div>
+        <div id="todayTokens" class="value">...</div>
+        <div id="todaySpend" class="subvalue">...</div>
+      </article>
+      <article class="panel stat">
+        <div class="label">Last Hour</div>
+        <div id="hourTokens" class="value">...</div>
+        <div id="hourPace" class="subvalue">...</div>
+      </article>
+      <article class="panel stat">
+        <div class="label">24h Burn</div>
+        <div id="dayTokens" class="value">...</div>
+        <div id="daySpend" class="subvalue">...</div>
+      </article>
+      <article class="panel stat">
+        <div class="label">7d Burn</div>
+        <div id="weekTokens" class="value">...</div>
+        <div id="weekSpend" class="subvalue">...</div>
+      </article>
+      <article class="panel stat wide">
+        <div class="label">Selected Range</div>
+        <div id="rangeTokens" class="value">...</div>
+        <div id="rangeSpend" class="subvalue">...</div>
+      </article>
+      <article class="panel stat">
+        <div class="label">Cache Reuse</div>
+        <div id="cachePct" class="value">...</div>
+        <div id="cacheDetail" class="subvalue">...</div>
+      </article>
+
+      <article class="panel chart-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Daily Token Burn</h2>
+          <div class="pill-row">
+            <span class="pill">Claude context + output</span>
+            <span class="pill">Codex input/cache/output</span>
+          </div>
+        </div>
+        <canvas id="dailyChart" width="1000" height="280"></canvas>
+      </article>
+
+      <aside class="panel side-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Why Limits Are Getting Hit</h2>
+        </div>
+        <div id="insights" class="insights"></div>
+      </aside>
+
+      <article class="panel side-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Provider Split</h2>
+        </div>
+        <div id="providers" class="bar-list"></div>
+      </article>
+
+      <article class="panel side-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Model Split</h2>
+        </div>
+        <div id="models" class="bar-list"></div>
+      </article>
+
+      <article class="panel side-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Log Sources</h2>
+        </div>
+        <div id="sources" class="insights"></div>
+      </article>
+
+      <article class="panel table-panel">
+        <div style="padding:14px 14px 0">
+          <div class="panel-head">
+            <h2 class="panel-title">Per Session Burn</h2>
+            <span class="pill">Names from local metadata; no prompt text is exposed</span>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Session</th>
+                <th>Project</th>
+                <th>Model</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th class="num">Cache</th>
+                <th class="num">Tokens</th>
+                <th class="num">Estimate</th>
+              </tr>
+            </thead>
+            <tbody id="sessions"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel table-panel">
+        <div style="padding:14px 14px 0">
+          <div class="panel-head">
+            <h2 class="panel-title">Largest Turns</h2>
+            <span class="pill">Best clue for sudden burn spikes</span>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Time</th>
+                <th>Session</th>
+                <th>Model</th>
+                <th>Project</th>
+                <th class="num">Input</th>
+                <th class="num">Cached</th>
+                <th class="num">Output</th>
+                <th class="num">Total</th>
+                <th class="num">Estimate</th>
+              </tr>
+            </thead>
+            <tbody id="events"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const colors = {
+      claude: "#49c58f",
+      codex: "#5fb8db",
+      grid: "#30363d",
+      text: "#eef2f3",
+      muted: "#9aa7ae",
+      gold: "#e3bd5f"
+    };
+
+    const el = (id) => document.getElementById(id);
+    const nf = new Intl.NumberFormat();
+    const cf = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+    const dtf = new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+    function compact(n) {
+      n = Number(n || 0);
+      if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+      if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+      return nf.format(Math.round(n));
+    }
+
+    function money(value) {
+      return cf.format(Number(value || 0));
+    }
+
+    function pct(value) {
+      return `${Math.round(Number(value || 0) * 100)}%`;
+    }
+
+    function providerLabel(provider) {
+      return `<span class="provider"><span class="dot ${provider === "codex" ? "codex" : ""}"></span>${provider}</span>`;
+    }
+
+    function tokenCacheRatio(tokens) {
+      const cached = Number(tokens.cachedInputTokens || 0) + Number(tokens.cacheReadInputTokens || 0);
+      const input = Number(tokens.inputTokens || 0)
+        + Number(tokens.cachedInputTokens || 0)
+        + Number(tokens.cacheCreationInputTokens || 0)
+        + Number(tokens.cacheCreation1hInputTokens || 0)
+        + Number(tokens.cacheReadInputTokens || 0);
+      return input > 0 ? cached / input : 0;
+    }
+
+    async function loadData() {
+      el("error").style.display = "none";
+      el("pricingNotice").textContent = "Loading local usage...";
+      const days = el("days").value;
+      const provider = el("provider").value;
+      const response = await fetch(`/api/summary?days=${encodeURIComponent(days)}&provider=${encodeURIComponent(provider)}`);
+      if (!response.ok) throw new Error(`Dashboard API returned HTTP ${response.status}`);
+      return response.json();
+    }
+
+    function renderStats(data) {
+      el("pricingNotice").textContent = data.pricingNotice || "";
+      el("generatedAt").textContent = `Updated ${dtf.format(new Date(data.generatedAt))}`;
+      el("todayTokens").textContent = compact(data.windows.today.totalTokens);
+      el("todaySpend").textContent = `${money(data.windows.today.costUsd)} API estimate`;
+      el("hourTokens").textContent = compact(data.windows.lastHour.totalTokens);
+      el("hourPace").textContent = `${compact(data.windows.lastHour.totalTokens)} tokens/hour current pace`;
+      el("dayTokens").textContent = compact(data.windows.last24h.totalTokens);
+      el("daySpend").textContent = `${money(data.windows.last24h.costUsd)} API estimate`;
+      el("weekTokens").textContent = compact(data.windows.last7d.totalTokens);
+      el("weekSpend").textContent = `${money(data.windows.last7d.costUsd)} API estimate`;
+      el("rangeTokens").textContent = compact(data.totals.totalTokens);
+      el("rangeSpend").textContent = `${money(data.totals.costUsd)} across ${nf.format(data.totals.eventCount)} turns`;
+      const cacheRatio = tokenCacheRatio(data.totals.tokens);
+      el("cachePct").textContent = pct(cacheRatio);
+      el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens`;
+    }
+
+    function renderInsights(data) {
+      el("insights").innerHTML = (data.insights || []).map((item) => `
+        <div class="insight ${item.severity === "high" ? "high" : ""}">
+          <div class="insight-title">${escapeHtml(item.title)}</div>
+          <div class="insight-detail">${escapeHtml(item.detail)}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderBars(id, rows, labelFn) {
+      const max = Math.max(1, ...rows.map((row) => row.totalTokens || 0));
+      el(id).innerHTML = rows.slice(0, 8).map((row) => `
+        <div class="bar-item">
+          <div class="bar-meta">
+            <span>${labelFn(row)}</span>
+            <span>${compact(row.totalTokens)} - ${money(row.costUsd)}</span>
+          </div>
+          <div class="bar"><div class="bar-fill" style="width:${Math.max(2, Math.round((row.totalTokens || 0) / max * 100))}%"></div></div>
+        </div>
+      `).join("") || `<div class="muted">No usage found in this range.</div>`;
+    }
+
+    function renderSources(data) {
+      const roots = data.roots || {};
+      const sourceRows = ["claude", "codex"].map((key) => {
+        const source = roots[key] || {};
+        return `
+          <div class="insight">
+            <div class="insight-title">${key}</div>
+            <div class="insight-detail mono">${escapeHtml(source.root || "not found")}</div>
+            <div class="insight-detail">${nf.format(source.files || 0)} files - ${nf.format((source.sessions || []).length)} sessions - ${nf.format((source.errors || []).length)} errors</div>
+          </div>
+        `;
+      });
+      el("sources").innerHTML = sourceRows.join("");
+    }
+
+    function renderTables(data) {
+      el("sessions").innerHTML = (data.topSessions || []).slice(0, 80).map((row) => `
+        <tr>
+          <td>${providerLabel(row.provider)}</td>
+          <td class="session-cell">
+            <div class="session-title">${escapeHtml(sessionName(row))}</div>
+            <div class="muted mono session-meta">${escapeHtml(shortId(row.id))}</div>
+            <div class="muted session-meta">${escapeHtml(row.nameSource || "session id")} - ${escapeHtml(trimPath(row.file || ""))}</div>
+          </td>
+          <td>${escapeHtml(row.project || "")}<div class="muted mono">${escapeHtml(trimPath(row.cwd || ""))}</div></td>
+          <td>${escapeHtml(row.model || "unknown")}</td>
+          <td>${row.endMs ? dtf.format(new Date(row.endMs)) : ""}</td>
+          <td>${duration(row.durationMinutes)}</td>
+          <td class="num ${cacheClass(row.cacheHitRatio)}">${pct(row.cacheHitRatio)}</td>
+          <td class="num">${compact(row.totalTokens)}</td>
+          <td class="num">${money(row.costUsd)}</td>
+        </tr>
+      `).join("");
+
+      el("events").innerHTML = (data.topEvents || []).slice(0, 80).map((row) => `
+        <tr>
+          <td>${providerLabel(row.provider)}</td>
+          <td>${dtf.format(new Date(row.timestampMs))}</td>
+          <td class="session-cell">
+            <div class="session-title">${escapeHtml(sessionName(row))}</div>
+            <div class="muted mono session-meta">${escapeHtml(shortId(row.sessionId))} - turn ${row.turnIndex}</div>
+          </td>
+          <td>${escapeHtml(row.model || "unknown")}</td>
+          <td>${escapeHtml(row.project || "")}</td>
+          <td class="num">${compact(row.tokens.inputTokens)}</td>
+          <td class="num">${compact((row.tokens.cachedInputTokens || 0) + (row.tokens.cacheReadInputTokens || 0))}</td>
+          <td class="num">${compact(row.tokens.outputTokens)}</td>
+          <td class="num">${compact(row.totalTokens)}</td>
+          <td class="num">${row.costKnown ? money(row.costUsd) : "unknown"}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderChart(data) {
+      const canvas = el("dailyChart");
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(320, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(220, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const days = new Map();
+      for (const row of data.daily || []) {
+        if (!days.has(row.date)) days.set(row.date, { date: row.date, claude: 0, codex: 0 });
+        days.get(row.date)[row.provider] = row.totalTokens || 0;
+      }
+      const rows = Array.from(days.values()).sort((a, b) => a.date.localeCompare(b.date));
+      const pad = { l: 48, r: 16, t: 18, b: 42 };
+      const chartW = w - pad.l - pad.r;
+      const chartH = h - pad.t - pad.b;
+      const max = Math.max(1, ...rows.map((row) => (row.claude || 0) + (row.codex || 0)));
+
+      ctx.strokeStyle = colors.grid;
+      ctx.lineWidth = 1;
+      ctx.fillStyle = colors.muted;
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.textAlign = "right";
+      for (let i = 0; i <= 4; i += 1) {
+        const y = pad.t + chartH - chartH * (i / 4);
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(w - pad.r, y);
+        ctx.stroke();
+        ctx.fillText(compact(max * i / 4), pad.l - 8, y + 4);
+      }
+
+      if (rows.length === 0) {
+        ctx.fillStyle = colors.muted;
+        ctx.textAlign = "center";
+        ctx.fillText("No usage found in this range", w / 2, h / 2);
+        return;
+      }
+
+      const slot = chartW / rows.length;
+      const barW = Math.max(8, Math.min(34, slot * 0.58));
+      rows.forEach((row, i) => {
+        const x = pad.l + i * slot + (slot - barW) / 2;
+        let y = pad.t + chartH;
+        const codexH = chartH * (row.codex || 0) / max;
+        const claudeH = chartH * (row.claude || 0) / max;
+        if (codexH > 0) {
+          ctx.fillStyle = colors.codex;
+          ctx.fillRect(x, y - codexH, barW, codexH);
+          y -= codexH;
+        }
+        if (claudeH > 0) {
+          ctx.fillStyle = colors.claude;
+          ctx.fillRect(x, y - claudeH, barW, claudeH);
+        }
+        if (rows.length <= 18 || i % Math.ceil(rows.length / 8) === 0) {
+          ctx.fillStyle = colors.muted;
+          ctx.textAlign = "center";
+          ctx.save();
+          ctx.translate(x + barW / 2, h - 10);
+          ctx.rotate(-0.42);
+          ctx.fillText(row.date.slice(5), 0, 0);
+          ctx.restore();
+        }
+      });
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = colors.claude;
+      ctx.fillRect(pad.l, 2, 10, 10);
+      ctx.fillStyle = colors.text;
+      ctx.fillText("Claude", pad.l + 15, 11);
+      ctx.fillStyle = colors.codex;
+      ctx.fillRect(pad.l + 82, 2, 10, 10);
+      ctx.fillStyle = colors.text;
+      ctx.fillText("Codex", pad.l + 97, 11);
+    }
+
+    function sessionName(row) {
+      return row.displayName || row.title || row.project || shortId(row.id || row.sessionId);
+    }
+
+    function duration(minutes) {
+      const value = Math.max(0, Math.round(Number(minutes || 0)));
+      if (value >= 1440) return `${(value / 1440).toFixed(1)}d`;
+      if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+      return `${value}m`;
+    }
+
+    function cacheClass(value) {
+      const ratio = Number(value || 0);
+      if (ratio < 0.2) return "cache-low";
+      if (ratio < 0.5) return "cache-mid";
+      return "";
+    }
+
+    function shortId(value) {
+      const text = String(value || "");
+      return text.length > 18 ? `${text.slice(0, 18)}...` : text;
+    }
+
+    function trimPath(value) {
+      const text = String(value || "");
+      if (text.length <= 54) return text;
+      return `...${text.slice(-51)}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function refresh() {
+      try {
+        const data = await loadData();
+        renderStats(data);
+        renderInsights(data);
+        renderBars("providers", data.providerTotals || [], (row) => row.provider);
+        renderBars("models", data.modelTotals || [], (row) => `${row.provider} - ${row.model}`);
+        renderSources(data);
+        renderTables(data);
+        renderChart(data);
+      } catch (err) {
+        el("error").textContent = err && err.message ? err.message : String(err);
+        el("error").style.display = "block";
+        el("pricingNotice").textContent = "Failed to load local usage.";
+      }
+    }
+
+    el("refresh").addEventListener("click", refresh);
+    el("days").addEventListener("change", refresh);
+    el("provider").addEventListener("change", refresh);
+    el("publicSite").addEventListener("click", () => {
+      window.open("/site/", "_blank", "noopener");
+    });
+    window.addEventListener("resize", () => refresh());
+    refresh();
+  </script>
+</body>
+</html>

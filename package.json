@@ -1,0 +1,21 @@
+{
+  "name": "aispend-live",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Local Claude and Codex spend dashboard.",
+  "main": "tools/ai-spend-dashboard-server.js",
+  "scripts": {
+    "dashboard": "node tools/ai-spend-dashboard-server.js",
+    "summary": "node tools/ai-spend-dashboard-server.js --summary",
+    "test": "node tools/ai-spend-dashboard-test.js"
+  },
+  "keywords": [
+    "ai",
+    "spend",
+    "claude",
+    "codex",
+    "tokens",
+    "dashboard"
+  ],
+  "license": "MIT"
+}

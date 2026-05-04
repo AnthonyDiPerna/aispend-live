@@ -1,0 +1,17 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Local usage logs should never be committed.
+.claude/
+.codex/
+*.jsonl
+
+# Local screenshots and scratch output.
+*.png
+*.jpg
+*.jpeg
+*.webp
+tmp/
+dist/
