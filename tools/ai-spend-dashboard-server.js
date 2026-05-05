@@ -682,7 +682,8 @@ function buildSummary(parsed, options) {
     session.recommendation = buildSessionRecommendation(session, totals);
   }
 
-  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents };
+  const weeklyPace = buildWeeklyPace(windows);
+  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents, weeklyPace };
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -699,9 +700,11 @@ function buildSummary(parsed, options) {
     hourly,
     topSessions,
     topEvents,
+    weeklyPace,
+    promptGuidance: buildPromptGuidance(insightContext),
     insights: buildInsights(insightContext),
     recommendations: buildRecommendations(insightContext),
-    pricingNotice: "Costs are API-equivalent estimates from local token logs, not provider invoices or subscription limit counters.",
+    pricingNotice: "Costs are API-equivalent estimates from local token logs, not provider invoices or subscription limit counters. Set AI_SPEND_WEEKLY_TOKEN_BUDGET for weekly pacing.",
   };
 }
 
@@ -795,6 +798,54 @@ function addWindowTotal(target, event) {
   target.totalTokens = tokenTotal(target.tokens);
 }
 
+function readWeeklyBudgetTokens() {
+  return numberValue(process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET || process.env.AI_SPEND_WEEKLY_BUDGET_TOKENS);
+}
+
+function buildWeeklyPace(windows) {
+  const budgetTokens = readWeeklyBudgetTokens();
+  const last7dTokens = numberValue(windows.last7d.totalTokens);
+  const last24hTokens = numberValue(windows.last24h.totalTokens);
+  const lastHourTokens = numberValue(windows.lastHour.totalTokens);
+  const projected7dAt24hPace = last24hTokens * 7;
+  const projected7dAtHourPace = lastHourTokens * 24 * 7;
+  const projected7dTokens = Math.max(last7dTokens, projected7dAt24hPace, projected7dAtHourPace);
+  const usedRatio = budgetTokens > 0 ? last7dTokens / budgetTokens : 0;
+  const projectedRatio = budgetTokens > 0 ? projected7dTokens / budgetTokens : 0;
+  let status = "unset";
+  let statusText = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to compare rolling 7-day burn with your weekly envelope.";
+
+  if (budgetTokens > 0) {
+    if (usedRatio >= 1) {
+      status = "over";
+      statusText = "Rolling 7-day usage is already over the weekly envelope.";
+    } else if (projectedRatio >= 1) {
+      status = "risk";
+      statusText = "Current pace projects past the weekly envelope before the week is done.";
+    } else if (usedRatio >= 0.8 || projectedRatio >= 0.8) {
+      status = "watch";
+      statusText = "You are close to the weekly envelope; keep new work scoped.";
+    } else {
+      status = "ok";
+      statusText = "Current pace is inside the weekly envelope.";
+    }
+  }
+
+  return {
+    budgetTokens,
+    last7dTokens,
+    last24hTokens,
+    lastHourTokens,
+    projected7dAt24hPace,
+    projected7dAtHourPace,
+    projected7dTokens,
+    usedRatio,
+    projectedRatio,
+    status,
+    statusText,
+  };
+}
+
 function providerDisplay(provider) {
   if (provider === "claude") return "Claude Code";
   if (provider === "codex") return "Codex CLI";
@@ -821,6 +872,65 @@ function contextTokenRatio(tokens) {
     + numberValue(tokens.cacheReadInputTokens);
   const total = tokenTotal(tokens);
   return total > 0 ? inputLike / total : 0;
+}
+
+function sumModelTokens(modelTotals, pattern) {
+  return (modelTotals || []).reduce((sum, row) => (
+    pattern.test(String(row.model || "")) ? sum + numberValue(row.totalTokens) : sum
+  ), 0);
+}
+
+function buildPromptGuidance(summary) {
+  const totalTokens = numberValue(summary.totals.totalTokens);
+  const gpt55Tokens = sumModelTokens(summary.modelTotals, /^gpt-5\.5/i);
+  const gpt55Share = totalTokens > 0 ? gpt55Tokens / totalTokens : 0;
+  const last24 = summary.windows.last24h;
+  const lastHour = summary.windows.lastHour;
+  const hourSpike = lastHour.totalTokens > 0 && last24.totalTokens > 0 && lastHour.totalTokens > (last24.totalTokens / 24) * 2.5;
+  const pace = summary.weeklyPace || {};
+
+  return [
+    {
+      severity: gpt55Share >= 0.35 ? "high" : "info",
+      title: "Use GPT-5.5 for planning gates",
+      target: gpt55Tokens > 0 ? `${formatCount(gpt55Tokens)} GPT-5.5 tokens` : "Model routing",
+      detail: "Spend frontier reasoning on ambiguity: goal, risks, write set, acceptance criteria, and review. Move execution to Codex once the path is clear.",
+      doNow: [
+        "Ask for the plan and success criteria first.",
+        "Hand Codex exact files, tests, and allowed side effects for the implementation pass.",
+      ],
+    },
+    {
+      severity: hourSpike ? "high" : "info",
+      title: "Do not use /fast for discovery",
+      target: hourSpike ? "Last-hour spike" : "Fast mode",
+      detail: "/fast is best after the write set is known. During exploration it can burn through many more turns before the scope is stable.",
+      doNow: [
+        "Use /fast for bounded edits, formatting, and small test loops.",
+        "Turn it off for repo-wide search, architecture tradeoffs, and unclear debugging.",
+      ],
+    },
+    {
+      severity: "info",
+      title: "Start with low or medium effort",
+      target: "Reasoning effort",
+      detail: "Treat higher effort as a measured escalation. It is not automatically better when instructions conflict or the task is open-ended.",
+      doNow: [
+        "Use low or medium for scoped implementation.",
+        "Use high or xhigh only for hard planning, review, or async tasks where quality improves enough to justify the burn.",
+      ],
+    },
+    {
+      severity: pace.status === "risk" || pace.status === "over" ? "high" : "info",
+      title: "Pace the weekly envelope",
+      target: pace.budgetTokens > 0 ? `${formatCount(pace.last7dTokens)} of ${formatCount(pace.budgetTokens)}` : "Weekly budget",
+      detail: pace.statusText || "Track projected runout, not just total spend.",
+      doNow: [
+        "Watch last-hour pace against the rolling 7-day envelope.",
+        "If projected use crosses the envelope, summarize, narrow, or lower effort before continuing.",
+      ],
+    },
+  ];
 }
 
 function quotePowerShellPath(value) {
@@ -988,12 +1098,34 @@ function buildRecommendations(summary) {
   const codex = summary.providerTotals.find((item) => item.provider === "codex");
   const last24 = summary.windows.last24h;
   const lastHour = summary.windows.lastHour;
+  const weeklyPace = summary.weeklyPace || {};
+  const gpt55Tokens = sumModelTokens(summary.modelTotals, /^gpt-5\.5/i);
+  const gpt55Share = summary.totals.totalTokens > 0 ? gpt55Tokens / summary.totals.totalTokens : 0;
   const recentCutoffMs = Date.now() - 2 * 3600000;
 
   function push(key, item) {
     if (!item || used.has(key)) return;
     used.add(key);
     recommendations.push(item);
+  }
+
+  if (weeklyPace.status === "risk" || weeklyPace.status === "over") {
+    push("weekly-pace", {
+      severity: "high",
+      title: "Slow the weekly burn",
+      target: weeklyPace.budgetTokens > 0 ? `${formatCount(weeklyPace.last7dTokens)} of ${formatCount(weeklyPace.budgetTokens)} tokens` : "Weekly envelope",
+      reason: weeklyPace.statusText,
+      doNow: [
+        "Stop open-ended fast-mode work until the next task is bounded.",
+        "Summarize active sessions and continue only with the file list, failing command, and acceptance criteria.",
+        "Use low or medium effort for scoped execution; reserve high effort for planning or review.",
+      ],
+      ask: "Before continuing, give me the smallest next action, the exact files involved, and the acceptance test. Do not scan more context unless I approve it.",
+      cli: [
+        'rg -n "<error-or-symbol>" .',
+        "Run only the specific failing command or test target.",
+      ],
+    });
   }
 
   if (topSession) {
@@ -1042,8 +1174,9 @@ function buildRecommendations(summary) {
       doNow: [
         "Stop broad follow-up prompts until you know which session caused the spike.",
         "Open Largest Turns, find the matching session, and split the next ask by file group or failing command.",
+        "Do not use /fast again until the write set and acceptance test are explicit.",
       ],
-      ask: "Before continuing, propose a smaller next step that uses the fewest files and avoids re-reading old context.",
+      ask: "Before continuing, propose a smaller next step that uses the fewest files, names the acceptance test, and avoids re-reading old context.",
       cli: [
         'rg -n "<error-or-symbol>" .',
         "Paste only the relevant output into the next Claude/Codex turn.",
@@ -1087,6 +1220,25 @@ function buildRecommendations(summary) {
       cli: [
         "codex",
         "claude",
+      ],
+    });
+  }
+
+  if (gpt55Share >= 0.35) {
+    push("route-gpt55", {
+      severity: "info",
+      title: "Move from planning to execution",
+      target: `${formatCount(gpt55Tokens)} GPT-5.5 tokens in this range`,
+      reason: "GPT-5.5 is best spent on ambiguous planning, tradeoffs, and review. Once scope is clear, keep the edit loop in Codex with a bounded prompt.",
+      doNow: [
+        "Ask GPT-5.5 for the write set, risks, and acceptance criteria.",
+        "Execute with GPT-5.3 Codex using low or medium effort unless the task stays ambiguous.",
+        "Bring the completed diff back for review only if the decision quality matters.",
+      ],
+      ask: "Plan only: identify the exact files, success criteria, risks, and test command. Do not implement in this turn.",
+      cli: [
+        "codex",
+        "Use a scoped Codex prompt with exact files and tests.",
       ],
     });
   }
@@ -1383,6 +1535,8 @@ async function main() {
       range: summary.range,
       totals: summary.totals,
       providerTotals: summary.providerTotals,
+      weeklyPace: summary.weeklyPace,
+      promptGuidance: summary.promptGuidance,
       insights: summary.insights,
       recommendations: summary.recommendations,
     }, null, 2));

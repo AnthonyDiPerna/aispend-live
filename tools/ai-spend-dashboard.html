@@ -234,9 +234,18 @@
       grid-column: span 12;
       padding: 14px;
     }
+    .guidance-panel {
+      grid-column: span 12;
+      padding: 14px;
+    }
     .rec-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .guidance-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
     .recommendation {
@@ -252,7 +261,25 @@
       background: rgba(234, 106, 106, 0.08);
       border-color: rgba(234, 106, 106, 0.24);
     }
+    .guidance-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(95, 184, 219, 0.06);
+      border: 1px solid rgba(95, 184, 219, 0.16);
+      min-width: 0;
+    }
+    .guidance-card.high {
+      background: rgba(234, 106, 106, 0.08);
+      border-color: rgba(234, 106, 106, 0.24);
+    }
     .rec-title {
+      font-weight: 850;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    .guidance-title {
       font-weight: 850;
       font-size: 14px;
       line-height: 1.2;
@@ -263,7 +290,17 @@
       line-height: 1.35;
       word-break: break-word;
     }
+    .guidance-target {
+      color: var(--cyan);
+      font-size: 11px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
     .rec-reason {
+      color: #d9e3e1;
+      font-size: 12px;
+    }
+    .guidance-detail {
       color: #d9e3e1;
       font-size: 12px;
     }
@@ -436,6 +473,7 @@
       .stat, .stat.wide { grid-column: span 6; }
       .chart-panel, .side-panel { grid-column: span 12; }
       .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 620px) {
       .shell { padding: 16px 12px 32px; }
@@ -444,6 +482,7 @@
       canvas { height: 220px; }
       th, td { padding: 9px 8px; }
       .rec-grid { grid-template-columns: 1fr; }
+      .guidance-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -516,6 +555,11 @@
         <div id="cachePct" class="value">...</div>
         <div id="cacheDetail" class="subvalue">...</div>
       </article>
+      <article class="panel stat wide">
+        <div class="label">Weekly Pace</div>
+        <div id="weekPace" class="value">...</div>
+        <div id="weekPaceDetail" class="subvalue">...</div>
+      </article>
 
       <article class="panel chart-panel">
         <div class="panel-head">
@@ -541,6 +585,14 @@
           <span class="pill">updates with range and provider filters</span>
         </div>
         <div id="recommendations" class="rec-grid"></div>
+      </article>
+
+      <article class="panel guidance-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Prompt and Weekly Pacing Rules</h2>
+          <span class="pill">based on current model guidance</span>
+        </div>
+        <div id="promptGuidance" class="guidance-grid"></div>
       </article>
 
       <article class="panel side-panel">
@@ -693,6 +745,14 @@
       const cacheRatio = tokenCacheRatio(data.totals.tokens);
       el("cachePct").textContent = pct(cacheRatio);
       el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens`;
+      const pace = data.weeklyPace || {};
+      if (pace.budgetTokens > 0) {
+        el("weekPace").textContent = pct(pace.usedRatio);
+        el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}`;
+      } else {
+        el("weekPace").textContent = compact(pace.last7dTokens || data.windows.last7d.totalTokens);
+        el("weekPaceDetail").textContent = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to track runout risk.";
+      }
     }
 
     function renderInsights(data) {
@@ -717,6 +777,19 @@
           ${renderCommands(item.cli)}
         </div>
       `).join("") || `<div class="muted">No recommendations for this range yet.</div>`;
+    }
+
+    function renderPromptGuidance(data) {
+      el("promptGuidance").innerHTML = (data.promptGuidance || []).map((item) => `
+        <div class="guidance-card ${item.severity === "high" ? "high" : ""}">
+          <div>
+            <div class="guidance-title">${escapeHtml(item.title || "Prompt rule")}</div>
+            <div class="guidance-target">${escapeHtml(item.target || "")}</div>
+          </div>
+          <div class="guidance-detail">${escapeHtml(item.detail || "")}</div>
+          ${renderSteps(item.doNow)}
+        </div>
+      `).join("") || `<div class="muted">No prompt guidance for this range yet.</div>`;
     }
 
     function renderSteps(steps) {
@@ -937,6 +1010,7 @@
         renderStats(data);
         renderInsights(data);
         renderRecommendations(data);
+        renderPromptGuidance(data);
         renderBars("providers", data.providerTotals || [], (row) => row.provider);
         renderBars("models", data.modelTotals || [], (row) => `${row.provider} - ${row.model}`);
         renderSources(data);

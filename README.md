@@ -15,6 +15,8 @@ AI Spend Live reads local JSONL usage logs from Claude Code and Codex, estimates
 - Recent-session hints inferred from log activity
 - Actionable recommendations for when to split, summarize, restart, `/clear`, close stale CLI windows, or route work between Claude and Codex
 - Suggested prompts to ask Claude/Codex before continuing expensive sessions
+- Weekly pacing guidance when you set a local token envelope
+- Prompt-shape and model-routing guidance: plan with GPT-5.5 for ambiguity, execute scoped work with Codex, and reserve `/fast` for bounded edits
 
 No prompt text is exposed in the dashboard payload. Session names come from metadata only:
 
@@ -60,8 +62,19 @@ $env:CLAUDE_PROJECTS_ROOT="C:\path\to\.claude\projects"
 $env:CODEX_SESSIONS_ROOT="C:\path\to\.codex\sessions"
 $env:CODEX_SESSION_INDEX="C:\path\to\.codex\session_index.jsonl"
 $env:AI_SPEND_PORT="9020"
+$env:AI_SPEND_WEEKLY_TOKEN_BUDGET="50000000"
 npm run dashboard
 ```
+
+## Prompt And Token Pacing
+
+The dashboard now separates token burn from workflow guidance:
+
+- Use GPT-5.5 for planning gates: ambiguous goals, tradeoffs, write sets, risk checks, acceptance criteria, and review.
+- Move scoped implementation to Codex once the files, allowed side effects, and test command are clear.
+- Treat `/fast` as a bounded-edit mode. Avoid it during discovery, repo-wide search, and unclear debugging because it can burn through turns quickly.
+- Start scoped execution at low or medium reasoning effort. Raise effort only when the task is still ambiguous and the output quality justifies the extra burn.
+- Set `AI_SPEND_WEEKLY_TOKEN_BUDGET` to show rolling 7-day usage against a weekly envelope and flag projected runout risk.
 
 ## Notes On Cost
 

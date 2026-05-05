@@ -138,6 +138,15 @@ async function run() {
   assert(summary.recommendations[0].ask.includes("Summarize"));
   assert(summary.topSessions.some((session) => session.recommendation && session.recommendation.label));
   assert(summary.topEvents.some((event) => event.recommendation && event.recommendation.label));
+  assert.equal(summary.weeklyPace.status, "unset");
+  assert(summary.promptGuidance.some((item) => item.title.includes("GPT-5.5")));
+
+  process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET = "6000";
+  const pacedSummary = buildSummary([claude, codex], { days: 365, provider: "all" });
+  delete process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET;
+  assert.equal(pacedSummary.weeklyPace.status, "over");
+  assert(pacedSummary.recommendations.some((item) => item.title === "Slow the weekly burn"));
+  assert(pacedSummary.promptGuidance.some((item) => item.title === "Pace the weekly envelope"));
 
   const payloadText = JSON.stringify(summary);
   assert(!payloadText.includes("SECRET_PROMPT_TEXT"), "summary must not expose prompt text");
