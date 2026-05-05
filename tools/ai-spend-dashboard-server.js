@@ -28,6 +28,86 @@ const OPENAI_PRICING = [
   { match: /^gpt-5/i, label: "GPT-5", input: 1.25, cachedInput: 0.125, output: 10 },
 ];
 
+const PLAN_PRESETS = {
+  claude: {
+    custom: {
+      label: "Custom/env",
+      detail: "Use AI_SPEND_5H_TOKEN_BUDGET and AI_SPEND_WEEKLY_TOKEN_BUDGET.",
+    },
+    "claude-pro": {
+      label: "Claude Pro",
+      detail: "Officially described as about 45 short Claude messages per 5 hours; exact token caps are not published.",
+      fiveHourMessages: { min: 45, max: 45 },
+      weeklyNote: "Claude may apply weekly caps, but Anthropic does not publish numeric weekly token limits for individual plans.",
+      source: "https://support.anthropic.com/en/articles/8324991-about-claude-s-pro-plan-usage/",
+    },
+    "claude-max-5x": {
+      label: "Claude Max 5x ($100)",
+      detail: "Officially described as 5x Pro, at least 225 short Claude messages per 5 hours; exact token caps are not published.",
+      fiveHourMessages: { min: 225, max: 225 },
+      weeklyNote: "Claude Max has weekly limits, including an all-model cap and a Sonnet-only cap, but numeric token caps are not published.",
+      source: "https://support.anthropic.com/en/articles/11014257-about-claude-s-max-plan-usage/",
+    },
+    "claude-max-20x": {
+      label: "Claude Max 20x ($200)",
+      detail: "Officially described as 20x Pro, at least 900 short Claude messages per 5 hours; exact token caps are not published.",
+      fiveHourMessages: { min: 900, max: 900 },
+      weeklyNote: "Claude Max has weekly limits, including an all-model cap and a Sonnet-only cap, but numeric token caps are not published.",
+      source: "https://support.anthropic.com/en/articles/11014257-about-claude-s-max-plan-usage/",
+    },
+  },
+  codex: {
+    custom: {
+      label: "Custom/env",
+      detail: "Use AI_SPEND_5H_TOKEN_BUDGET and AI_SPEND_WEEKLY_TOKEN_BUDGET.",
+    },
+    "codex-plus": {
+      label: "Codex Plus / Business",
+      detail: "Official Codex local-message range per 5 hours. Token estimate is calibrated from your local logs.",
+      modelMessages: {
+        gpt55: { min: 15, max: 80 },
+        gpt54: { min: 20, max: 100 },
+        gpt54mini: { min: 60, max: 350 },
+        gpt53codex: { min: 30, max: 150 },
+      },
+      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
+      source: "https://developers.openai.com/codex/pricing",
+    },
+    "codex-pro-5x": {
+      label: "Codex Pro 5x ($100)",
+      detail: "Current promo through May 31, 2026 applies 2x the listed Pro 5x Codex limits. Token estimate is calibrated from your local logs.",
+      promoUntil: "2026-05-31",
+      modelMessages: {
+        gpt55: { min: 160, max: 800 },
+        gpt54: { min: 200, max: 1000 },
+        gpt54mini: { min: 600, max: 3500 },
+        gpt53codex: { min: 300, max: 1500 },
+      },
+      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
+      source: "https://developers.openai.com/codex/pricing",
+    },
+    "codex-pro-20x": {
+      label: "Codex Pro 20x ($200)",
+      detail: "Current promo through May 31, 2026 uses 25x Plus Codex limits. Token estimate is calibrated from your local logs.",
+      promoUntil: "2026-05-31",
+      modelMessages: {
+        gpt55: { min: 375, max: 2000 },
+        gpt54: { min: 500, max: 2500 },
+        gpt54mini: { min: 1500, max: 8750 },
+        gpt53codex: { min: 750, max: 3750 },
+      },
+      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
+      source: "https://developers.openai.com/codex/pricing",
+    },
+    "codex-api": {
+      label: "Codex API key",
+      detail: "Usage-based API mode does not have the same subscription 5-hour cap; standard API limits and billing apply.",
+      weeklyNote: "No subscription weekly cap is published for API-key usage.",
+      source: "https://developers.openai.com/codex/pricing",
+    },
+  },
+};
+
 function numberValue(value) {
   const n = Number(value || 0);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -616,6 +696,7 @@ function buildSummary(parsed, options) {
   };
   const windows = {
     lastHour: makeWindowTotal(),
+    last5h: makeWindowTotal(),
     today: makeWindowTotal(),
     last24h: makeWindowTotal(),
     last7d: makeWindowTotal(),
@@ -626,18 +707,41 @@ function buildSummary(parsed, options) {
   const dayMap = new Map();
   const hourMap = new Map();
   const sessionMap = new Map();
+  const fiveHourSessionMap = new Map();
+  const weeklySessionMap = new Map();
+  const planWindowStats = createPlanWindowStats();
 
   for (const source of parsed) {
     for (const event of source.events) {
       if (!includeProvider(providerFilter, event.provider)) continue;
+
+      const sessionKey = `${event.provider}:${event.sessionId}:${event.file}`;
+      const inLastHour = event.timestampMs >= nowMs - 3600000;
+      const inLast5h = event.timestampMs >= nowMs - 5 * 3600000;
+      const inLast24h = event.timestampMs >= nowMs - 86400000;
+      const inLast7d = event.timestampMs >= nowMs - 7 * 86400000;
+
+      if (inLastHour) {
+        addWindowTotal(windows.lastHour, event);
+        addProviderPlanWindow(planWindowStats, event, "lastHour");
+      }
+      if (inLast5h) {
+        addWindowTotal(windows.last5h, event);
+        addProviderPlanWindow(planWindowStats, event, "last5h");
+        addEventToRangeSession(addRangeSession(fiveHourSessionMap, sessionKey, event), event);
+      }
+      if (inLast24h) addWindowTotal(windows.last24h, event);
+      if (inLast7d) {
+        addWindowTotal(windows.last7d, event);
+        addProviderPlanWindow(planWindowStats, event, "last7d");
+        addEventToRangeSession(addRangeSession(weeklySessionMap, sessionKey, event), event);
+      }
+      if (localDateKey(event.timestampMs) === localDateKey(nowMs)) addWindowTotal(windows.today, event);
+
       if (event.timestampMs < sinceMs) continue;
       allEvents.push(event);
       addWindowTotal(totals, event);
       addWindowTotal(windows.selectedRange, event);
-      if (event.timestampMs >= nowMs - 3600000) addWindowTotal(windows.lastHour, event);
-      if (event.timestampMs >= nowMs - 86400000) addWindowTotal(windows.last24h, event);
-      if (event.timestampMs >= nowMs - 7 * 86400000) addWindowTotal(windows.last7d, event);
-      if (localDateKey(event.timestampMs) === localDateKey(nowMs)) addWindowTotal(windows.today, event);
 
       const providerGroup = addGroup(providerMap, event.provider, { provider: event.provider });
       addWindowTotal(providerGroup, event);
@@ -654,7 +758,6 @@ function buildSummary(parsed, options) {
       const hourGroup = addGroup(hourMap, hourKey, { hour: event.hour, provider: event.provider });
       addWindowTotal(hourGroup, event);
 
-      const sessionKey = `${event.provider}:${event.sessionId}:${event.file}`;
       const sessionGroup = addRangeSession(sessionMap, sessionKey, event);
       addEventToRangeSession(sessionGroup, event);
     }
@@ -682,8 +785,11 @@ function buildSummary(parsed, options) {
     session.recommendation = buildSessionRecommendation(session, totals);
   }
 
-  const weeklyPace = buildWeeklyPace(windows);
-  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents, weeklyPace };
+  const budgetPace = buildBudgetPace(windows);
+  const weeklyPace = budgetPace.weekly;
+  const planPace = buildPlanPace(planWindowStats, options);
+  const budgetSessions = buildBudgetSessions(fiveHourSessionMap, weeklySessionMap, budgetPace);
+  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents, weeklyPace, budgetPace, budgetSessions, planPace };
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -700,11 +806,14 @@ function buildSummary(parsed, options) {
     hourly,
     topSessions,
     topEvents,
+    budgetPace,
+    planPace,
     weeklyPace,
+    budgetSessions,
     promptGuidance: buildPromptGuidance(insightContext),
     insights: buildInsights(insightContext),
     recommendations: buildRecommendations(insightContext),
-    pricingNotice: "Costs are API-equivalent estimates from local token logs, not provider invoices or subscription limit counters. Set AI_SPEND_WEEKLY_TOKEN_BUDGET for weekly pacing.",
+    pricingNotice: "Costs and plan token budgets are estimates from local logs, not provider invoices or official subscription counters. Claude/Codex publish message windows, not fixed token caps; set env budgets for exact local targets.",
   };
 }
 
@@ -798,8 +907,133 @@ function addWindowTotal(target, event) {
   target.totalTokens = tokenTotal(target.tokens);
 }
 
+function createPlanWindowStats() {
+  return {
+    claude: createProviderPlanWindowStats("claude"),
+    codex: createProviderPlanWindowStats("codex"),
+  };
+}
+
+function createProviderPlanWindowStats(provider) {
+  return {
+    provider,
+    lastHour: makeWindowTotal(),
+    last5h: makeWindowTotal(),
+    last7d: makeWindowTotal(),
+    modelHour: new Map(),
+    model5h: new Map(),
+    model7d: new Map(),
+  };
+}
+
+function addProviderPlanWindow(stats, event, windowName) {
+  const providerStats = stats[event.provider] || (stats[event.provider] = createProviderPlanWindowStats(event.provider));
+  const total = providerStats[windowName];
+  if (!total) return;
+  addWindowTotal(total, event);
+
+  const modelMap = windowName === "lastHour" ? providerStats.modelHour : windowName === "last5h" ? providerStats.model5h : providerStats.model7d;
+  const model = event.model || "unknown";
+  const modelGroup = addGroup(modelMap, model, { provider: event.provider, model });
+  addWindowTotal(modelGroup, event);
+}
+
+function readBudgetTokens(names) {
+  for (const name of names) {
+    const value = numberValue(process.env[name]);
+    if (value > 0) return value;
+  }
+  return 0;
+}
+
+function readFiveHourBudgetTokens() {
+  return readBudgetTokens([
+    "AI_SPEND_5H_TOKEN_BUDGET",
+    "AI_SPEND_5H_BUDGET_TOKENS",
+    "AI_SPEND_5_HOUR_TOKEN_BUDGET",
+    "AI_SPEND_FIVE_HOUR_TOKEN_BUDGET",
+  ]);
+}
+
 function readWeeklyBudgetTokens() {
-  return numberValue(process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET || process.env.AI_SPEND_WEEKLY_BUDGET_TOKENS);
+  return readBudgetTokens([
+    "AI_SPEND_WEEKLY_TOKEN_BUDGET",
+    "AI_SPEND_WEEKLY_BUDGET_TOKENS",
+  ]);
+}
+
+function buildBudgetPace(windows) {
+  return {
+    fiveHour: buildFiveHourPace(windows),
+    weekly: buildWeeklyPace(windows),
+  };
+}
+
+function budgetStatus({ budgetTokens, usedTokens, projectedTokens, unsetText, okText, watchText, riskText, overText }) {
+  const usedRatio = budgetTokens > 0 ? usedTokens / budgetTokens : 0;
+  const projectedRatio = budgetTokens > 0 ? projectedTokens / budgetTokens : 0;
+  const remainingTokens = budgetTokens > 0 ? Math.max(0, budgetTokens - usedTokens) : 0;
+  const projectedRemainingTokens = budgetTokens > 0 ? Math.max(0, budgetTokens - projectedTokens) : 0;
+  const overageTokens = budgetTokens > 0 ? Math.max(0, usedTokens - budgetTokens) : 0;
+  let status = "unset";
+  let statusText = unsetText;
+
+  if (budgetTokens > 0) {
+    if (usedRatio >= 1) {
+      status = "over";
+      statusText = overText(overageTokens);
+    } else if (projectedRatio >= 1) {
+      status = "risk";
+      statusText = riskText(projectedTokens);
+    } else if (usedRatio >= 0.8 || projectedRatio >= 0.8) {
+      status = "watch";
+      statusText = watchText(remainingTokens, projectedRemainingTokens);
+    } else {
+      status = "ok";
+      statusText = okText(remainingTokens);
+    }
+  }
+
+  return {
+    budgetTokens,
+    usedTokens,
+    projectedTokens,
+    remainingTokens,
+    projectedRemainingTokens,
+    overageTokens,
+    usedRatio,
+    projectedRatio,
+    status,
+    statusText,
+  };
+}
+
+function buildFiveHourPace(windows) {
+  const budgetTokens = readFiveHourBudgetTokens();
+  const last5hTokens = numberValue(windows.last5h.totalTokens);
+  const lastHourTokens = numberValue(windows.lastHour.totalTokens);
+  const projected5hAtHourPace = lastHourTokens * 5;
+  const projected5hTokens = Math.max(last5hTokens, projected5hAtHourPace);
+  const status = budgetStatus({
+    budgetTokens,
+    usedTokens: last5hTokens,
+    projectedTokens: projected5hTokens,
+    unsetText: "Set AI_SPEND_5H_TOKEN_BUDGET to compare rolling 5-hour burn with your short-window envelope.",
+    okText: (remaining) => `${formatCount(remaining)} tokens remain in the rolling 5-hour envelope.`,
+    watchText: (remaining) => `${formatCount(remaining)} tokens remain; current pace is close to the 5-hour envelope.`,
+    riskText: (projected) => `Current hour pace projects ${formatCount(projected)} tokens across 5 hours, above the envelope.`,
+    overText: (overage) => `Rolling 5-hour usage is ${formatCount(overage)} tokens over the envelope.`,
+  });
+
+  return {
+    window: "5h",
+    envVar: "AI_SPEND_5H_TOKEN_BUDGET",
+    last5hTokens,
+    lastHourTokens,
+    projected5hAtHourPace,
+    projected5hTokens,
+    ...status,
+  };
 }
 
 function buildWeeklyPace(windows) {
@@ -810,28 +1044,20 @@ function buildWeeklyPace(windows) {
   const projected7dAt24hPace = last24hTokens * 7;
   const projected7dAtHourPace = lastHourTokens * 24 * 7;
   const projected7dTokens = Math.max(last7dTokens, projected7dAt24hPace, projected7dAtHourPace);
-  const usedRatio = budgetTokens > 0 ? last7dTokens / budgetTokens : 0;
-  const projectedRatio = budgetTokens > 0 ? projected7dTokens / budgetTokens : 0;
-  let status = "unset";
-  let statusText = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to compare rolling 7-day burn with your weekly envelope.";
-
-  if (budgetTokens > 0) {
-    if (usedRatio >= 1) {
-      status = "over";
-      statusText = "Rolling 7-day usage is already over the weekly envelope.";
-    } else if (projectedRatio >= 1) {
-      status = "risk";
-      statusText = "Current pace projects past the weekly envelope before the week is done.";
-    } else if (usedRatio >= 0.8 || projectedRatio >= 0.8) {
-      status = "watch";
-      statusText = "You are close to the weekly envelope; keep new work scoped.";
-    } else {
-      status = "ok";
-      statusText = "Current pace is inside the weekly envelope.";
-    }
-  }
+  const status = budgetStatus({
+    budgetTokens,
+    usedTokens: last7dTokens,
+    projectedTokens: projected7dTokens,
+    unsetText: "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to compare rolling 7-day burn with your weekly envelope.",
+    okText: (remaining) => `${formatCount(remaining)} tokens remain in the rolling weekly envelope.`,
+    watchText: (remaining) => `${formatCount(remaining)} tokens remain; keep new work scoped.`,
+    riskText: () => "Current pace projects past the weekly envelope before the week is done.",
+    overText: (overage) => `Rolling 7-day usage is ${formatCount(overage)} tokens over the weekly envelope.`,
+  });
 
   return {
+    window: "weekly",
+    envVar: "AI_SPEND_WEEKLY_TOKEN_BUDGET",
     budgetTokens,
     last7dTokens,
     last24hTokens,
@@ -839,10 +1065,153 @@ function buildWeeklyPace(windows) {
     projected7dAt24hPace,
     projected7dAtHourPace,
     projected7dTokens,
-    usedRatio,
-    projectedRatio,
-    status,
-    statusText,
+    ...status,
+  };
+}
+
+function buildBudgetSessionRows(map, budget, limit = 8) {
+  const windowTotal = numberValue(budget.usedTokens);
+  const budgetTokens = numberValue(budget.budgetTokens);
+  return Array.from(map.values())
+    .sort((a, b) => b.totalTokens - a.totalTokens)
+    .slice(0, limit)
+    .map(stripRangeSession)
+    .map((session) => ({
+      ...session,
+      shareOfWindow: windowTotal > 0 ? session.totalTokens / windowTotal : 0,
+      shareOfBudget: budgetTokens > 0 ? session.totalTokens / budgetTokens : 0,
+      remainingAfterSessionTokens: budgetTokens > 0 ? Math.max(0, budgetTokens - session.totalTokens) : 0,
+    }));
+}
+
+function buildBudgetSessions(fiveHourSessionMap, weeklySessionMap, budgetPace) {
+  return {
+    fiveHour: buildBudgetSessionRows(fiveHourSessionMap, budgetPace.fiveHour),
+    weekly: buildBudgetSessionRows(weeklySessionMap, budgetPace.weekly),
+  };
+}
+
+function buildPlanPace(stats, options) {
+  const claudePlan = resolvePlanId("claude", options.claudePlan);
+  const codexPlan = resolvePlanId("codex", options.codexPlan);
+  return {
+    selected: {
+      claude: claudePlan,
+      codex: codexPlan,
+    },
+    presets: {
+      claude: planOptions("claude"),
+      codex: planOptions("codex"),
+    },
+    claude: buildProviderPlanPace("claude", claudePlan, stats.claude || createProviderPlanWindowStats("claude")),
+    codex: buildProviderPlanPace("codex", codexPlan, stats.codex || createProviderPlanWindowStats("codex")),
+  };
+}
+
+function resolvePlanId(provider, requested) {
+  const envName = provider === "claude" ? "AI_SPEND_CLAUDE_PLAN" : "AI_SPEND_CODEX_PLAN";
+  const value = String(requested || process.env[envName] || "custom").toLowerCase();
+  return PLAN_PRESETS[provider] && PLAN_PRESETS[provider][value] ? value : "custom";
+}
+
+function planOptions(provider) {
+  return Object.entries(PLAN_PRESETS[provider] || {}).map(([id, preset]) => ({
+    id,
+    label: preset.label,
+    detail: preset.detail || "",
+  }));
+}
+
+function buildProviderPlanPace(provider, planId, providerStats) {
+  const preset = PLAN_PRESETS[provider][planId] || PLAN_PRESETS[provider].custom;
+  const last5h = providerStats.last5h || makeWindowTotal();
+  const last7d = providerStats.last7d || makeWindowTotal();
+  const lastHour = providerStats.lastHour || makeWindowTotal();
+  const dominantModel = dominantModelRow(providerStats.model5h) || dominantModelRow(providerStats.model7d);
+  const modelKey = provider === "codex" ? codexModelLimitKey(dominantModel ? dominantModel.model : "") : "";
+  const messageRange = provider === "claude" ? preset.fiveHourMessages : preset.modelMessages ? preset.modelMessages[modelKey] : null;
+  const fallbackAverage = last7d.eventCount > 0 ? last7d.totalTokens / last7d.eventCount : 0;
+  const averageTokensPerTurn = last5h.eventCount > 0 ? last5h.totalTokens / last5h.eventCount : fallbackAverage;
+  const minBudgetTokens = messageRange && averageTokensPerTurn > 0 ? Math.round(messageRange.min * averageTokensPerTurn) : 0;
+  const maxBudgetTokens = messageRange && averageTokensPerTurn > 0 ? Math.round((messageRange.max || messageRange.min) * averageTokensPerTurn) : 0;
+  const projected5hTokens = Math.max(last5h.totalTokens, lastHour.totalTokens * 5);
+  const status = planLimitStatus(last5h.totalTokens, projected5hTokens, minBudgetTokens, maxBudgetTokens);
+
+  return {
+    provider,
+    planId,
+    label: preset.label,
+    detail: preset.detail || "",
+    source: preset.source || "",
+    promoUntil: preset.promoUntil || "",
+    dominantModel: dominantModel ? dominantModel.model : "",
+    modelLimitKey: modelKey,
+    messageRange: messageRange || null,
+    averageTokensPerTurn,
+    lastHourTokens: lastHour.totalTokens,
+    usedTokens: last5h.totalTokens,
+    weeklyUsedTokens: last7d.totalTokens,
+    estimatedFiveHourTokenBudgetMin: minBudgetTokens,
+    estimatedFiveHourTokenBudgetMax: maxBudgetTokens,
+    remainingTokensMin: minBudgetTokens > 0 ? Math.max(0, minBudgetTokens - last5h.totalTokens) : 0,
+    remainingTokensMax: maxBudgetTokens > 0 ? Math.max(0, maxBudgetTokens - last5h.totalTokens) : 0,
+    projected5hTokens,
+    weeklyNote: preset.weeklyNote || "No numeric weekly token limit is published for this preset.",
+    status: status.status,
+    statusText: status.statusText,
+  };
+}
+
+function dominantModelRow(modelMap) {
+  const rows = Array.from((modelMap || new Map()).values());
+  return rows.sort((a, b) => b.totalTokens - a.totalTokens)[0] || null;
+}
+
+function codexModelLimitKey(model) {
+  const value = String(model || "");
+  if (/^gpt-5\.4-mini/i.test(value)) return "gpt54mini";
+  if (/^gpt-5\.4/i.test(value)) return "gpt54";
+  if (/^gpt-5\.3-codex/i.test(value)) return "gpt53codex";
+  if (/^gpt-5\.5/i.test(value)) return "gpt55";
+  if (/codex/i.test(value)) return "gpt53codex";
+  return "gpt55";
+}
+
+function planLimitStatus(usedTokens, projectedTokens, minBudgetTokens, maxBudgetTokens) {
+  if (minBudgetTokens <= 0) {
+    return {
+      status: "unset",
+      statusText: "No plan token estimate is available yet. Pick a plan and generate some local usage, or set custom budget env vars.",
+    };
+  }
+  const upper = maxBudgetTokens || minBudgetTokens;
+  if (usedTokens >= upper) {
+    return {
+      status: "over",
+      statusText: `Observed 5-hour usage is over the upper estimated plan range by ${formatCount(usedTokens - upper)} tokens.`,
+    };
+  }
+  if (usedTokens >= minBudgetTokens) {
+    return {
+      status: "risk",
+      statusText: `Observed 5-hour usage is already inside the plan's published range; heavy turns may hit the cap before reset.`,
+    };
+  }
+  if (projectedTokens >= upper) {
+    return {
+      status: "risk",
+      statusText: `Current hour pace projects over the upper estimated plan range before the 5-hour window ends.`,
+    };
+  }
+  if (projectedTokens >= minBudgetTokens || usedTokens >= minBudgetTokens * 0.8) {
+    return {
+      status: "watch",
+      statusText: `Current usage is close to the lower estimated plan range.`,
+    };
+  }
+  return {
+    status: "ok",
+    statusText: `Current 5-hour usage is below the estimated plan range.`,
   };
 }
 
@@ -888,6 +1257,8 @@ function buildPromptGuidance(summary) {
   const lastHour = summary.windows.lastHour;
   const hourSpike = lastHour.totalTokens > 0 && last24.totalTokens > 0 && lastHour.totalTokens > (last24.totalTokens / 24) * 2.5;
   const pace = summary.weeklyPace || {};
+  const fiveHour = summary.budgetPace && summary.budgetPace.fiveHour ? summary.budgetPace.fiveHour : {};
+  const fiveHourPressure = fiveHour.status === "risk" || fiveHour.status === "over";
 
   return [
     {
@@ -901,9 +1272,9 @@ function buildPromptGuidance(summary) {
       ],
     },
     {
-      severity: hourSpike ? "high" : "info",
+      severity: hourSpike || fiveHourPressure ? "high" : "info",
       title: "Do not use /fast for discovery",
-      target: hourSpike ? "Last-hour spike" : "Fast mode",
+      target: fiveHour.budgetTokens > 0 ? `${formatCount(fiveHour.remainingTokens)} 5h remaining` : hourSpike ? "Last-hour spike" : "Fast mode",
       detail: "/fast is best after the write set is known. During exploration it can burn through many more turns before the scope is stable.",
       doNow: [
         "Use /fast for bounded edits, formatting, and small test loops.",
@@ -918,6 +1289,16 @@ function buildPromptGuidance(summary) {
       doNow: [
         "Use low or medium for scoped implementation.",
         "Use high or xhigh only for hard planning, review, or async tasks where quality improves enough to justify the burn.",
+      ],
+    },
+    {
+      severity: fiveHourPressure ? "high" : "info",
+      title: "Protect the 5h window",
+      target: fiveHour.budgetTokens > 0 ? `${formatCount(fiveHour.usedTokens)} of ${formatCount(fiveHour.budgetTokens)}` : "5h budget",
+      detail: fiveHour.statusText || "Set a 5-hour envelope to catch short burst limits before the weekly chart moves.",
+      doNow: [
+        "Treat the 5-hour remaining number as the fast-mode guardrail.",
+        "When it is low, finish the current scoped edit or checkpoint and pause broad discovery.",
       ],
     },
     {
@@ -1099,6 +1480,8 @@ function buildRecommendations(summary) {
   const last24 = summary.windows.last24h;
   const lastHour = summary.windows.lastHour;
   const weeklyPace = summary.weeklyPace || {};
+  const fiveHourPace = summary.budgetPace && summary.budgetPace.fiveHour ? summary.budgetPace.fiveHour : {};
+  const topFiveHourSession = summary.budgetSessions && summary.budgetSessions.fiveHour ? summary.budgetSessions.fiveHour[0] : null;
   const gpt55Tokens = sumModelTokens(summary.modelTotals, /^gpt-5\.5/i);
   const gpt55Share = summary.totals.totalTokens > 0 ? gpt55Tokens / summary.totals.totalTokens : 0;
   const recentCutoffMs = Date.now() - 2 * 3600000;
@@ -1109,11 +1492,30 @@ function buildRecommendations(summary) {
     recommendations.push(item);
   }
 
+  if (fiveHourPace.status === "risk" || fiveHourPace.status === "over") {
+    push("five-hour-pace", {
+      severity: "high",
+      title: "Stop the 5h drain",
+      target: fiveHourPace.budgetTokens > 0 ? `${formatCount(fiveHourPace.remainingTokens)} tokens remaining` : "5h envelope",
+      reason: fiveHourPace.statusText,
+      doNow: [
+        "Pause /fast and broad discovery until the rolling 5-hour pressure drops.",
+        "Finish only the current bounded edit, then checkpoint the session.",
+        topFiveHourSession ? `Inspect "${sessionDisplayName(topFiveHourSession)}" first; it is the top 5-hour burner.` : "Open Budget By Session and inspect the top 5-hour burner first.",
+      ],
+      ask: "Give me a checkpoint and the one smallest next action. Do not keep searching or editing until I approve continuing this session.",
+      cli: [
+        topFiveHourSession ? `Target: ${targetCliWindow(topFiveHourSession)}` : "",
+        topFiveHourSession ? launchCommandForSession(topFiveHourSession) : "",
+      ].filter(Boolean),
+    });
+  }
+
   if (weeklyPace.status === "risk" || weeklyPace.status === "over") {
     push("weekly-pace", {
       severity: "high",
       title: "Slow the weekly burn",
-      target: weeklyPace.budgetTokens > 0 ? `${formatCount(weeklyPace.last7dTokens)} of ${formatCount(weeklyPace.budgetTokens)} tokens` : "Weekly envelope",
+      target: weeklyPace.budgetTokens > 0 ? `${formatCount(weeklyPace.remainingTokens)} tokens remaining` : "Weekly envelope",
       reason: weeklyPace.statusText,
       doNow: [
         "Stop open-ended fast-mode work until the next task is bounded.",
@@ -1432,7 +1834,8 @@ function formatDurationMinutes(value) {
 
 async function parseAllUsage(options) {
   const days = Math.max(1, Number(options.days || DEFAULT_DAYS));
-  const sinceMs = Date.now() - days * 86400000;
+  const logDays = Math.max(days, 7);
+  const sinceMs = Date.now() - logDays * 86400000;
   const claudeRoot = path.resolve(options.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects"));
   const codexRoot = path.resolve(options.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(os.homedir(), ".codex", "sessions"));
   const [claude, codex] = await Promise.all([
@@ -1496,8 +1899,10 @@ function createServer() {
       try {
         const days = Math.max(1, Number(parsed.query.get("days") || DEFAULT_DAYS));
         const provider = String(parsed.query.get("provider") || "all").toLowerCase();
+        const claudePlan = String(parsed.query.get("claudePlan") || "").toLowerCase();
+        const codexPlan = String(parsed.query.get("codexPlan") || "").toLowerCase();
         const sources = await parseAllUsage({ days });
-        const summary = buildSummary(sources, { days, provider });
+        const summary = buildSummary(sources, { days, provider, claudePlan, codexPlan });
         respondJson(res, 200, summary);
       } catch (err) {
         respondJson(res, 500, {
@@ -1513,12 +1918,14 @@ function createServer() {
 }
 
 function parseArgs(argv) {
-  const out = { port: DEFAULT_PORT, days: DEFAULT_DAYS, provider: "all", summary: false };
+  const out = { port: DEFAULT_PORT, days: DEFAULT_DAYS, provider: "all", claudePlan: "", codexPlan: "", summary: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--summary") out.summary = true;
     else if (arg === "--days") out.days = Number(argv[++i] || DEFAULT_DAYS);
     else if (arg === "--provider") out.provider = String(argv[++i] || "all").toLowerCase();
+    else if (arg === "--claude-plan") out.claudePlan = String(argv[++i] || "").toLowerCase();
+    else if (arg === "--codex-plan") out.codexPlan = String(argv[++i] || "").toLowerCase();
     else if (arg === "--port") out.port = Number(argv[++i] || DEFAULT_PORT);
     else if (/^\d+$/.test(arg)) out.port = Number(arg);
   }
@@ -1529,13 +1936,16 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.summary) {
     const sources = await parseAllUsage({ days: args.days });
-    const summary = buildSummary(sources, { days: args.days, provider: args.provider });
+    const summary = buildSummary(sources, { days: args.days, provider: args.provider, claudePlan: args.claudePlan, codexPlan: args.codexPlan });
     console.log(JSON.stringify({
       generatedAt: summary.generatedAt,
       range: summary.range,
       totals: summary.totals,
       providerTotals: summary.providerTotals,
+      budgetPace: summary.budgetPace,
+      planPace: summary.planPace,
       weeklyPace: summary.weeklyPace,
+      budgetSessions: summary.budgetSessions,
       promptGuidance: summary.promptGuidance,
       insights: summary.insights,
       recommendations: summary.recommendations,

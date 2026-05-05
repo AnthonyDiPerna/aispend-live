@@ -238,6 +238,10 @@
       grid-column: span 12;
       padding: 14px;
     }
+    .budget-panel {
+      grid-column: span 12;
+      padding: 14px;
+    }
     .rec-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -245,8 +249,60 @@
     }
     .guidance-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
+    }
+    .budget-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .budget-card,
+    .budget-group {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      min-width: 0;
+    }
+    .budget-card.high {
+      background: rgba(234, 106, 106, 0.08);
+      border-color: rgba(234, 106, 106, 0.24);
+    }
+    .budget-value {
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 850;
+    }
+    .budget-detail {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .budget-eaters {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .budget-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: start;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .budget-session {
+      font-weight: 800;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .budget-share {
+      color: var(--gold);
+      font-weight: 850;
+      white-space: nowrap;
     }
     .recommendation {
       display: grid;
@@ -474,6 +530,7 @@
       .chart-panel, .side-panel { grid-column: span 12; }
       .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .budget-eaters { grid-template-columns: 1fr; }
     }
     @media (max-width: 620px) {
       .shell { padding: 16px 12px 32px; }
@@ -483,6 +540,7 @@
       th, td { padding: 9px 8px; }
       .rec-grid { grid-template-columns: 1fr; }
       .guidance-grid { grid-template-columns: 1fr; }
+      .budget-summary-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -514,6 +572,25 @@
             <option value="codex">Codex</option>
           </select>
         </label>
+        <label class="control">
+          <span>Claude Plan</span>
+          <select id="claudePlan">
+            <option value="custom" selected>Custom/env</option>
+            <option value="claude-pro">Pro</option>
+            <option value="claude-max-5x">Max 5x $100</option>
+            <option value="claude-max-20x">Max 20x $200</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Codex Plan</span>
+          <select id="codexPlan">
+            <option value="custom" selected>Custom/env</option>
+            <option value="codex-plus">Plus/Business</option>
+            <option value="codex-pro-5x">Pro 5x $100</option>
+            <option value="codex-pro-20x">Pro 20x $200</option>
+            <option value="codex-api">API key</option>
+          </select>
+        </label>
         <button id="refresh" type="button">Refresh</button>
       </div>
     </header>
@@ -536,6 +613,11 @@
         <div id="hourPace" class="subvalue">...</div>
       </article>
       <article class="panel stat">
+        <div class="label">5h Remaining</div>
+        <div id="fiveHourRemaining" class="value">...</div>
+        <div id="fiveHourDetail" class="subvalue">...</div>
+      </article>
+      <article class="panel stat">
         <div class="label">24h Burn</div>
         <div id="dayTokens" class="value">...</div>
         <div id="daySpend" class="subvalue">...</div>
@@ -556,7 +638,7 @@
         <div id="cacheDetail" class="subvalue">...</div>
       </article>
       <article class="panel stat wide">
-        <div class="label">Weekly Pace</div>
+        <div class="label">Weekly Remaining</div>
         <div id="weekPace" class="value">...</div>
         <div id="weekPaceDetail" class="subvalue">...</div>
       </article>
@@ -589,10 +671,20 @@
 
       <article class="panel guidance-panel">
         <div class="panel-head">
-          <h2 class="panel-title">Prompt and Weekly Pacing Rules</h2>
+          <h2 class="panel-title">Prompt and Budget Pacing Rules</h2>
           <span class="pill">based on current model guidance</span>
         </div>
         <div id="promptGuidance" class="guidance-grid"></div>
+      </article>
+
+      <article class="panel budget-panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Budget By Plan And Session</h2>
+          <span class="pill">official message windows, local token estimate</span>
+        </div>
+        <div id="planOverview" class="budget-summary-grid"></div>
+        <div id="budgetOverview" class="budget-summary-grid"></div>
+        <div id="budgetEaters" class="budget-eaters"></div>
       </article>
 
       <article class="panel side-panel">
@@ -709,6 +801,13 @@
       return `<span class="provider"><span class="dot ${provider === "codex" ? "codex" : ""}"></span>${provider}</span>`;
     }
 
+    function providerLabelText(provider) {
+      return provider === "claude" ? "Claude" : provider === "codex" ? "Codex" : String(provider || "Provider");
+    }
+
+    let claudePlanTouched = false;
+    let codexPlanTouched = false;
+
     function tokenCacheRatio(tokens) {
       const cached = Number(tokens.cachedInputTokens || 0) + Number(tokens.cacheReadInputTokens || 0);
       const input = Number(tokens.inputTokens || 0)
@@ -724,9 +823,24 @@
       el("pricingNotice").textContent = "Loading local usage...";
       const days = el("days").value;
       const provider = el("provider").value;
-      const response = await fetch(`/api/summary?days=${encodeURIComponent(days)}&provider=${encodeURIComponent(provider)}`);
+      const claudePlan = el("claudePlan").value;
+      const codexPlan = el("codexPlan").value;
+      const params = new URLSearchParams({ days, provider });
+      if (claudePlanTouched || claudePlan !== "custom") params.set("claudePlan", claudePlan);
+      if (codexPlanTouched || codexPlan !== "custom") params.set("codexPlan", codexPlan);
+      const response = await fetch(`/api/summary?${params.toString()}`);
       if (!response.ok) throw new Error(`Dashboard API returned HTTP ${response.status}`);
       return response.json();
+    }
+
+    function syncPlanControls(data) {
+      const selected = data && data.planPace && data.planPace.selected ? data.planPace.selected : {};
+      if (!claudePlanTouched && selected.claude && el("claudePlan").value !== selected.claude) {
+        el("claudePlan").value = selected.claude;
+      }
+      if (!codexPlanTouched && selected.codex && el("codexPlan").value !== selected.codex) {
+        el("codexPlan").value = selected.codex;
+      }
     }
 
     function renderStats(data) {
@@ -736,6 +850,14 @@
       el("todaySpend").textContent = `${money(data.windows.today.costUsd)} API estimate`;
       el("hourTokens").textContent = compact(data.windows.lastHour.totalTokens);
       el("hourPace").textContent = `${compact(data.windows.lastHour.totalTokens)} tokens/hour current pace`;
+      const fiveHour = data.budgetPace && data.budgetPace.fiveHour ? data.budgetPace.fiveHour : {};
+      if (fiveHour.budgetTokens > 0) {
+        el("fiveHourRemaining").textContent = compact(fiveHour.remainingTokens);
+        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens)} of ${compact(fiveHour.budgetTokens)} used - ${fiveHour.statusText}`;
+      } else {
+        el("fiveHourRemaining").textContent = "Set budget";
+        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens || data.windows.last5h.totalTokens)} used. Set AI_SPEND_5H_TOKEN_BUDGET.`;
+      }
       el("dayTokens").textContent = compact(data.windows.last24h.totalTokens);
       el("daySpend").textContent = `${money(data.windows.last24h.costUsd)} API estimate`;
       el("weekTokens").textContent = compact(data.windows.last7d.totalTokens);
@@ -747,12 +869,104 @@
       el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens`;
       const pace = data.weeklyPace || {};
       if (pace.budgetTokens > 0) {
-        el("weekPace").textContent = pct(pace.usedRatio);
+        el("weekPace").textContent = compact(pace.remainingTokens);
         el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}`;
       } else {
-        el("weekPace").textContent = compact(pace.last7dTokens || data.windows.last7d.totalTokens);
+        el("weekPace").textContent = "Set budget";
         el("weekPaceDetail").textContent = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to track runout risk.";
       }
+    }
+
+    function renderPlanOverview(data) {
+      const planPace = data.planPace || {};
+      const rows = ["claude", "codex"].map((provider) => planPace[provider]).filter(Boolean);
+      el("planOverview").innerHTML = rows.map((plan) => {
+        const severe = plan.status === "risk" || plan.status === "over";
+        const hasEstimate = Number(plan.estimatedFiveHourTokenBudgetMin || 0) > 0;
+        const budgetRange = hasEstimate
+          ? plan.estimatedFiveHourTokenBudgetMin === plan.estimatedFiveHourTokenBudgetMax
+            ? `~${compact(plan.estimatedFiveHourTokenBudgetMin)} estimated tokens / 5h`
+            : `~${compact(plan.estimatedFiveHourTokenBudgetMin)}-${compact(plan.estimatedFiveHourTokenBudgetMax)} estimated tokens / 5h`
+          : "No token estimate";
+        const remaining = hasEstimate
+          ? plan.remainingTokensMin === plan.remainingTokensMax
+            ? compact(plan.remainingTokensMin)
+            : `${compact(plan.remainingTokensMin)}-${compact(plan.remainingTokensMax)}`
+          : "No cap";
+        const messages = plan.messageRange
+          ? plan.messageRange.min === plan.messageRange.max
+            ? `${nf.format(plan.messageRange.min)} official messages / 5h`
+            : `${nf.format(plan.messageRange.min)}-${nf.format(plan.messageRange.max)} official messages / 5h`
+          : "No fixed message window";
+        const model = plan.dominantModel ? ` Dominant model: ${plan.dominantModel}.` : "";
+        return `
+          <div class="budget-card ${severe ? "high" : ""}">
+            <div>
+              <div class="guidance-title">${escapeHtml(providerLabelText(plan.provider))}: ${escapeHtml(plan.label || "Plan")}</div>
+              <div class="guidance-target">${escapeHtml(messages)} - ${escapeHtml(budgetRange)}</div>
+            </div>
+            <div class="budget-value">${escapeHtml(remaining)}</div>
+            <div class="budget-detail">${escapeHtml(plan.statusText || "")}${escapeHtml(model)}</div>
+            <div class="budget-detail">${escapeHtml(plan.weeklyNote || "")}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderBudgetOverview(data) {
+      const budgets = data.budgetPace || {};
+      const rows = [
+        { label: "5h Window", budget: budgets.fiveHour || {}, unset: "AI_SPEND_5H_TOKEN_BUDGET" },
+        { label: "Weekly Window", budget: budgets.weekly || data.weeklyPace || {}, unset: "AI_SPEND_WEEKLY_TOKEN_BUDGET" }
+      ];
+      el("budgetOverview").innerHTML = rows.map(({ label, budget, unset }) => {
+        const hasBudget = Number(budget.budgetTokens || 0) > 0;
+        const severe = budget.status === "risk" || budget.status === "over";
+        const value = hasBudget ? compact(budget.remainingTokens) : "Set budget";
+        const used = compact(budget.usedTokens || budget.last5hTokens || budget.last7dTokens || 0);
+        const budgetText = hasBudget ? `${used} used of ${compact(budget.budgetTokens)}` : `${used} used; set ${unset}`;
+        const projected = hasBudget ? `<div class="budget-detail">Projected at current pace: ${compact(budget.projectedTokens)}; projected remaining ${compact(budget.projectedRemainingTokens)}</div>` : "";
+        return `
+          <div class="budget-card ${severe ? "high" : ""}">
+            <div>
+              <div class="guidance-title">${escapeHtml(label)}</div>
+              <div class="guidance-target">${escapeHtml(budgetText)}</div>
+            </div>
+            <div class="budget-value">${escapeHtml(value)}</div>
+            <div class="budget-detail">${escapeHtml(budget.statusText || "")}</div>
+            ${projected}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderBudgetEaters(data) {
+      const budgets = data.budgetPace || {};
+      const sessions = data.budgetSessions || {};
+      const groups = [
+        { label: "Top 5h Sessions", rows: sessions.fiveHour || [], budget: budgets.fiveHour || {} },
+        { label: "Top Weekly Sessions", rows: sessions.weekly || [], budget: budgets.weekly || data.weeklyPace || {} }
+      ];
+      el("budgetEaters").innerHTML = groups.map(({ label, rows, budget }) => `
+        <div class="budget-group">
+          <div>
+            <div class="guidance-title">${escapeHtml(label)}</div>
+            <div class="guidance-target">${escapeHtml(Number(budget.budgetTokens || 0) > 0 ? "share of configured budget" : "share of observed window")}</div>
+          </div>
+          ${(rows || []).slice(0, 6).map((row) => {
+            const share = Number(budget.budgetTokens || 0) > 0 ? row.shareOfBudget : row.shareOfWindow;
+            return `
+              <div class="budget-row">
+                <div>
+                  <div class="budget-session">${escapeHtml(sessionName(row))}</div>
+                  <div class="budget-detail">${providerLabel(row.provider)} ${escapeHtml(row.model || "unknown")} - ${compact(row.totalTokens)} tokens - ${duration(row.durationMinutes)}</div>
+                </div>
+                <div class="budget-share">${pct(share)}</div>
+              </div>
+            `;
+          }).join("") || `<div class="muted">No sessions in this window yet.</div>`}
+        </div>
+      `).join("");
     }
 
     function renderInsights(data) {
@@ -1007,10 +1221,14 @@
     async function refresh() {
       try {
         const data = await loadData();
+        syncPlanControls(data);
         renderStats(data);
         renderInsights(data);
         renderRecommendations(data);
         renderPromptGuidance(data);
+        renderPlanOverview(data);
+        renderBudgetOverview(data);
+        renderBudgetEaters(data);
         renderBars("providers", data.providerTotals || [], (row) => row.provider);
         renderBars("models", data.modelTotals || [], (row) => `${row.provider} - ${row.model}`);
         renderSources(data);
@@ -1026,6 +1244,14 @@
     el("refresh").addEventListener("click", refresh);
     el("days").addEventListener("change", refresh);
     el("provider").addEventListener("change", refresh);
+    el("claudePlan").addEventListener("change", () => {
+      claudePlanTouched = true;
+      refresh();
+    });
+    el("codexPlan").addEventListener("change", () => {
+      codexPlanTouched = true;
+      refresh();
+    });
     window.addEventListener("resize", () => refresh());
     refresh();
   </script>

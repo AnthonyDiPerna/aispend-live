@@ -20,6 +20,7 @@ async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-spend-test-"));
   const claudeRoot = path.join(root, "claude", "projects");
   const codexRoot = path.join(root, "codex", "sessions");
+  const recentIso = new Date(Date.now() - 60000).toISOString();
 
   writeJsonl(path.join(claudeRoot, "project-a", "claude-session.jsonl"), [
     {
@@ -101,6 +102,29 @@ async function run() {
         },
       },
     },
+    {
+      type: "event_msg",
+      timestamp: recentIso,
+      payload: {
+        type: "token_count",
+        info: {
+          last_token_usage: {
+            input_tokens: 3000,
+            cached_input_tokens: 0,
+            output_tokens: 400,
+            reasoning_output_tokens: 100,
+            total_tokens: 3500,
+          },
+          total_token_usage: {
+            input_tokens: 5000,
+            cached_input_tokens: 1000,
+            output_tokens: 520,
+            reasoning_output_tokens: 120,
+            total_tokens: 5620,
+          },
+        },
+      },
+    },
   ]);
 
   const claudeTokens = normalizeClaudeUsage({
@@ -125,12 +149,13 @@ async function run() {
   assert.equal(codex.sessions.length, 1);
   assert.equal(claude.events[0].totalTokens, 4600);
   assert.equal(codex.events[0].totalTokens, 2120);
+  assert.equal(codex.events[1].totalTokens, 3500);
   assert.equal(codex.events[0].model, "gpt-5.5");
   assert.equal(claude.events[0].displayName, "AIV dashboard polish");
   assert.equal(codex.events[0].displayName, "Build spend dashboard");
 
   const summary = buildSummary([claude, codex], { days: 365, provider: "all" });
-  assert.equal(summary.topEvents.length, 2);
+  assert.equal(summary.topEvents.length, 3);
   assert(summary.totals.totalTokens >= 6720);
   assert(summary.topSessions.some((session) => session.displayName === "AIV dashboard polish"));
   assert(summary.topSessions.some((session) => session.displayName === "Build spend dashboard"));
@@ -139,13 +164,36 @@ async function run() {
   assert(summary.topSessions.some((session) => session.recommendation && session.recommendation.label));
   assert(summary.topEvents.some((event) => event.recommendation && event.recommendation.label));
   assert.equal(summary.weeklyPace.status, "unset");
+  assert.equal(summary.budgetPace.fiveHour.status, "unset");
+  assert(summary.windows.last5h.totalTokens >= 3500);
+  assert(summary.budgetSessions.fiveHour.some((session) => session.displayName === "Build spend dashboard"));
+  assert.equal(summary.planPace.selected.claude, "custom");
+  assert.equal(summary.planPace.selected.codex, "custom");
   assert(summary.promptGuidance.some((item) => item.title.includes("GPT-5.5")));
+  assert(summary.promptGuidance.some((item) => item.title === "Protect the 5h window"));
 
+  const planSummary = buildSummary([claude, codex], {
+    days: 365,
+    provider: "all",
+    claudePlan: "claude-max-20x",
+    codexPlan: "codex-pro-5x",
+  });
+  assert.equal(planSummary.planPace.claude.messageRange.min, 900);
+  assert.equal(planSummary.planPace.codex.messageRange.min, 160);
+  assert(planSummary.planPace.codex.estimatedFiveHourTokenBudgetMin > 0);
+  assert(planSummary.planPace.codex.weeklyNote.includes("weekly limits"));
+
+  process.env.AI_SPEND_5H_TOKEN_BUDGET = "3000";
   process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET = "6000";
   const pacedSummary = buildSummary([claude, codex], { days: 365, provider: "all" });
+  delete process.env.AI_SPEND_5H_TOKEN_BUDGET;
   delete process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET;
+  assert.equal(pacedSummary.budgetPace.fiveHour.status, "over");
   assert.equal(pacedSummary.weeklyPace.status, "over");
+  assert(pacedSummary.budgetPace.fiveHour.remainingTokens === 0);
+  assert(pacedSummary.recommendations.some((item) => item.title === "Stop the 5h drain"));
   assert(pacedSummary.recommendations.some((item) => item.title === "Slow the weekly burn"));
+  assert(pacedSummary.budgetSessions.fiveHour[0].shareOfBudget > 0);
   assert(pacedSummary.promptGuidance.some((item) => item.title === "Pace the weekly envelope"));
 
   const payloadText = JSON.stringify(summary);
