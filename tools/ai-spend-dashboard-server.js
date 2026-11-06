@@ -10,23 +10,453 @@ const DEFAULT_PORT = Number(process.env.AI_SPEND_PORT || 9020);
 const DEFAULT_DAYS = 7;
 const MAX_TOP_EVENTS = 80;
 const MAX_TOP_SESSIONS = 120;
+const HTTP_OK = 200;
+const HTTP_NO_CONTENT = 204;
+const HTTP_NOT_FOUND = 404;
+const HTTP_METHOD_NOT_ALLOWED = 405;
+const HTTP_SERVER_ERROR = 500;
+const MS_PER_MINUTE = 60000;
+const MS_PER_HOUR = 3600000;
+const MS_PER_DAY = 86400000;
+const TOKENS_PER_MILLION = 1000000;
+const OPENAI_LONG_CONTEXT_THRESHOLD = 272000;
+const SQLITE_SYNTHETIC_INPUT_RATIO = 0.92;
+const SQLITE_SYNTHETIC_CACHE_RATIO = 0.65;
 
 const CLAUDE_PRICING = [
-  { match: /opus/i, label: "Claude Opus", input: 15, cacheWrite5m: 18.75, cacheWrite1h: 30, cacheRead: 1.5, output: 75 },
-  { match: /sonnet/i, label: "Claude Sonnet", input: 3, cacheWrite5m: 3.75, cacheWrite1h: 6, cacheRead: 0.3, output: 15 },
-  { match: /haiku-?3\.5|haiku.*3\.5/i, label: "Claude Haiku 3.5", input: 0.8, cacheWrite5m: 1, cacheWrite1h: 1.6, cacheRead: 0.08, output: 4 },
-  { match: /haiku/i, label: "Claude Haiku", input: 0.25, cacheWrite5m: 0.3, cacheWrite1h: 0.5, cacheRead: 0.03, output: 1.25 },
+  {
+    match: /opus-?5[.-]5/i,
+    id: "claude-opus-5-5",
+    label: "Claude Opus 5.5",
+    input: 4,
+    cacheWrite5m: 5,
+    cacheWrite1h: 8,
+    cacheRead: 0.2,
+    output: 20,
+    contextWindow: 1000000,
+    role: "Frontier architecture, deep review, and complex multi-agent orchestration",
+  },
+  {
+    match: /opus-?5/i,
+    id: "claude-opus-5",
+    label: "Claude Opus 5",
+    input: 5,
+    cacheWrite5m: 6.25,
+    cacheWrite1h: 10,
+    cacheRead: 0.5,
+    output: 25,
+    contextWindow: 1000000,
+    role: "Deep reasoning and multi-file architecture",
+  },
+  {
+    match: /opus/i,
+    id: "claude-opus-4",
+    label: "Claude Opus",
+    input: 5,
+    cacheWrite5m: 6.25,
+    cacheWrite1h: 10,
+    cacheRead: 0.5,
+    output: 25,
+    contextWindow: 1000000,
+    role: "Legacy high-capability reasoning and review (Opus 4.5-4.8)",
+  },
+  {
+    match: /fable-?5[.-]1/i,
+    id: "claude-fable-5-1",
+    label: "Claude Fable 5.1",
+    input: 10,
+    cacheWrite5m: 12.5,
+    cacheWrite1h: 20,
+    cacheRead: 0.25,
+    output: 50,
+    contextWindow: 1000000,
+    role: "Demanding reasoning and long-horizon agentic work",
+  },
+  {
+    match: /fable/i,
+    id: "claude-fable-5",
+    label: "Claude Fable 5",
+    input: 10,
+    cacheWrite5m: 12.5,
+    cacheWrite1h: 20,
+    cacheRead: 1,
+    output: 50,
+    contextWindow: 1000000,
+    role: "Previous Fable tier",
+  },
+  {
+    match: /sonnet-?5[.-]5/i,
+    id: "claude-sonnet-5-5",
+    label: "Claude Sonnet 5.5",
+    input: 2,
+    cacheWrite5m: 2.5,
+    cacheWrite1h: 4,
+    cacheRead: 0.1,
+    output: 10,
+    contextWindow: 1000000,
+    role: "Best combination of speed and intelligence",
+  },
+  {
+    match: /sonnet-?5/i,
+    id: "claude-sonnet-5",
+    label: "Claude Sonnet 5",
+    input: 2,
+    cacheWrite5m: 2.5,
+    cacheWrite1h: 4,
+    cacheRead: 0.2,
+    output: 10,
+    contextWindow: 1000000,
+    role: "Previous balanced coding model",
+  },
+  {
+    match: /sonnet/i,
+    id: "claude-sonnet-4",
+    label: "Claude Sonnet",
+    input: 3,
+    cacheWrite5m: 3.75,
+    cacheWrite1h: 6,
+    cacheRead: 0.3,
+    output: 15,
+    contextWindow: 1000000,
+    role: "Balanced coding model (Sonnet 4.6)",
+  },
+  {
+    match: /haiku-?5[.-]5|haiku.*5\.5/i,
+    id: "claude-haiku-5-5",
+    label: "Claude Haiku 5.5",
+    input: 0.1,
+    cacheWrite5m: 0.125,
+    cacheWrite1h: 0.2,
+    cacheRead: 0.01,
+    output: 0.5,
+    longContextThreshold: 100000,
+    longContextInput: 0.5,
+    longContextCacheWrite5m: 0.625,
+    longContextCacheWrite1h: 1,
+    longContextCacheRead: 0.05,
+    longContextOutput: 2.5,
+    contextWindow: 1000000,
+    role: "High-volume, latency-sensitive classification, extraction, and routing",
+  },
+  {
+    match: /haiku-?4[.-]5|haiku.*4\.5/i,
+    id: "claude-haiku-4-5",
+    label: "Claude Haiku 4.5",
+    input: 1,
+    cacheWrite5m: 1.25,
+    cacheWrite1h: 2,
+    cacheRead: 0.1,
+    output: 5,
+    contextWindow: 200000,
+    role: "High-speed repo exploration and lightweight subagents",
+  },
+  {
+    match: /haiku-?3\.5|haiku.*3\.5/i,
+    id: "claude-haiku-3-5",
+    label: "Claude Haiku 3.5",
+    input: 0.8,
+    cacheWrite5m: 1,
+    cacheWrite1h: 1.6,
+    cacheRead: 0.08,
+    output: 4,
+    contextWindow: 200000,
+    role: "Legacy fast model",
+  },
+  {
+    match: /haiku/i,
+    id: "claude-haiku",
+    label: "Claude Haiku",
+    input: 0.25,
+    cacheWrite5m: 0.3,
+    cacheWrite1h: 0.5,
+    cacheRead: 0.03,
+    output: 1.25,
+    contextWindow: 200000,
+    role: "Legacy compact model",
+  },
 ];
 
 const OPENAI_PRICING = [
-  { match: /^gpt-5\.5/i, label: "GPT-5.5", input: 5, cachedInput: 0.5, output: 30 },
-  { match: /^gpt-5\.4-mini/i, label: "GPT-5.4 mini", input: 0.75, cachedInput: 0.075, output: 4.5 },
-  { match: /^gpt-5\.4/i, label: "GPT-5.4", input: 2.5, cachedInput: 0.25, output: 15 },
-  { match: /^gpt-5\.3-codex/i, label: "GPT-5.3 Codex estimate", input: 1.75, cachedInput: 0.175, output: 14, estimated: true },
-  { match: /^gpt-5\.2-codex/i, label: "GPT-5.2 Codex", input: 1.75, cachedInput: 0.175, output: 14 },
-  { match: /^gpt-5\.2/i, label: "GPT-5.2", input: 1.75, cachedInput: 0.175, output: 14 },
-  { match: /^gpt-5/i, label: "GPT-5", input: 1.25, cachedInput: 0.125, output: 10 },
+  {
+    match: /^gpt-6-astra/i,
+    id: "gpt-6-astra",
+    label: "GPT-6 Astra",
+    input: 10,
+    cachedInput: 1,
+    output: 50,
+    longContextInput: 20,
+    longContextCachedInput: 2,
+    longContextOutput: 75,
+    creditInput: 250,
+    creditCachedInput: 25,
+    creditOutput: 1250,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Most capable model for demanding reasoning, coding, computer use, and research",
+  },
+  {
+    match: /^gpt-6\.1-sol/i,
+    id: "gpt-6.1-sol",
+    label: "GPT-6.1 Sol",
+    input: 2,
+    cachedInput: 0.1,
+    output: 10,
+    longContextInput: 4,
+    longContextCachedInput: 0.2,
+    longContextOutput: 15,
+    creditInput: 50,
+    creditCachedInput: 2.5,
+    creditOutput: 250,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Near-Astra performance for complex coding and professional work at lower cost",
+  },
+  {
+    match: /^gpt-6\.1-terra/i,
+    id: "gpt-6.1-terra",
+    label: "GPT-6.1 Terra",
+    input: 1,
+    cachedInput: 0.05,
+    output: 5,
+    longContextInput: 2,
+    longContextCachedInput: 0.1,
+    longContextOutput: 7.5,
+    creditInput: 25,
+    creditCachedInput: 1.25,
+    creditOutput: 125,
+    contextWindow: 1050000,
+    efforts: ["none", "low", "medium", "high", "xhigh", "max"],
+    role: "Fast, efficient visual reasoning, computer use, and writing model",
+  },
+  {
+    match: /^gpt-6-sol/i,
+    id: "gpt-6-sol",
+    label: "GPT-6 Sol",
+    input: 2,
+    cachedInput: 0.2,
+    output: 10,
+    longContextInput: 4,
+    longContextCachedInput: 0.4,
+    longContextOutput: 15,
+    creditInput: 50,
+    creditCachedInput: 5,
+    creditOutput: 250,
+    contextWindow: 1050000,
+    efforts: ["none", "low", "medium", "high", "xhigh", "max"],
+    role: "Previous-generation Sol for complex coding and agentic workflows",
+  },
+  {
+    match: /^gpt-6-luna/i,
+    id: "gpt-6-luna",
+    label: "GPT-6 Luna",
+    input: 0.1,
+    cachedInput: 0.01,
+    output: 0.5,
+    longContextInput: 0.2,
+    longContextCachedInput: 0.02,
+    longContextOutput: 0.75,
+    creditInput: 2.5,
+    creditCachedInput: 0.25,
+    creditOutput: 12.5,
+    contextWindow: 1050000,
+    efforts: ["none", "low", "medium", "high", "xhigh", "max"],
+    role: "Most efficient model for focused, high-volume tasks",
+  },
+  {
+    match: /^gpt-5\.6-sol/i,
+    id: "gpt-5.6-sol",
+    label: "GPT-5.6 Sol",
+    input: 4,
+    cachedInput: 0.4,
+    output: 20,
+    longContextInput: 8,
+    longContextCachedInput: 0.8,
+    longContextOutput: 30,
+    creditInput: 100,
+    creditCachedInput: 10,
+    creditOutput: 500,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max", "ultra"],
+    role: "Legacy frontier agentic coding model",
+  },
+  {
+    match: /^gpt-5\.6-terra/i,
+    id: "gpt-5.6-terra",
+    label: "GPT-5.6 Terra",
+    input: 2,
+    cachedInput: 0.2,
+    output: 12,
+    longContextInput: 4,
+    longContextCachedInput: 0.4,
+    longContextOutput: 18,
+    creditInput: 50,
+    creditCachedInput: 5,
+    creditOutput: 300,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max", "ultra"],
+    role: "Legacy balanced agentic coding model",
+  },
+  {
+    match: /^gpt-5\.6-luna/i,
+    id: "gpt-5.6-luna",
+    label: "GPT-5.6 Luna",
+    input: 0.2,
+    cachedInput: 0.02,
+    output: 1.2,
+    longContextInput: 0.4,
+    longContextCachedInput: 0.04,
+    longContextOutput: 1.8,
+    creditInput: 5,
+    creditCachedInput: 0.5,
+    creditOutput: 30,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Legacy fast agentic coding model",
+  },
+  {
+    match: /^gpt-5\.5/i,
+    id: "gpt-5.5",
+    label: "GPT-5.5",
+    input: 5,
+    cachedInput: 0.5,
+    output: 30,
+    contextWindow: 272000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    role: "Frontier model for complex coding, research, and planning gates",
+  },
+  {
+    match: /^gpt-5\.4-mini/i,
+    id: "gpt-5.4-mini",
+    label: "GPT-5.4 Mini",
+    input: 0.75,
+    cachedInput: 0.075,
+    output: 4.5,
+    contextWindow: 272000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    role: "Small, fast, and cost-efficient model for simpler coding tasks",
+  },
+  {
+    match: /^gpt-5\.4/i,
+    id: "gpt-5.4",
+    label: "GPT-5.4",
+    input: 2.5,
+    cachedInput: 0.25,
+    output: 15,
+    contextWindow: 272000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    role: "Strong model for everyday coding",
+  },
+  {
+    match: /^gpt-5\.3-codex-spark/i,
+    id: "gpt-5.3-codex-spark",
+    label: "GPT-5.3 Codex Spark",
+    input: 1,
+    cachedInput: 0.1,
+    output: 8,
+    estimated: true,
+    contextWindow: 128000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    role: "Ultra-fast coding model for tight edit-and-test loops",
+  },
+  {
+    match: /^gpt-5\.3-codex/i,
+    id: "gpt-5.3-codex",
+    label: "GPT-5.3 Codex",
+    input: 1.75,
+    cachedInput: 0.175,
+    output: 14,
+    estimated: true,
+    contextWindow: 272000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    role: "Dedicated Codex implementation model",
+  },
+  {
+    match: /^codex-auto-review/i,
+    id: "codex-auto-review",
+    label: "Codex Auto Review",
+    input: 1.25,
+    cachedInput: 0.125,
+    output: 10,
+    estimated: true,
+    contextWindow: 272000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Automatic approval and safety review model for Codex",
+  },
+  {
+    match: /^gpt-5\.2-codex/i,
+    id: "gpt-5.2-codex",
+    label: "GPT-5.2 Codex",
+    input: 1.75,
+    cachedInput: 0.175,
+    output: 14,
+    contextWindow: 200000,
+    role: "Legacy Codex model",
+  },
+  {
+    match: /^gpt-5\.2/i,
+    id: "gpt-5.2",
+    label: "GPT-5.2",
+    input: 1.75,
+    cachedInput: 0.175,
+    output: 14,
+    contextWindow: 200000,
+    role: "Legacy GPT-5.2 model",
+  },
+  {
+    match: /^gpt-5/i,
+    id: "gpt-5",
+    label: "GPT-5",
+    input: 1.25,
+    cachedInput: 0.125,
+    output: 10,
+    contextWindow: 200000,
+    role: "Base GPT-5 tier",
+  },
 ];
+
+function buildModelCatalog() {
+  const claudeRows = CLAUDE_PRICING.filter((item) => !["claude-haiku-3-5", "claude-haiku"].includes(item.id)).map((item) => ({
+    provider: "claude",
+    id: item.id,
+    label: item.label,
+    inputPer1M: item.input,
+    cachedInputPer1M: item.cacheRead,
+    cacheWrite5mPer1M: item.cacheWrite5m,
+    outputPer1M: item.output,
+    longContextThreshold: item.longContextThreshold || 0,
+    longContextInputPer1M: item.longContextInput == null ? null : item.longContextInput,
+    longContextCachedInputPer1M: item.longContextCacheRead == null ? null : item.longContextCacheRead,
+    longContextOutputPer1M: item.longContextOutput == null ? null : item.longContextOutput,
+    creditInputPer1M: null,
+    creditCachedInputPer1M: null,
+    creditOutputPer1M: null,
+    contextWindow: item.contextWindow || 200000,
+    efforts: [],
+    estimated: Boolean(item.estimated),
+    role: item.role || "",
+  }));
+  const codexRows = OPENAI_PRICING.filter((item) => !["gpt-5.2-codex", "gpt-5.2", "gpt-5"].includes(item.id)).map((item) => ({
+    provider: "codex",
+    id: item.id,
+    label: item.label,
+    inputPer1M: item.input,
+    cachedInputPer1M: item.cachedInput,
+    cacheWrite5mPer1M: null,
+    outputPer1M: item.output,
+    longContextThreshold: item.longContextInput == null ? 0 : OPENAI_LONG_CONTEXT_THRESHOLD,
+    longContextInputPer1M: item.longContextInput == null ? null : item.longContextInput,
+    longContextCachedInputPer1M: item.longContextCachedInput == null ? null : item.longContextCachedInput,
+    longContextOutputPer1M: item.longContextOutput == null ? null : item.longContextOutput,
+    creditInputPer1M: item.creditInput == null ? null : item.creditInput,
+    creditCachedInputPer1M: item.creditCachedInput == null ? null : item.creditCachedInput,
+    creditOutputPer1M: item.creditOutput == null ? null : item.creditOutput,
+    contextWindow: item.contextWindow || 272000,
+    efforts: item.efforts || [],
+    estimated: Boolean(item.estimated),
+    role: item.role || "",
+  }));
+  return [...claudeRows, ...codexRows];
+}
 
 const PLAN_PRESETS = {
   claude: {
@@ -35,25 +465,24 @@ const PLAN_PRESETS = {
       detail: "Use AI_SPEND_5H_TOKEN_BUDGET and AI_SPEND_WEEKLY_TOKEN_BUDGET.",
     },
     "claude-pro": {
-      label: "Claude Pro",
-      detail: "Officially described as about 45 short Claude messages per 5 hours; exact token caps are not published.",
-      fiveHourMessages: { min: 45, max: 45 },
-      weeklyNote: "Claude may apply weekly caps, but Anthropic does not publish numeric weekly token limits for individual plans.",
-      source: "https://support.anthropic.com/en/articles/8324991-about-claude-s-pro-plan-usage/",
+      label: "Claude Pro ($20)",
+      detail: "Claude publishes five-hour and weekly limits but no fixed message or token cap; use the Claude Usage page for the authoritative remaining allowance.",
+      weeklyNote: "The five-hour limit is shared across Claude apps and Claude Code, with a weekly limit across all models.",
+      source: "https://support.claude.com/en/articles/8325606-what-is-the-pro-plan",
     },
     "claude-max-5x": {
       label: "Claude Max 5x ($100)",
-      detail: "Officially described as 5x Pro, at least 225 short Claude messages per 5 hours; exact token caps are not published.",
-      fiveHourMessages: { min: 225, max: 225 },
-      weeklyNote: "Claude Max has weekly limits, including an all-model cap and a Sonnet-only cap, but numeric token caps are not published.",
-      source: "https://support.anthropic.com/en/articles/11014257-about-claude-s-max-plan-usage/",
+      detail: "Five times Pro usage every five hours and every week; Anthropic does not publish a fixed token cap.",
+      weeklyNote: "Max has a general weekly limit plus a separate weekly Fable limit.",
+      source: "https://support.claude.com/en/articles/11049741-what-is-the-max-plan",
     },
-    "claude-max-20x": {
-      label: "Claude Max 20x ($200)",
-      detail: "Officially described as 20x Pro, at least 900 short Claude messages per 5 hours; exact token caps are not published.",
-      fiveHourMessages: { min: 900, max: 900 },
-      weeklyNote: "Claude Max has weekly limits, including an all-model cap and a Sonnet-only cap, but numeric token caps are not published.",
-      source: "https://support.anthropic.com/en/articles/11014257-about-claude-s-max-plan-usage/",
+    "claude-ultra": {
+      label: "Claude Ultra ($200)",
+      detail: "Ultra replaced Max 20x. Verified accounts have no five-hour limit and receive ten times Pro usage each week.",
+      unlimitedFiveHour: true,
+      unlimitedText: "Verified Ultra accounts have no five-hour limit; the weekly allowance still applies.",
+      weeklyNote: "Ultra has a general weekly limit plus a separate weekly Fable limit.",
+      source: "https://support.claude.com/en/articles/17728952-what-is-the-ultra-plan",
     },
   },
   codex: {
@@ -62,48 +491,70 @@ const PLAN_PRESETS = {
       detail: "Use AI_SPEND_5H_TOKEN_BUDGET and AI_SPEND_WEEKLY_TOKEN_BUDGET.",
     },
     "codex-plus": {
-      label: "Codex Plus / Business",
-      detail: "Official Codex local-message range per 5 hours. Token estimate is calibrated from your local logs.",
+      label: "Codex Plus ($20)",
+      detail: "Official local-message ranges per five hours. Estimates vary with task size, context, reasoning, tools, and caching.",
       modelMessages: {
-        gpt55: { min: 15, max: 80 },
-        gpt54: { min: 20, max: 100 },
-        gpt54mini: { min: 60, max: 350 },
-        gpt53codex: { min: 30, max: 150 },
+        gpt6astra: { min: 5, max: 45 },
+        gpt61sol: { min: 15, max: 160 },
+        gpt61terra: { min: 35, max: 285 },
+        gpt6sol: { min: 15, max: 150 },
+        gpt6luna: { min: 350, max: 3000 },
       },
-      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
-      source: "https://developers.openai.com/codex/pricing",
+      weeklyNote: "Local messages and cloud chats share the allowance; weekly limits may also apply.",
+      source: "https://learn.chatgpt.com/docs/pricing",
     },
-    "codex-pro-5x": {
-      label: "Codex Pro 5x ($100)",
-      detail: "Current promo through May 31, 2026 applies 2x the listed Pro 5x Codex limits. Token estimate is calibrated from your local logs.",
-      promoUntil: "2026-05-31",
+    "codex-business": {
+      label: "Codex Business ($20-$25/user)",
+      detail: "Standard Business has the same published five-hour local-message ranges as Plus.",
       modelMessages: {
-        gpt55: { min: 160, max: 800 },
-        gpt54: { min: 200, max: 1000 },
-        gpt54mini: { min: 600, max: 3500 },
-        gpt53codex: { min: 300, max: 1500 },
+        gpt6astra: { min: 5, max: 45 },
+        gpt61sol: { min: 15, max: 160 },
+        gpt61terra: { min: 35, max: 285 },
+        gpt6sol: { min: 15, max: 150 },
+        gpt6luna: { min: 350, max: 3000 },
       },
-      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
-      source: "https://developers.openai.com/codex/pricing",
+      weeklyNote: "Local messages and cloud chats share the allowance; weekly limits may also apply.",
+      source: "https://learn.chatgpt.com/docs/pricing",
     },
-    "codex-pro-20x": {
-      label: "Codex Pro 20x ($200)",
-      detail: "Current promo through May 31, 2026 uses 25x Plus Codex limits. Token estimate is calibrated from your local logs.",
-      promoUntil: "2026-05-31",
-      modelMessages: {
-        gpt55: { min: 375, max: 2000 },
-        gpt54: { min: 500, max: 2500 },
-        gpt54mini: { min: 1500, max: 8750 },
-        gpt53codex: { min: 750, max: 3750 },
-      },
-      weeklyNote: "OpenAI says additional weekly limits may apply, but does not publish numeric weekly token caps.",
-      source: "https://developers.openai.com/codex/pricing",
+    "codex-pro-100": {
+      label: "Codex Pro $100",
+      detail: "Current Pro plans have no five-hour limit; weekly and fair-use limits still apply.",
+      unlimitedFiveHour: true,
+      unlimitedText: "No five-hour limit is currently published for Pro.",
+      weeklyNote: "Check the Codex usage dashboard for current weekly limits and reset times.",
+      source: "https://learn.chatgpt.com/docs/pricing",
+    },
+    "codex-pro-200": {
+      label: "Codex Pro $200",
+      detail: "Current Pro plans have no five-hour limit; weekly and fair-use limits still apply.",
+      unlimitedFiveHour: true,
+      unlimitedText: "No five-hour limit is currently published for Pro.",
+      weeklyNote: "Check the Codex usage dashboard for current weekly limits and reset times.",
+      source: "https://learn.chatgpt.com/docs/pricing",
+    },
+    "codex-pro-500": {
+      label: "Codex Pro $500",
+      detail: "Current Pro plans have no five-hour limit and Pro $500 includes Ultrafast access.",
+      unlimitedFiveHour: true,
+      unlimitedText: "No five-hour limit is currently published for Pro.",
+      weeklyNote: "Ultrafast consumes included usage at 8x for Astra and GPT-6.1 Sol; weekly limits still apply.",
+      source: "https://learn.chatgpt.com/docs/pricing",
+    },
+    "codex-enterprise-flex": {
+      label: "Enterprise/Edu flexible",
+      detail: "Flexible-pricing workspaces have no fixed rate limits; usage scales with credits.",
+      unlimitedFiveHour: true,
+      unlimitedText: "No fixed five-hour rate limit; usage scales with workspace credits.",
+      weeklyNote: "Workspace credit policies and admin controls apply.",
+      source: "https://learn.chatgpt.com/docs/pricing",
     },
     "codex-api": {
       label: "Codex API key",
-      detail: "Usage-based API mode does not have the same subscription 5-hour cap; standard API limits and billing apply.",
+      detail: "Usage-based API mode does not have a subscription 5-hour cap; standard API tier limits and per-token billing apply.",
       weeklyNote: "No subscription weekly cap is published for API-key usage.",
-      source: "https://developers.openai.com/codex/pricing",
+      unlimitedFiveHour: true,
+      unlimitedText: "API-key usage has no subscription five-hour cap.",
+      source: "https://developers.openai.com/api/docs/pricing",
     },
   },
 };
@@ -304,14 +755,30 @@ function estimateCost(provider, model, tokens) {
   if (provider === "claude") {
     const pricing = findClaudePricing(model);
     if (!pricing) return { usd: 0, known: false, label: "Unknown Claude model" };
+    const promptTokens = numberValue(tokens.inputTokens)
+      + numberValue(tokens.cacheCreationInputTokens)
+      + numberValue(tokens.cacheCreation1hInputTokens)
+      + numberValue(tokens.cacheReadInputTokens);
+    const isLongContext = pricing.longContextThreshold > 0 && promptTokens > pricing.longContextThreshold;
+    const inputRate = isLongContext ? pricing.longContextInput : pricing.input;
+    const cacheWrite5mRate = isLongContext ? pricing.longContextCacheWrite5m : pricing.cacheWrite5m;
+    const cacheWrite1hRate = isLongContext ? pricing.longContextCacheWrite1h : pricing.cacheWrite1h;
+    const cacheReadRate = isLongContext ? pricing.longContextCacheRead : pricing.cacheRead;
+    const outputRate = isLongContext ? pricing.longContextOutput : pricing.output;
     const usd = (
-      numberValue(tokens.inputTokens) * pricing.input
-      + numberValue(tokens.cacheCreationInputTokens) * pricing.cacheWrite5m
-      + numberValue(tokens.cacheCreation1hInputTokens) * pricing.cacheWrite1h
-      + numberValue(tokens.cacheReadInputTokens) * pricing.cacheRead
-      + numberValue(tokens.outputTokens) * pricing.output
+      numberValue(tokens.inputTokens) * inputRate
+      + numberValue(tokens.cacheCreationInputTokens) * cacheWrite5mRate
+      + numberValue(tokens.cacheCreation1hInputTokens) * cacheWrite1hRate
+      + numberValue(tokens.cacheReadInputTokens) * cacheReadRate
+      + numberValue(tokens.outputTokens) * outputRate
     ) / 1000000;
-    return { usd, known: true, label: pricing.label, estimated: Boolean(pricing.estimated) };
+    return {
+      usd,
+      known: true,
+      label: pricing.label,
+      estimated: Boolean(pricing.estimated),
+      pricingTier: isLongContext ? "long" : "standard",
+    };
   }
 
   if (provider === "codex") {
@@ -320,15 +787,47 @@ function estimateCost(provider, model, tokens) {
     const input = numberValue(tokens.inputTokens);
     const cached = Math.min(numberValue(tokens.cachedInputTokens), input);
     const uncached = Math.max(0, input - cached);
+    const isLongContext = input > OPENAI_LONG_CONTEXT_THRESHOLD && pricing.longContextInput != null;
+    const inputRate = isLongContext ? pricing.longContextInput : pricing.input;
+    const cachedInputRate = isLongContext ? pricing.longContextCachedInput : pricing.cachedInput;
+    const outputRate = isLongContext ? pricing.longContextOutput : pricing.output;
     const usd = (
-      uncached * pricing.input
-      + cached * pricing.cachedInput
-      + numberValue(tokens.outputTokens) * pricing.output
+      uncached * inputRate
+      + cached * cachedInputRate
+      + numberValue(tokens.outputTokens) * outputRate
     ) / 1000000;
-    return { usd, known: true, label: pricing.label, estimated: Boolean(pricing.estimated) };
+    return {
+      usd,
+      known: true,
+      label: pricing.label,
+      estimated: Boolean(pricing.estimated),
+      pricingTier: isLongContext ? "long" : "standard",
+    };
   }
 
   return { usd: 0, known: false, label: "Unknown provider" };
+}
+
+function estimateCredits(provider, model, tokens) {
+  if (provider !== "codex") {
+    return { credits: 0, known: false, label: "Credits apply to Codex usage" };
+  }
+
+  const pricing = findOpenAiPricing(model);
+  if (!pricing || pricing.creditInput == null || pricing.creditCachedInput == null || pricing.creditOutput == null) {
+    return { credits: 0, known: false, label: "No published Codex credit rate" };
+  }
+
+  const input = numberValue(tokens.inputTokens);
+  const cached = Math.min(numberValue(tokens.cachedInputTokens), input);
+  const uncached = Math.max(0, input - cached);
+  const credits = (
+    uncached * pricing.creditInput
+    + cached * pricing.creditCachedInput
+    + numberValue(tokens.outputTokens) * pricing.creditOutput
+  ) / TOKENS_PER_MILLION;
+
+  return { credits, known: true, label: pricing.label };
 }
 
 function normalizeClaudeUsage(usage) {
@@ -378,15 +877,53 @@ function diffCodexTotals(current, previous) {
   return out;
 }
 
+function resolveProjectFromRelPath(relPath, filePath) {
+  const parts = String(relPath || "").split(/[\\/]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return parts[0];
+  }
+  return path.basename(path.dirname(filePath));
+}
+
+function detectClaudeSubagentPath(relPath, filePath) {
+  const parts = String(relPath || "").split(/[\\/]+/).filter(Boolean);
+  const baseName = path.basename(filePath, ".jsonl");
+  const subagentsIdx = parts.findIndex((seg) => seg.toLowerCase() === "subagents");
+  if (subagentsIdx >= 0) {
+    const parentId = subagentsIdx >= 1 ? parts[subagentsIdx - 1] : "";
+    const agentId = baseName.replace(/^agent-/i, "");
+    return { isSubagent: true, parentSessionId: parentId, agentId };
+  }
+  if (/^agent-/i.test(baseName)) {
+    return { isSubagent: true, parentSessionId: "", agentId: baseName.replace(/^agent-/i, "") };
+  }
+  return { isSubagent: false, parentSessionId: "", agentId: "" };
+}
+
 function createSession(provider, fileInfo, root) {
   const filePath = fileInfo.path || String(fileInfo);
-  const relPath = path.relative(root, filePath);
+  const relPath = root ? path.relative(root, filePath) : path.basename(filePath);
+  const subagentInfo = provider === "claude"
+    ? detectClaudeSubagentPath(relPath, filePath)
+    : { isSubagent: false, parentSessionId: "", agentId: "" };
+  const baseId = path.basename(filePath, ".jsonl");
+  const sessionId = subagentInfo.isSubagent && subagentInfo.parentSessionId
+    ? `${subagentInfo.parentSessionId}:subagent:${subagentInfo.agentId || baseId}`
+    : baseId;
+
   return {
     provider,
-    id: path.basename(filePath, ".jsonl"),
+    id: sessionId,
+    parentSessionId: subagentInfo.parentSessionId || "",
+    agentId: subagentInfo.agentId || "",
+    isSubagent: subagentInfo.isSubagent,
+    liveStatus: "",
+    livePid: 0,
+    reasoningEffort: "",
+    sourceType: "jsonl",
     file: filePath,
     relativeFile: relPath,
-    project: path.basename(path.dirname(filePath)),
+    project: provider === "claude" ? resolveProjectFromRelPath(relPath, filePath) : path.basename(path.dirname(filePath)),
     cwd: "",
     model: "unknown",
     title: "",
@@ -400,6 +937,8 @@ function createSession(provider, fileInfo, root) {
     costUsd: 0,
     knownCostUsd: 0,
     unknownCostTokens: 0,
+    credits: 0,
+    creditKnownTokens: 0,
     pricingLabels: new Set(),
     tokens: emptyTokens(),
     events: [],
@@ -411,6 +950,9 @@ function addEvent(session, event) {
   session.startMs = session.startMs ? Math.min(session.startMs, event.timestampMs) : event.timestampMs;
   session.endMs = Math.max(session.endMs || 0, event.timestampMs);
   session.model = session.model === "unknown" && event.model ? event.model : session.model;
+  if (!session.reasoningEffort && event.reasoningEffort) {
+    session.reasoningEffort = event.reasoningEffort;
+  }
   addTokens(session.tokens, event.tokens);
   session.costUsd += event.costUsd;
   if (event.costKnown) {
@@ -418,14 +960,71 @@ function addEvent(session, event) {
   } else {
     session.unknownCostTokens += tokenTotal(event.tokens);
   }
-  if (event.pricingLabel) session.pricingLabels.add(event.pricingLabel);
+  session.credits += numberValue(event.credits);
+  if (event.creditKnown) {
+    session.creditKnownTokens += tokenTotal(event.tokens);
+  }
+  if (event.pricingLabel) {
+    session.pricingLabels.add(event.pricingLabel);
+  }
   session.events.push(event);
 }
 
-function readCodexSessionIndex(root) {
-  const indexPath = path.resolve(process.env.CODEX_SESSION_INDEX || path.join(root, "..", "session_index.jsonl"));
+function readClaudeLiveSessions(root, options) {
+  const opts = options || {};
+  const sessionsDir = path.resolve(
+    opts.sessionsMetaRoot
+      || process.env.CLAUDE_SESSIONS_ROOT
+      || path.join(root, "..", "sessions"),
+  );
+  const map = new Map();
+  if (!fs.existsSync(sessionsDir)) {
+    return map;
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
+  } catch (_) {
+    return map;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".json")) {
+      continue;
+    }
+    try {
+      const raw = fs.readFileSync(path.join(sessionsDir, entry.name), "utf8");
+      const parsed = safeJsonParse(raw);
+      if (!parsed || typeof parsed !== "object" || !parsed.sessionId) {
+        continue;
+      }
+      const id = sanitizeSessionTitle(parsed.sessionId, 160);
+      const name = sanitizeSessionTitle(parsed.name || parsed.title || "");
+      map.set(id, {
+        sessionId: id,
+        name,
+        pid: numberValue(parsed.pid),
+        status: sanitizeSessionTitle(parsed.status || "", 32),
+        updatedAt: numberValue(parsed.updatedAt),
+        cwd: String(parsed.cwd || ""),
+      });
+    } catch (_) {
+      continue;
+    }
+  }
+  return map;
+}
+
+function readCodexSessionIndex(root, options) {
+  const opts = options || {};
+  const indexPath = path.resolve(
+    opts.sessionIndexPath
+      || process.env.CODEX_SESSION_INDEX
+      || path.join(root, "..", "session_index.jsonl"),
+  );
   const names = new Map();
-  if (!fs.existsSync(indexPath)) return names;
+  if (!fs.existsSync(indexPath)) {
+    return names;
+  }
   let body = "";
   try {
     body = fs.readFileSync(indexPath, "utf8");
@@ -435,24 +1034,92 @@ function readCodexSessionIndex(root) {
 
   for (const line of body.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      continue;
+    }
     const record = safeJsonParse(trimmed);
-    if (!record || typeof record !== "object") continue;
+    if (!record || typeof record !== "object") {
+      continue;
+    }
     const id = sanitizeSessionTitle(record.id, 160);
     const title = sanitizeSessionTitle(record.thread_name || record.title || record.name);
-    if (id && title) names.set(id, { title, source: "Codex thread name" });
+    if (id && title) {
+      names.set(id, { title, source: "Codex thread name" });
+    }
   }
   return names;
 }
 
-async function parseClaude(root, sinceMs) {
+function findLatestCodexSqlite(codexHome) {
+  if (!codexHome || !fs.existsSync(codexHome)) {
+    return "";
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(codexHome);
+  } catch (_) {
+    return "";
+  }
+  const candidates = entries
+    .filter((name) => /^state_\d+\.sqlite$/i.test(name))
+    .sort((a, b) => {
+      const verA = Number((a.match(/\d+/) || [0])[0]);
+      const verB = Number((b.match(/\d+/) || [0])[0]);
+      return verB - verA;
+    });
+  return candidates.length > 0 ? path.join(codexHome, candidates[0]) : "";
+}
+
+function readCodexSqliteThreads(sqlitePath) {
+  if (!sqlitePath || !fs.existsSync(sqlitePath)) {
+    return [];
+  }
+  let db = null;
+  try {
+    const { DatabaseSync } = require("node:sqlite");
+    db = new DatabaseSync(sqlitePath, { readOnly: true });
+    const rows = db.prepare(`
+      SELECT
+        id,
+        rollout_path,
+        created_at,
+        updated_at,
+        cwd,
+        tokens_used,
+        agent_nickname,
+        agent_role,
+        model,
+        reasoning_effort
+      FROM threads
+      WHERE tokens_used > 0
+      ORDER BY updated_at DESC
+    `).all();
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  } finally {
+    if (db) {
+      try {
+        db.close();
+      } catch (_) {
+        // Ignore close errors on read-only handle
+      }
+    }
+  }
+}
+
+async function parseClaude(root, sinceMs, options) {
   const files = listJsonlFiles(root);
+  const liveSessions = readClaudeLiveSessions(root, options);
   const sessions = [];
   const events = [];
   const errors = [];
   for (const fileInfo of files) {
-    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * 86400000) continue;
+    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) {
+      continue;
+    }
     const session = createSession("claude", fileInfo, root);
+    let sessionSlug = "";
     let turnIndex = 0;
     try {
       await readJsonLines(fileInfo.path, (record) => {
@@ -461,32 +1128,66 @@ async function parseClaude(root, sinceMs) {
           session.startMs = session.startMs ? Math.min(session.startMs, ms) : ms;
           session.endMs = Math.max(session.endMs || 0, ms);
         }
-        if (record.sessionId) session.id = String(record.sessionId);
-        if (record.cwd) session.cwd = String(record.cwd);
-        if (record.messageCount) session.messageCount = Math.max(session.messageCount, numberValue(record.messageCount));
-        if (record.type === "custom-title") setSessionTitle(session, record.customTitle, "Claude custom title", 5);
-        if (record.type === "agent-name") setSessionTitle(session, record.agentName, "Claude agent name", 3);
+        if (record.isSidechain || record.agentId) {
+          session.isSubagent = true;
+          if (record.agentId) {
+            session.agentId = String(record.agentId);
+          }
+        }
+        if (record.sessionId) {
+          const rawSessionId = String(record.sessionId);
+          if (session.isSubagent) {
+            session.parentSessionId = rawSessionId;
+            session.id = `${rawSessionId}:subagent:${session.agentId || path.basename(fileInfo.path, ".jsonl")}`;
+          } else {
+            session.id = rawSessionId;
+          }
+        }
+        if (record.cwd) {
+          session.cwd = String(record.cwd);
+        }
+        if (record.slug && !sessionSlug) {
+          sessionSlug = sanitizeSessionTitle(record.slug, 72);
+        }
+        if (record.messageCount) {
+          session.messageCount = Math.max(session.messageCount, numberValue(record.messageCount));
+        }
+        if (record.type === "custom-title") {
+          setSessionTitle(session, record.customTitle, "Claude custom title", 6);
+        }
+        if (record.type === "agent-name") {
+          setSessionTitle(session, record.agentName, "Claude agent name", 4);
+        }
 
         const message = record.message && typeof record.message === "object" ? record.message : null;
         const usage = message && message.usage ? message.usage : null;
-        if (!usage) return;
+        if (!usage) {
+          return;
+        }
 
         const tokens = normalizeClaudeUsage(usage);
-        if (tokenTotal(tokens) <= 0) return;
+        if (tokenTotal(tokens) <= 0) {
+          return;
+        }
         turnIndex += 1;
         const model = String(message.model || record.model || session.model || "unknown");
-        if (model !== "unknown") session.model = model;
+        if (model !== "unknown") {
+          session.model = model;
+        }
         const timestampMs = parseTimestampMs(record.timestamp, fileInfo.mtimeMs || Date.now());
         const cost = estimateCost("claude", model, tokens);
         const event = {
           provider: "claude",
           id: `${session.id}:${turnIndex}`,
           sessionId: session.id,
+          parentSessionId: session.parentSessionId || "",
+          isSubagent: Boolean(session.isSubagent),
           turnIndex,
           file: session.relativeFile,
           project: session.project,
           cwd: session.cwd,
           model,
+          reasoningEffort: "",
           timestampMs,
           timestamp: new Date(timestampMs).toISOString(),
           date: localDateKey(timestampMs),
@@ -497,6 +1198,9 @@ async function parseClaude(root, sinceMs) {
           costKnown: cost.known,
           pricingLabel: cost.label,
           pricingEstimated: Boolean(cost.estimated),
+          pricingTier: cost.pricingTier || "standard",
+          credits: 0,
+          creditKnown: false,
         };
         addEvent(session, event);
         events.push(event);
@@ -505,6 +1209,32 @@ async function parseClaude(root, sinceMs) {
       errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
     }
     if (session.eventCount > 0) {
+      const lookupId = session.parentSessionId || session.id;
+      const liveMeta = liveSessions.get(lookupId);
+      if (liveMeta) {
+        session.liveStatus = liveMeta.status || "";
+        session.livePid = liveMeta.pid || 0;
+        if (!session.cwd && liveMeta.cwd) {
+          session.cwd = liveMeta.cwd;
+        }
+        if (session.isSubagent && liveMeta.name) {
+          const shortAgent = session.agentId ? `#${session.agentId.slice(0, 6)}` : "";
+          const subLabel = sessionSlug
+            ? `${sessionSlug}${shortAgent ? ` ${shortAgent}` : ""}`
+            : (shortAgent ? `subagent ${shortAgent}` : "subagent");
+          setSessionTitle(session, `${liveMeta.name} / ${subLabel}`, "Claude live session + subagent", 5);
+        } else if (!session.isSubagent && liveMeta.name) {
+          setSessionTitle(session, liveMeta.name, "Claude live session", 5);
+        }
+      }
+      if (session.isSubagent && !session.title) {
+        const shortAgent = session.agentId ? `#${session.agentId.slice(0, 6)}` : "";
+        if (sessionSlug) {
+          setSessionTitle(session, `${sessionSlug}${shortAgent ? ` ${shortAgent}` : ""} (subagent)`, "Claude subagent slug", 3);
+        } else if (session.agentId) {
+          setSessionTitle(session, `${session.project || "claude"} / subagent ${shortAgent}`, "Claude subagent id", 2);
+        }
+      }
       applySessionIdentityToEvents(session);
       sessions.push(finalizeSession(session));
     }
@@ -512,14 +1242,21 @@ async function parseClaude(root, sinceMs) {
   return { provider: "claude", root, files: files.length, sessions, events, errors };
 }
 
-async function parseCodex(root, sinceMs) {
+async function parseCodex(root, sinceMs, options) {
+  const opts = options || {};
   const files = listJsonlFiles(root);
-  const sessionNames = readCodexSessionIndex(root);
+  const sessionNames = readCodexSessionIndex(root, opts);
   const sessions = [];
   const events = [];
   const errors = [];
+  const seenSessionIds = new Set();
+  const seenRolloutPaths = new Set();
+
   for (const fileInfo of files) {
-    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * 86400000) continue;
+    seenRolloutPaths.add(path.resolve(fileInfo.path).toLowerCase());
+    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) {
+      continue;
+    }
     const session = createSession("codex", fileInfo, root);
     let previousTotalUsage = null;
     let turnIndex = 0;
@@ -534,14 +1271,23 @@ async function parseCodex(root, sinceMs) {
           if (payload.id) {
             session.id = String(payload.id);
             const indexed = sessionNames.get(session.id);
-            if (indexed) setSessionTitle(session, indexed.title, indexed.source, 5);
+            if (indexed) {
+              setSessionTitle(session, indexed.title, indexed.source, 5);
+            }
           }
-          if (payload.agent_nickname) setSessionTitle(session, payload.agent_nickname, "Codex agent name", 2);
+          if (payload.agent_nickname) {
+            setSessionTitle(session, payload.agent_nickname, "Codex agent name", 3);
+          }
           if (payload.cwd) {
             session.cwd = String(payload.cwd);
             session.project = path.basename(session.cwd);
           }
-          if (payload.model) session.model = String(payload.model);
+          if (payload.model) {
+            session.model = String(payload.model);
+          }
+          if (payload.reasoning_effort || payload.reasoningEffort) {
+            session.reasoningEffort = String(payload.reasoning_effort || payload.reasoningEffort);
+          }
           return;
         }
 
@@ -550,11 +1296,18 @@ async function parseCodex(root, sinceMs) {
             session.cwd = String(payload.cwd);
             session.project = path.basename(session.cwd);
           }
-          if (payload.model) session.model = String(payload.model);
+          if (payload.model) {
+            session.model = String(payload.model);
+          }
+          if (payload.reasoning_effort || payload.reasoningEffort) {
+            session.reasoningEffort = String(payload.reasoning_effort || payload.reasoningEffort);
+          }
           return;
         }
 
-        if (record.type !== "event_msg" || payload.type !== "token_count") return;
+        if (record.type !== "event_msg" || payload.type !== "token_count") {
+          return;
+        }
         const info = payload.info && typeof payload.info === "object" ? payload.info : {};
         let tokens = null;
         if (info.last_token_usage) {
@@ -562,21 +1315,29 @@ async function parseCodex(root, sinceMs) {
         } else if (info.total_token_usage) {
           tokens = diffCodexTotals(info.total_token_usage, previousTotalUsage);
         }
-        if (info.total_token_usage) previousTotalUsage = info.total_token_usage;
-        if (!tokens || tokenTotal(tokens) <= 0) return;
+        if (info.total_token_usage) {
+          previousTotalUsage = info.total_token_usage;
+        }
+        if (!tokens || tokenTotal(tokens) <= 0) {
+          return;
+        }
 
         turnIndex += 1;
         const model = String(info.model || payload.model || session.model || "unknown");
         const cost = estimateCost("codex", model, tokens);
+        const credit = estimateCredits("codex", model, tokens);
         const event = {
           provider: "codex",
           id: `${session.id}:${turnIndex}`,
           sessionId: session.id,
+          parentSessionId: "",
+          isSubagent: false,
           turnIndex,
           file: session.relativeFile,
           project: session.project,
           cwd: session.cwd,
           model,
+          reasoningEffort: session.reasoningEffort || "",
           timestampMs,
           timestamp: new Date(timestampMs).toISOString(),
           date: localDateKey(timestampMs),
@@ -587,6 +1348,9 @@ async function parseCodex(root, sinceMs) {
           costKnown: cost.known,
           pricingLabel: cost.label,
           pricingEstimated: Boolean(cost.estimated),
+          pricingTier: cost.pricingTier || "standard",
+          credits: credit.credits,
+          creditKnown: credit.known,
         };
         addEvent(session, event);
         events.push(event);
@@ -595,14 +1359,151 @@ async function parseCodex(root, sinceMs) {
       errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
     }
     if (session.eventCount > 0) {
+      seenSessionIds.add(session.id);
       for (const event of session.events) {
-        if (!event.model || event.model === "unknown") event.model = session.model || "unknown";
+        if (!event.model || event.model === "unknown") {
+          event.model = session.model || "unknown";
+        }
       }
       applySessionIdentityToEvents(session);
       sessions.push(finalizeSession(session));
     }
   }
-  return { provider: "codex", root, files: files.length, sessions, events, errors };
+
+  const sqlitePath = opts.sqlitePath
+    || process.env.CODEX_STATE_DB
+    || findLatestCodexSqlite(path.resolve(root, ".."));
+  const sqliteRows = readCodexSqliteThreads(sqlitePath);
+  let sqliteRecoveredCount = 0;
+
+  for (const row of sqliteRows) {
+    const threadId = String(row.id || "").trim();
+    const totalUsed = numberValue(row.tokens_used);
+    if (!threadId || totalUsed <= 0 || seenSessionIds.has(threadId)) {
+      continue;
+    }
+    const rolloutPath = String(row.rollout_path || "").trim();
+    if (rolloutPath && seenRolloutPaths.has(path.resolve(rolloutPath).toLowerCase())) {
+      continue;
+    }
+    const updatedMs = numberValue(row.updated_at) > 1e11 ? numberValue(row.updated_at) : numberValue(row.updated_at) * 1000;
+    const createdMs = numberValue(row.created_at) > 1e11 ? numberValue(row.created_at) : numberValue(row.created_at) * 1000;
+    const endMs = updatedMs || Date.now();
+    const startMs = createdMs || endMs;
+    if (sinceMs && endMs < sinceMs - 7 * MS_PER_DAY) {
+      continue;
+    }
+
+    const cwd = String(row.cwd || "");
+    const project = cwd ? path.basename(cwd) : "codex";
+    const model = String(row.model || "gpt-6.1-sol");
+    const reasoningEffort = sanitizeSessionTitle(row.reasoning_effort || "", 24);
+    const isSubagent = Boolean(row.agent_nickname || row.agent_role);
+    const session = {
+      provider: "codex",
+      id: threadId,
+      parentSessionId: "",
+      agentId: sanitizeSessionTitle(row.agent_nickname || "", 48),
+      isSubagent,
+      liveStatus: "",
+      livePid: 0,
+      reasoningEffort,
+      sourceType: "sqlite",
+      file: rolloutPath || sqlitePath,
+      relativeFile: rolloutPath ? path.basename(rolloutPath) : `state_sqlite:${threadId.slice(0, 12)}`,
+      project,
+      cwd,
+      model,
+      title: "",
+      displayName: "",
+      nameSource: "",
+      namePriority: 0,
+      startMs,
+      endMs,
+      eventCount: 0,
+      messageCount: 1,
+      costUsd: 0,
+      knownCostUsd: 0,
+      unknownCostTokens: 0,
+      credits: 0,
+      creditKnownTokens: 0,
+      pricingLabels: new Set(),
+      tokens: emptyTokens(),
+      events: [],
+    };
+
+    const indexed = sessionNames.get(threadId);
+    if (indexed) {
+      setSessionTitle(session, indexed.title, indexed.source, 5);
+    } else if (row.agent_nickname) {
+      const roleSuffix = row.agent_role ? ` (${sanitizeSessionTitle(row.agent_role, 32)})` : "";
+      setSessionTitle(session, `${sanitizeSessionTitle(row.agent_nickname, 48)}${roleSuffix} - ${project}`, "Codex SQLite agent", 4);
+    } else {
+      setSessionTitle(session, `${project} #${threadId.slice(0, 8)}`, "Codex SQLite thread", 2);
+    }
+
+    const synthInput = Math.round(totalUsed * SQLITE_SYNTHETIC_INPUT_RATIO);
+    const synthCached = Math.round(totalUsed * SQLITE_SYNTHETIC_CACHE_RATIO);
+    const synthOutput = Math.max(0, totalUsed - synthInput);
+    const tokens = {
+      inputTokens: synthInput,
+      cacheCreationInputTokens: 0,
+      cacheCreation1hInputTokens: 0,
+      cacheReadInputTokens: 0,
+      cachedInputTokens: synthCached,
+      outputTokens: synthOutput,
+      reasoningOutputTokens: 0,
+      totalTokens: totalUsed,
+    };
+    const cost = estimateCost("codex", model, tokens);
+    const credit = estimateCredits("codex", model, tokens);
+    const event = {
+      provider: "codex",
+      id: `${threadId}:1`,
+      sessionId: threadId,
+      parentSessionId: "",
+      isSubagent,
+      turnIndex: 1,
+      file: session.relativeFile,
+      project,
+      cwd,
+      model,
+      reasoningEffort,
+      timestampMs: endMs,
+      timestamp: new Date(endMs).toISOString(),
+      date: localDateKey(endMs),
+      hour: localHourKey(endMs),
+      tokens,
+      totalTokens: totalUsed,
+      costUsd: cost.usd,
+      costKnown: cost.known,
+      pricingLabel: cost.label,
+      pricingEstimated: true,
+      pricingTier: cost.pricingTier || "standard",
+      credits: credit.credits,
+      creditKnown: credit.known,
+      syntheticThreadTotal: true,
+    };
+    addEvent(session, event);
+    session.startMs = Math.min(startMs, endMs);
+    session.endMs = Math.max(startMs, endMs);
+    applySessionIdentityToEvents(session);
+    sessions.push(finalizeSession(session));
+    events.push(event);
+    seenSessionIds.add(threadId);
+    sqliteRecoveredCount += 1;
+  }
+
+  return {
+    provider: "codex",
+    root,
+    sqlitePath: sqliteRecoveredCount > 0 ? sqlitePath : "",
+    sqliteThreads: sqliteRecoveredCount,
+    files: files.length + sqliteRecoveredCount,
+    sessions,
+    events,
+    errors,
+  };
 }
 
 function finalizeSession(session) {
@@ -612,6 +1513,13 @@ function finalizeSession(session) {
   return {
     provider: session.provider,
     id: session.id,
+    parentSessionId: session.parentSessionId || "",
+    agentId: session.agentId || "",
+    isSubagent: Boolean(session.isSubagent),
+    liveStatus: session.liveStatus || "",
+    livePid: session.livePid || 0,
+    reasoningEffort: session.reasoningEffort || "",
+    sourceType: session.sourceType || "jsonl",
     file: session.relativeFile,
     project: session.project || "",
     cwd: session.cwd || "",
@@ -623,7 +1531,7 @@ function finalizeSession(session) {
     endMs: session.endMs || 0,
     start: session.startMs ? new Date(session.startMs).toISOString() : "",
     end: session.endMs ? new Date(session.endMs).toISOString() : "",
-    durationMinutes: durationMs / 60000,
+    durationMinutes: durationMs / MS_PER_MINUTE,
     eventCount: session.eventCount,
     messageCount: session.messageCount,
     tokens,
@@ -632,6 +1540,8 @@ function finalizeSession(session) {
     costUsd: session.costUsd,
     knownCostUsd: session.knownCostUsd,
     unknownCostTokens: session.unknownCostTokens,
+    credits: session.credits,
+    creditKnownTokens: session.creditKnownTokens,
     pricingLabels: Array.from(session.pricingLabels).sort(),
   };
 }
@@ -642,6 +1552,8 @@ function addGroup(map, key, base) {
       costUsd: 0,
       knownCostUsd: 0,
       unknownCostTokens: 0,
+      credits: 0,
+      creditKnownTokens: 0,
       eventCount: 0,
       tokens: emptyTokens(),
       totalTokens: 0,
@@ -658,6 +1570,8 @@ function compactEvent(event) {
   return {
     provider: event.provider,
     sessionId: event.sessionId,
+    parentSessionId: event.parentSessionId || "",
+    isSubagent: Boolean(event.isSubagent),
     turnIndex: event.turnIndex,
     file: event.file,
     project: event.project,
@@ -666,6 +1580,7 @@ function compactEvent(event) {
     displayName: event.displayName || "",
     nameSource: event.nameSource || "",
     model: event.model,
+    reasoningEffort: event.reasoningEffort || "",
     timestamp: event.timestamp,
     timestampMs: event.timestampMs,
     totalTokens: event.totalTokens,
@@ -674,21 +1589,70 @@ function compactEvent(event) {
     costKnown: event.costKnown,
     pricingLabel: event.pricingLabel,
     pricingEstimated: event.pricingEstimated,
+    pricingTier: event.pricingTier || "standard",
+    credits: numberValue(event.credits),
+    creditKnown: Boolean(event.creditKnown),
     recommendation: buildTurnRecommendation(event),
+  };
+}
+
+function buildSubagentStats(sessions, events, totalTokens) {
+  let subagentTokens = 0;
+  let subagentCostUsd = 0;
+  let subagentSessionCount = 0;
+  let mainSessionCount = 0;
+  const effortMap = new Map();
+
+  for (const session of sessions) {
+    if (session.isSubagent) {
+      subagentTokens += numberValue(session.totalTokens);
+      subagentCostUsd += numberValue(session.costUsd);
+      subagentSessionCount += 1;
+    } else {
+      mainSessionCount += 1;
+    }
+  }
+
+  for (const event of events) {
+    const effort = sanitizeSessionTitle(event.reasoningEffort || "", 24).toLowerCase();
+    if (!effort) {
+      continue;
+    }
+    const row = addGroup(effortMap, effort, { effort });
+    addWindowTotal(row, event);
+  }
+
+  const mainTokens = Math.max(0, numberValue(totalTokens) - subagentTokens);
+  return {
+    subagentTokens,
+    mainTokens,
+    subagentCostUsd,
+    subagentSessionCount,
+    mainSessionCount,
+    subagentShare: totalTokens > 0 ? subagentTokens / totalTokens : 0,
+    effortTotals: Array.from(effortMap.values()).sort((a, b) => b.totalTokens - a.totalTokens),
   };
 }
 
 function buildSummary(parsed, options) {
   const nowMs = Date.now();
   const days = Math.max(1, Number(options.days || DEFAULT_DAYS));
-  const sinceMs = nowMs - days * 86400000;
+  const sinceMs = nowMs - days * MS_PER_DAY;
   const providerFilter = String(options.provider || "all").toLowerCase();
   const allEvents = [];
   const allSessions = [];
+  const sourceSessionLookup = new Map();
+  for (const source of parsed) {
+    for (const sess of source.sessions || []) {
+      sourceSessionLookup.set(`${sess.provider}:${sess.id}:${sess.file}`, sess);
+    }
+  }
   const totals = {
     costUsd: 0,
     knownCostUsd: 0,
     unknownCostTokens: 0,
+    credits: 0,
+    creditKnownTokens: 0,
     eventCount: 0,
     sessionCount: 0,
     tokens: emptyTokens(),
@@ -713,13 +1677,16 @@ function buildSummary(parsed, options) {
 
   for (const source of parsed) {
     for (const event of source.events) {
-      if (!includeProvider(providerFilter, event.provider)) continue;
+      if (!includeProvider(providerFilter, event.provider)) {
+        continue;
+      }
 
       const sessionKey = `${event.provider}:${event.sessionId}:${event.file}`;
-      const inLastHour = event.timestampMs >= nowMs - 3600000;
-      const inLast5h = event.timestampMs >= nowMs - 5 * 3600000;
-      const inLast24h = event.timestampMs >= nowMs - 86400000;
-      const inLast7d = event.timestampMs >= nowMs - 7 * 86400000;
+      const sessionMeta = sourceSessionLookup.get(sessionKey);
+      const inLastHour = event.timestampMs >= nowMs - MS_PER_HOUR;
+      const inLast5h = event.timestampMs >= nowMs - 5 * MS_PER_HOUR;
+      const inLast24h = event.timestampMs >= nowMs - MS_PER_DAY;
+      const inLast7d = event.timestampMs >= nowMs - 7 * MS_PER_DAY;
 
       if (inLastHour) {
         addWindowTotal(windows.lastHour, event);
@@ -728,17 +1695,23 @@ function buildSummary(parsed, options) {
       if (inLast5h) {
         addWindowTotal(windows.last5h, event);
         addProviderPlanWindow(planWindowStats, event, "last5h");
-        addEventToRangeSession(addRangeSession(fiveHourSessionMap, sessionKey, event), event);
+        addEventToRangeSession(addRangeSession(fiveHourSessionMap, sessionKey, event, sessionMeta), event);
       }
-      if (inLast24h) addWindowTotal(windows.last24h, event);
+      if (inLast24h) {
+        addWindowTotal(windows.last24h, event);
+      }
       if (inLast7d) {
         addWindowTotal(windows.last7d, event);
         addProviderPlanWindow(planWindowStats, event, "last7d");
-        addEventToRangeSession(addRangeSession(weeklySessionMap, sessionKey, event), event);
+        addEventToRangeSession(addRangeSession(weeklySessionMap, sessionKey, event, sessionMeta), event);
       }
-      if (localDateKey(event.timestampMs) === localDateKey(nowMs)) addWindowTotal(windows.today, event);
+      if (localDateKey(event.timestampMs) === localDateKey(nowMs)) {
+        addWindowTotal(windows.today, event);
+      }
 
-      if (event.timestampMs < sinceMs) continue;
+      if (event.timestampMs < sinceMs) {
+        continue;
+      }
       allEvents.push(event);
       addWindowTotal(totals, event);
       addWindowTotal(windows.selectedRange, event);
@@ -758,7 +1731,7 @@ function buildSummary(parsed, options) {
       const hourGroup = addGroup(hourMap, hourKey, { hour: event.hour, provider: event.provider });
       addWindowTotal(hourGroup, event);
 
-      const sessionGroup = addRangeSession(sessionMap, sessionKey, event);
+      const sessionGroup = addRangeSession(sessionMap, sessionKey, event, sessionMeta);
       addEventToRangeSession(sessionGroup, event);
     }
   }
@@ -771,7 +1744,9 @@ function buildSummary(parsed, options) {
   const modelTotals = Array.from(modelMap.values()).sort((a, b) => b.totalTokens - a.totalTokens);
   const daily = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date) || a.provider.localeCompare(b.provider));
   const hourly = Array.from(hourMap.values()).sort((a, b) => a.hour.localeCompare(b.hour) || a.provider.localeCompare(b.provider));
-  const topEvents = allEvents
+  const turnCandidates = allEvents.filter((event) => !event.syntheticThreadTotal);
+  const topEventsSource = turnCandidates.length > 0 ? turnCandidates : allEvents;
+  const topEvents = topEventsSource
     .slice()
     .sort((a, b) => b.totalTokens - a.totalTokens)
     .slice(0, MAX_TOP_EVENTS)
@@ -785,11 +1760,25 @@ function buildSummary(parsed, options) {
     session.recommendation = buildSessionRecommendation(session, totals);
   }
 
+  const subagentStats = buildSubagentStats(allSessions, allEvents, totals.totalTokens);
+  const modelCatalog = buildModelCatalog();
   const budgetPace = buildBudgetPace(windows);
   const weeklyPace = budgetPace.weekly;
   const planPace = buildPlanPace(planWindowStats, options);
   const budgetSessions = buildBudgetSessions(fiveHourSessionMap, weeklySessionMap, budgetPace);
-  const insightContext = { totals, windows, providerTotals, modelTotals, topSessions, topEvents, weeklyPace, budgetPace, budgetSessions, planPace };
+  const insightContext = {
+    totals,
+    windows,
+    providerTotals,
+    modelTotals,
+    topSessions,
+    topEvents,
+    weeklyPace,
+    budgetPace,
+    budgetSessions,
+    planPace,
+    subagentStats,
+  };
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -802,6 +1791,8 @@ function buildSummary(parsed, options) {
     windows,
     providerTotals,
     modelTotals,
+    subagentStats,
+    modelCatalog,
     daily,
     hourly,
     topSessions,
@@ -813,35 +1804,45 @@ function buildSummary(parsed, options) {
     promptGuidance: buildPromptGuidance(insightContext),
     insights: buildInsights(insightContext),
     recommendations: buildRecommendations(insightContext),
-    pricingNotice: "Costs and plan token budgets are estimates from local logs, not provider invoices or official subscription counters. Claude/Codex publish message windows, not fixed token caps; set env budgets for exact local targets.",
+    pricingNotice: "API dollars and OpenAI Standard-speed credits are estimates from local logs and SQLite state, not provider invoices or official subscription counters. Claude and Codex plans publish message windows and fair-use limits, not fixed included token caps; set env budgets for exact local targets.",
   };
 }
 
-function addRangeSession(map, key, event) {
+function addRangeSession(map, key, event, sessionMeta) {
   if (!map.has(key)) {
+    const meta = sessionMeta || {};
     map.set(key, {
       provider: event.provider,
       id: event.sessionId,
+      parentSessionId: event.parentSessionId || meta.parentSessionId || "",
+      agentId: meta.agentId || "",
+      isSubagent: Boolean(event.isSubagent || meta.isSubagent),
+      liveStatus: meta.liveStatus || "",
+      livePid: meta.livePid || 0,
+      reasoningEffort: event.reasoningEffort || meta.reasoningEffort || "",
+      sourceType: meta.sourceType || "jsonl",
       file: event.file,
-      project: event.project || "",
-      cwd: event.cwd || "",
-      title: event.title || "",
-      displayName: event.displayName || event.title || "",
-      nameSource: event.nameSource || "",
-      model: event.model || "unknown",
-      startMs: event.timestampMs,
-      endMs: event.timestampMs,
-      start: event.timestamp,
-      end: event.timestamp,
-      durationMinutes: 0,
+      project: event.project || meta.project || "",
+      cwd: event.cwd || meta.cwd || "",
+      title: event.title || meta.title || "",
+      displayName: event.displayName || event.title || meta.displayName || "",
+      nameSource: event.nameSource || meta.nameSource || "",
+      model: event.model || meta.model || "unknown",
+      startMs: meta.startMs || event.timestampMs,
+      endMs: meta.endMs || event.timestampMs,
+      start: meta.start || event.timestamp,
+      end: meta.end || event.timestamp,
+      durationMinutes: meta.durationMinutes || 0,
       eventCount: 0,
-      messageCount: 0,
+      messageCount: meta.messageCount || 0,
       tokens: emptyTokens(),
       totalTokens: 0,
       cacheHitRatio: 0,
       costUsd: 0,
       knownCostUsd: 0,
       unknownCostTokens: 0,
+      credits: 0,
+      creditKnownTokens: 0,
       pricingLabels: [],
       _pricingLabels: new Set(),
     });
@@ -854,9 +1855,14 @@ function addEventToRangeSession(session, event) {
   session.endMs = Math.max(session.endMs, event.timestampMs);
   session.start = new Date(session.startMs).toISOString();
   session.end = new Date(session.endMs).toISOString();
-  session.durationMinutes = Math.max(0, session.endMs - session.startMs) / 60000;
+  session.durationMinutes = Math.max(session.durationMinutes || 0, Math.max(0, session.endMs - session.startMs) / MS_PER_MINUTE);
   session.eventCount += 1;
-  if ((!session.model || session.model === "unknown") && event.model) session.model = event.model;
+  if ((!session.model || session.model === "unknown") && event.model) {
+    session.model = event.model;
+  }
+  if (!session.reasoningEffort && event.reasoningEffort) {
+    session.reasoningEffort = event.reasoningEffort;
+  }
   if ((!session.title || !session.displayName) && (event.title || event.displayName)) {
     session.title = event.title || session.title || "";
     session.displayName = event.displayName || event.title || session.displayName || "";
@@ -866,6 +1872,10 @@ function addEventToRangeSession(session, event) {
   session.totalTokens = tokenTotal(session.tokens);
   session.cacheHitRatio = cacheHitRatio(session.tokens);
   session.costUsd += event.costUsd;
+  session.credits += numberValue(event.credits);
+  if (event.creditKnown) {
+    session.creditKnownTokens += event.totalTokens;
+  }
   if (event.costKnown) {
     session.knownCostUsd += event.costUsd;
   } else {
@@ -888,6 +1898,8 @@ function makeWindowTotal() {
     costUsd: 0,
     knownCostUsd: 0,
     unknownCostTokens: 0,
+    credits: 0,
+    creditKnownTokens: 0,
     eventCount: 0,
     sessionCount: 0,
     tokens: emptyTokens(),
@@ -897,6 +1909,10 @@ function makeWindowTotal() {
 
 function addWindowTotal(target, event) {
   target.costUsd += numberValue(event.costUsd);
+  target.credits += numberValue(event.credits);
+  if (event.creditKnown) {
+    target.creditKnownTokens += event.totalTokens;
+  }
   if (event.costKnown) {
     target.knownCostUsd += numberValue(event.costUsd);
   } else {
@@ -1135,7 +2151,9 @@ function buildProviderPlanPace(provider, planId, providerStats) {
   const minBudgetTokens = messageRange && averageTokensPerTurn > 0 ? Math.round(messageRange.min * averageTokensPerTurn) : 0;
   const maxBudgetTokens = messageRange && averageTokensPerTurn > 0 ? Math.round((messageRange.max || messageRange.min) * averageTokensPerTurn) : 0;
   const projected5hTokens = Math.max(last5h.totalTokens, lastHour.totalTokens * 5);
-  const status = planLimitStatus(last5h.totalTokens, projected5hTokens, minBudgetTokens, maxBudgetTokens);
+  const status = preset.unlimitedFiveHour
+    ? { status: "ok", statusText: preset.unlimitedText || "No five-hour limit is published for this plan." }
+    : planLimitStatus(last5h.totalTokens, projected5hTokens, minBudgetTokens, maxBudgetTokens);
 
   return {
     provider,
@@ -1144,6 +2162,7 @@ function buildProviderPlanPace(provider, planId, providerStats) {
     detail: preset.detail || "",
     source: preset.source || "",
     promoUntil: preset.promoUntil || "",
+    unlimitedFiveHour: Boolean(preset.unlimitedFiveHour),
     dominantModel: dominantModel ? dominantModel.model : "",
     modelLimitKey: modelKey,
     messageRange: messageRange || null,
@@ -1169,12 +2188,49 @@ function dominantModelRow(modelMap) {
 
 function codexModelLimitKey(model) {
   const value = String(model || "");
-  if (/^gpt-5\.4-mini/i.test(value)) return "gpt54mini";
-  if (/^gpt-5\.4/i.test(value)) return "gpt54";
-  if (/^gpt-5\.3-codex/i.test(value)) return "gpt53codex";
-  if (/^gpt-5\.5/i.test(value)) return "gpt55";
-  if (/codex/i.test(value)) return "gpt53codex";
-  return "gpt55";
+  if (/^gpt-6-astra/i.test(value)) {
+    return "gpt6astra";
+  }
+  if (/^gpt-6\.1-sol/i.test(value)) {
+    return "gpt61sol";
+  }
+  if (/^gpt-6\.1-terra/i.test(value)) {
+    return "gpt61terra";
+  }
+  if (/^gpt-6-sol/i.test(value)) {
+    return "gpt6sol";
+  }
+  if (/^gpt-6-luna/i.test(value)) {
+    return "gpt6luna";
+  }
+  if (/^gpt-5\.6-sol/i.test(value)) {
+    return "gpt6sol";
+  }
+  if (/^gpt-5\.6-terra/i.test(value)) {
+    return "gpt61terra";
+  }
+  if (/^gpt-5\.6-luna/i.test(value)) {
+    return "gpt6luna";
+  }
+  if (/^gpt-5\.4-mini/i.test(value)) {
+    return "gpt54mini";
+  }
+  if (/^gpt-5\.4/i.test(value)) {
+    return "gpt54";
+  }
+  if (/^gpt-5\.3-codex-spark/i.test(value)) {
+    return "gpt53spark";
+  }
+  if (/^gpt-5\.3-codex/i.test(value)) {
+    return "gpt53codex";
+  }
+  if (/^gpt-5\.5/i.test(value)) {
+    return "gpt55";
+  }
+  if (/codex/i.test(value)) {
+    return "gpt53codex";
+  }
+  return "gpt61sol";
 }
 
 function planLimitStatus(usedTokens, projectedTokens, minBudgetTokens, maxBudgetTokens) {
@@ -1216,8 +2272,12 @@ function planLimitStatus(usedTokens, projectedTokens, minBudgetTokens, maxBudget
 }
 
 function providerDisplay(provider) {
-  if (provider === "claude") return "Claude Code";
-  if (provider === "codex") return "Codex CLI";
+  if (provider === "claude") {
+    return "Claude Code";
+  }
+  if (provider === "codex") {
+    return "Codex CLI";
+  }
   return sanitizeSessionTitle(provider || "AI CLI");
 }
 
@@ -1251,8 +2311,10 @@ function sumModelTokens(modelTotals, pattern) {
 
 function buildPromptGuidance(summary) {
   const totalTokens = numberValue(summary.totals.totalTokens);
-  const gpt55Tokens = sumModelTokens(summary.modelTotals, /^gpt-5\.5/i);
-  const gpt55Share = totalTokens > 0 ? gpt55Tokens / totalTokens : 0;
+  const frontierTokens = sumModelTokens(summary.modelTotals, /^(gpt-6-astra|gpt-6\.1-sol|claude-(fable-5-1|opus-5))/i);
+  const frontierShare = totalTokens > 0 ? frontierTokens / totalTokens : 0;
+  const subagentStats = summary.subagentStats || {};
+  const subagentShare = numberValue(subagentStats.subagentShare);
   const last24 = summary.windows.last24h;
   const lastHour = summary.windows.lastHour;
   const hourSpike = lastHour.totalTokens > 0 && last24.totalTokens > 0 && lastHour.totalTokens > (last24.totalTokens / 24) * 2.5;
@@ -1262,42 +2324,46 @@ function buildPromptGuidance(summary) {
 
   return [
     {
-      severity: gpt55Share >= 0.35 ? "high" : "info",
-      title: "Use GPT-5.5 for planning gates",
-      target: gpt55Tokens > 0 ? `${formatCount(gpt55Tokens)} GPT-5.5 tokens` : "Model routing",
-      detail: "Spend frontier reasoning on ambiguity: goal, risks, write set, acceptance criteria, and review. Move execution to Codex once the path is clear.",
+      severity: frontierShare >= 0.45 ? "high" : "info",
+      title: "Use GPT-6 frontier models for planning gates",
+      target: frontierTokens > 0 ? `${formatCount(frontierTokens)} frontier tokens` : "Model routing",
+      detail: "Spend GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 on ambiguity, architecture, and review. Route bounded work to Terra, Luna, Sonnet 5.5, or Haiku 5.5.",
       doNow: [
-        "Ask for the plan and success criteria first.",
-        "Hand Codex exact files, tests, and allowed side effects for the implementation pass.",
+        "Lock the plan, file write set, and acceptance criteria on Astra, Sol, Fable, or Opus first.",
+        "Delegate bounded implementation to GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5.",
       ],
     },
     {
-      severity: hourSpike || fiveHourPressure ? "high" : "info",
-      title: "Do not use /fast for discovery",
-      target: fiveHour.budgetTokens > 0 ? `${formatCount(fiveHour.remainingTokens)} 5h remaining` : hourSpike ? "Last-hour spike" : "Fast mode",
-      detail: "/fast is best after the write set is known. During exploration it can burn through many more turns before the scope is stable.",
+      severity: subagentShare >= 0.4 || fiveHourPressure ? "high" : "info",
+      title: "Cap subagent fan-out & /fast discovery",
+      target: subagentStats.subagentTokens > 0
+        ? `${formatCount(subagentStats.subagentTokens)} subagent tokens (${Math.round(subagentShare * 100)}%)`
+        : fiveHour.budgetTokens > 0
+          ? `${formatCount(fiveHour.remainingTokens)} 5h remaining`
+          : hourSpike ? "Last-hour spike" : "Subagents & /fast",
+      detail: "Parallel Claude subagents and /fast mode multiply context reads across every spawned worker. Keep exploration single-threaded until the write set is known.",
       doNow: [
-        "Use /fast for bounded edits, formatting, and small test loops.",
-        "Turn it off for repo-wide search, architecture tradeoffs, and unclear debugging.",
+        "Give each subagent an explicit file list and completion gate instead of open repo search.",
+        "Reserve /fast and GPT-5.3 Codex Spark for tight edit-and-test loops.",
       ],
     },
     {
       severity: "info",
-      title: "Start with low or medium effort",
-      target: "Reasoning effort",
-      detail: "Treat higher effort as a measured escalation. It is not automatically better when instructions conflict or the task is open-ended.",
+      title: "Match reasoning effort to risk",
+      target: "low / medium vs xhigh / ultra",
+      detail: "GPT-6 Astra, Sol, and Terra support effort controls through max. Higher effort multiplies reasoning output and latency without helping when the spec is already explicit.",
       doNow: [
-        "Use low or medium for scoped implementation.",
-        "Use high or xhigh only for hard planning, review, or async tasks where quality improves enough to justify the burn.",
+        "Use low or medium effort on Terra or Luna for scoped implementation and test fixes.",
+        "Escalate to xhigh or ultra on Sol only for multi-system architecture or subtle race/memory bugs.",
       ],
     },
     {
       severity: fiveHourPressure ? "high" : "info",
       title: "Protect the 5h window",
       target: fiveHour.budgetTokens > 0 ? `${formatCount(fiveHour.usedTokens)} of ${formatCount(fiveHour.budgetTokens)}` : "5h budget",
-      detail: fiveHour.statusText || "Set a 5-hour envelope to catch short burst limits before the weekly chart moves.",
+      detail: fiveHour.statusText || "Set a 5-hour envelope to catch short burst limits from Opus 5.5 or Sol subagent swarms before the weekly chart moves.",
       doNow: [
-        "Treat the 5-hour remaining number as the fast-mode guardrail.",
+        "Treat the 5-hour remaining number as the subagent and fast-mode guardrail.",
         "When it is low, finish the current scoped edit or checkpoint and pause broad discovery.",
       ],
     },
@@ -1305,10 +2371,10 @@ function buildPromptGuidance(summary) {
       severity: pace.status === "risk" || pace.status === "over" ? "high" : "info",
       title: "Pace the weekly envelope",
       target: pace.budgetTokens > 0 ? `${formatCount(pace.last7dTokens)} of ${formatCount(pace.budgetTokens)}` : "Weekly budget",
-      detail: pace.statusText || "Track projected runout, not just total spend.",
+      detail: pace.statusText || "Track projected runout across rolling 7-day windows, not just single-turn cost.",
       doNow: [
         "Watch last-hour pace against the rolling 7-day envelope.",
-        "If projected use crosses the envelope, summarize, narrow, or lower effort before continuing.",
+        "If projected use crosses the envelope, summarize, narrow context, or step down model tier.",
       ],
     },
   ];
@@ -1316,13 +2382,17 @@ function buildPromptGuidance(summary) {
 
 function quotePowerShellPath(value) {
   const text = String(value || "").trim();
-  if (!text) return "";
+  if (!text) {
+    return "";
+  }
   return `'${text.replace(/'/g, "''")}'`;
 }
 
 function launchCommandForSession(session) {
   const tool = session.provider === "claude" ? "claude" : session.provider === "codex" ? "codex" : "";
-  if (!tool) return "";
+  if (!tool) {
+    return "";
+  }
   const cwd = quotePowerShellPath(session.cwd);
   return cwd ? `cd ${cwd}; ${tool}` : tool;
 }
@@ -1330,7 +2400,8 @@ function launchCommandForSession(session) {
 function targetCliWindow(session) {
   const cwd = sanitizeSessionTitle(session.cwd || session.project || "", 120);
   const suffix = cwd ? ` in ${cwd}` : "";
-  return `${providerDisplay(session.provider)} window for "${sessionDisplayName(session)}"${suffix}`;
+  const statusBadge = session.liveStatus ? ` [${session.liveStatus}${session.livePid ? ` PID ${session.livePid}` : ""}]` : "";
+  return `${providerDisplay(session.provider)} window for "${sessionDisplayName(session)}"${statusBadge}${suffix}`;
 }
 
 function handoffPrompt(session) {
@@ -1439,7 +2510,7 @@ function buildTurnRecommendation(event) {
     + numberValue(tokens.cacheCreation1hInputTokens)
     + numberValue(tokens.cacheReadInputTokens);
 
-  if (total >= 1000000 || contextRatio >= 0.9) {
+  if (total >= TOKENS_PER_MILLION || contextRatio >= 0.9) {
     return {
       label: "Break into smaller asks",
       detail: "Ask for a file list or plan first, then run the edit/review in a second turn.",
@@ -1482,12 +2553,15 @@ function buildRecommendations(summary) {
   const weeklyPace = summary.weeklyPace || {};
   const fiveHourPace = summary.budgetPace && summary.budgetPace.fiveHour ? summary.budgetPace.fiveHour : {};
   const topFiveHourSession = summary.budgetSessions && summary.budgetSessions.fiveHour ? summary.budgetSessions.fiveHour[0] : null;
-  const gpt55Tokens = sumModelTokens(summary.modelTotals, /^gpt-5\.5/i);
-  const gpt55Share = summary.totals.totalTokens > 0 ? gpt55Tokens / summary.totals.totalTokens : 0;
-  const recentCutoffMs = Date.now() - 2 * 3600000;
+  const frontierTokens = sumModelTokens(summary.modelTotals, /^(gpt-6-astra|gpt-6\.1-sol|claude-(fable-5-1|opus-5))/i);
+  const frontierShare = summary.totals.totalTokens > 0 ? frontierTokens / summary.totals.totalTokens : 0;
+  const subagentStats = summary.subagentStats || {};
+  const recentCutoffMs = Date.now() - 2 * MS_PER_HOUR;
 
   function push(key, item) {
-    if (!item || used.has(key)) return;
+    if (!item || used.has(key)) {
+      return;
+    }
     used.add(key);
     recommendations.push(item);
   }
@@ -1499,7 +2573,7 @@ function buildRecommendations(summary) {
       target: fiveHourPace.budgetTokens > 0 ? `${formatCount(fiveHourPace.remainingTokens)} tokens remaining` : "5h envelope",
       reason: fiveHourPace.statusText,
       doNow: [
-        "Pause /fast and broad discovery until the rolling 5-hour pressure drops.",
+        "Pause /fast, subagent fan-out, and broad discovery until the rolling 5-hour pressure drops.",
         "Finish only the current bounded edit, then checkpoint the session.",
         topFiveHourSession ? `Inspect "${sessionDisplayName(topFiveHourSession)}" first; it is the top 5-hour burner.` : "Open Budget By Session and inspect the top 5-hour burner first.",
       ],
@@ -1518,9 +2592,9 @@ function buildRecommendations(summary) {
       target: weeklyPace.budgetTokens > 0 ? `${formatCount(weeklyPace.remainingTokens)} tokens remaining` : "Weekly envelope",
       reason: weeklyPace.statusText,
       doNow: [
-        "Stop open-ended fast-mode work until the next task is bounded.",
+        "Stop open-ended fast-mode or xhigh/ultra work until the next task is bounded.",
         "Summarize active sessions and continue only with the file list, failing command, and acceptance criteria.",
-        "Use low or medium effort for scoped execution; reserve high effort for planning or review.",
+        "Use GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5 for scoped execution; reserve Astra, Sol, Fable, and Opus for ambiguity or review.",
       ],
       ask: "Before continuing, give me the smallest next action, the exact files involved, and the acceptance test. Do not scan more context unless I approve it.",
       cli: [
@@ -1546,14 +2620,17 @@ function buildRecommendations(summary) {
     });
   }
 
-  const recentSessions = summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
+  const recentMainSessions = summary.topSessions.filter((session) => session.endMs >= recentCutoffMs && !session.isSubagent);
+  const recentSessions = recentMainSessions.length >= 2
+    ? recentMainSessions
+    : summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
   if (recentSessions.length >= 2) {
     const names = recentSessions.slice(0, 4).map((session) => `${providerDisplay(session.provider)}: ${sessionDisplayName(session)}`).join("; ");
     push("recent-sessions", {
       severity: "high",
       title: "Close duplicate active agents",
       target: `${recentSessions.length} sessions had log activity in the last 2 hours`,
-      reason: "Parallel stale terminals can keep adding turns, miss cache, and make it unclear which agent is burning tokens.",
+      reason: "Parallel stale terminals and subagents can keep adding turns, miss cache, and make it unclear which agent is burning tokens.",
       doNow: [
         `Check these windows first: ${names}.`,
         "Keep the one doing active useful work; close or Ctrl+C the others.",
@@ -1574,15 +2651,31 @@ function buildRecommendations(summary) {
       target: "Last-hour usage",
       reason: `The last hour used ${formatCount(lastHour.totalTokens)} tokens, above the 24 hour average pace.`,
       doNow: [
-        "Stop broad follow-up prompts until you know which session caused the spike.",
+        "Stop broad follow-up prompts until you know which session or subagent swarm caused the spike.",
         "Open Largest Turns, find the matching session, and split the next ask by file group or failing command.",
-        "Do not use /fast again until the write set and acceptance test are explicit.",
+        "Do not use /fast or xhigh/ultra effort again until the write set and acceptance test are explicit.",
       ],
       ask: "Before continuing, propose a smaller next step that uses the fewest files, names the acceptance test, and avoids re-reading old context.",
       cli: [
         'rg -n "<error-or-symbol>" .',
         "Paste only the relevant output into the next Claude/Codex turn.",
       ],
+    });
+  }
+
+  if (numberValue(subagentStats.subagentShare) >= 0.35 && numberValue(subagentStats.subagentTokens) >= 50000) {
+    push("subagent-fanout", {
+      severity: "high",
+      title: "Trim subagent fan-out",
+      target: `${subagentStats.subagentSessionCount} subagent sessions (${Math.round(subagentStats.subagentShare * 100)}% of tokens)`,
+      reason: `Subagents consumed ${formatCount(subagentStats.subagentTokens)} tokens in this range. Each spawned subagent builds its own context window.`,
+      doNow: [
+        "Keep routine multi-file changes with one implementation owner.",
+        "Pass subagents exact file paths and line ranges instead of letting every worker search the repo.",
+        "Use Claude Sonnet 5.5, Haiku 5.5, or GPT-6 Luna for bounded worker subagents.",
+      ],
+      ask: "Do not spawn subagents for this task unless independent workstreams require it. Handle the edit directly on the main thread.",
+      cli: [],
     });
   }
 
@@ -1615,8 +2708,8 @@ function buildRecommendations(summary) {
       target: "Provider split",
       reason: `Claude is ${Math.round((claude.totalTokens / summary.totals.totalTokens) * 100)}% of selected tokens.`,
       doNow: [
-        "Use Codex for repo search, mechanical edits, and test-loop fixes.",
-        "Bring Claude the narrowed result for architecture, UX, or review decisions.",
+        "Use Codex (GPT-6.1 Terra or GPT-6 Luna) for repo search, mechanical edits, and test-loop fixes.",
+        "Bring GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, or Opus 5.5 the narrowed result for architecture, UX, or review decisions.",
       ],
       ask: "Codex: inspect the repo for this exact issue, return the relevant files and a minimal patch plan, and do not edit until I approve the write set.",
       cli: [
@@ -1626,28 +2719,28 @@ function buildRecommendations(summary) {
     });
   }
 
-  if (gpt55Share >= 0.35) {
-    push("route-gpt55", {
+  if (frontierShare >= 0.35) {
+    push("route-frontier", {
       severity: "info",
-      title: "Move from planning to execution",
-      target: `${formatCount(gpt55Tokens)} GPT-5.5 tokens in this range`,
-      reason: "GPT-5.5 is best spent on ambiguous planning, tradeoffs, and review. Once scope is clear, keep the edit loop in Codex with a bounded prompt.",
+      title: "Step down from frontier models after planning",
+      target: `${formatCount(frontierTokens)} frontier (Astra / Sol / Fable / Opus) tokens`,
+      reason: "GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 are best spent on ambiguity and review. Once scope is clear, execute on Terra, Luna, Sonnet 5.5, or Haiku 5.5.",
       doNow: [
-        "Ask GPT-5.5 for the write set, risks, and acceptance criteria.",
-        "Execute with GPT-5.3 Codex using low or medium effort unless the task stays ambiguous.",
-        "Bring the completed diff back for review only if the decision quality matters.",
+        "Ask Sol or Opus 5.5 for the write set, risks, and acceptance criteria.",
+        "Execute with GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5 using low or medium effort.",
+        "Bring the completed diff back for review only if decision quality matters.",
       ],
       ask: "Plan only: identify the exact files, success criteria, risks, and test command. Do not implement in this turn.",
       cli: [
         "codex",
-        "Use a scoped Codex prompt with exact files and tests.",
+        "Use a scoped prompt with exact files and tests.",
       ],
     });
   }
 
   if (topEvent) {
     push(`turn:${topEvent.provider}:${topEvent.sessionId}:${topEvent.turnIndex}`, {
-      severity: topEvent.totalTokens >= 1000000 ? "high" : "info",
+      severity: topEvent.totalTokens >= TOKENS_PER_MILLION ? "high" : "info",
       title: topEvent.recommendation ? topEvent.recommendation.label : "Reduce the largest turn",
       target: `${providerDisplay(topEvent.provider)} turn ${topEvent.turnIndex} in "${sessionDisplayName(topEvent)}"`,
       reason: `The largest turn used ${formatCount(topEvent.totalTokens)} tokens.`,
@@ -1707,6 +2800,7 @@ function buildInsights(summary) {
   const topEvent = summary.topEvents[0];
   const last24 = summary.windows.last24h;
   const lastHour = summary.windows.lastHour;
+  const subagentStats = summary.subagentStats || {};
 
   if (claude && summary.totals.totalTokens > 0) {
     const claudeShare = claude.totalTokens / summary.totals.totalTokens;
@@ -1719,10 +2813,30 @@ function buildInsights(summary) {
     }
   }
 
+  if (codex && summary.totals.totalTokens > 0) {
+    const codexShare = codex.totalTokens / summary.totals.totalTokens;
+    if (codexShare >= 0.65) {
+      insights.push({
+        severity: "high",
+        title: "Codex dominates this range",
+        detail: `Codex accounts for ${Math.round(codexShare * 100)}% of selected tokens across local JSONL and SQLite thread history.`,
+      });
+    }
+  }
+
+  if (numberValue(subagentStats.subagentTokens) > 0 && summary.totals.totalTokens > 0) {
+    const subShare = Math.round(numberValue(subagentStats.subagentShare) * 100);
+    insights.push({
+      severity: subShare >= 40 ? "high" : "info",
+      title: "Subagent token share",
+      detail: `${subagentStats.subagentSessionCount} subagent sessions used ${formatCount(subagentStats.subagentTokens)} tokens (${subShare}% of range, ~${ `$${numberValue(subagentStats.subagentCostUsd).toFixed(2)}` }).`,
+    });
+  }
+
   if (last24.totalTokens > 0) {
     const hourlyPace = Math.round(last24.totalTokens / 24);
     insights.push({
-      severity: last24.totalTokens >= 1000000 ? "high" : "info",
+      severity: last24.totalTokens >= TOKENS_PER_MILLION ? "high" : "info",
       title: "24 hour burn pace",
       detail: `${formatCount(last24.totalTokens)} tokens in the last 24 hours, about ${formatCount(hourlyPace)} tokens/hour on average.`,
     });
@@ -1751,8 +2865,11 @@ function buildInsights(summary) {
     }
   }
 
-  const recentCutoffMs = Date.now() - 2 * 3600000;
-  const recentSessions = summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
+  const recentCutoffMs = Date.now() - 2 * MS_PER_HOUR;
+  const recentMainSessions = summary.topSessions.filter((session) => session.endMs >= recentCutoffMs && !session.isSubagent);
+  const recentSessions = recentMainSessions.length >= 2
+    ? recentMainSessions
+    : summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
   if (recentSessions.length >= 2) {
     const lowCache = recentSessions
       .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens) < 0.2)
@@ -1820,27 +2937,39 @@ function buildInsights(summary) {
 
 function formatCount(value) {
   const n = Math.round(numberValue(value));
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  if (n >= 1000 * TOKENS_PER_MILLION) {
+    return `${(n / (1000 * TOKENS_PER_MILLION)).toFixed(2)}B`;
+  }
+  if (n >= TOKENS_PER_MILLION) {
+    return `${(n / TOKENS_PER_MILLION).toFixed(1)}M`;
+  }
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1)}K`;
+  }
   return String(n);
 }
 
 function formatDurationMinutes(value) {
   const minutes = Math.max(0, Math.round(numberValue(value)));
-  if (minutes >= 1440) return `${(minutes / 1440).toFixed(1)}d`;
-  if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
+  if (minutes >= 1440) {
+    return `${(minutes / 1440).toFixed(1)}d`;
+  }
+  if (minutes >= 60) {
+    return `${(minutes / 60).toFixed(1)}h`;
+  }
   return `${minutes}m`;
 }
 
 async function parseAllUsage(options) {
-  const days = Math.max(1, Number(options.days || DEFAULT_DAYS));
+  const opts = options || {};
+  const days = Math.max(1, Number(opts.days || DEFAULT_DAYS));
   const logDays = Math.max(days, 7);
-  const sinceMs = Date.now() - logDays * 86400000;
-  const claudeRoot = path.resolve(options.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects"));
-  const codexRoot = path.resolve(options.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(os.homedir(), ".codex", "sessions"));
+  const sinceMs = Date.now() - logDays * MS_PER_DAY;
+  const claudeRoot = path.resolve(opts.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects"));
+  const codexRoot = path.resolve(opts.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(os.homedir(), ".codex", "sessions"));
   const [claude, codex] = await Promise.all([
-    parseClaude(claudeRoot, sinceMs),
-    parseCodex(codexRoot, sinceMs),
+    parseClaude(claudeRoot, sinceMs, opts),
+    parseCodex(codexRoot, sinceMs, opts),
   ]);
   return [claude, codex];
 }
@@ -1859,10 +2988,10 @@ function respondJson(res, status, payload) {
 function serveFile(res, filePath, contentType) {
   fs.readFile(filePath, (err, body) => {
     if (err) {
-      respond(res, 404, "Not found");
+      respond(res, HTTP_NOT_FOUND, "Not found");
       return;
     }
-    respond(res, 200, body, contentType || "text/html; charset=utf-8");
+    respond(res, HTTP_OK, body, contentType || "text/html; charset=utf-8");
   });
 }
 
@@ -1875,7 +3004,7 @@ function createServer() {
   return http.createServer(async (req, res) => {
     const parsed = parseQuery(req);
     if (req.method !== "GET") {
-      respondJson(res, 405, { ok: false, error: "Method not allowed" });
+      respondJson(res, HTTP_METHOD_NOT_ALLOWED, { ok: false, error: "Method not allowed" });
       return;
     }
 
@@ -1885,13 +3014,13 @@ function createServer() {
     }
 
     if (parsed.path === "/favicon.ico") {
-      res.statusCode = 204;
+      res.statusCode = HTTP_NO_CONTENT;
       res.end();
       return;
     }
 
     if (parsed.path === "/health") {
-      respondJson(res, 200, { ok: true, name: "ai-spend-dashboard" });
+      respondJson(res, HTTP_OK, { ok: true, name: "ai-spend-dashboard" });
       return;
     }
 
@@ -1903,9 +3032,9 @@ function createServer() {
         const codexPlan = String(parsed.query.get("codexPlan") || "").toLowerCase();
         const sources = await parseAllUsage({ days });
         const summary = buildSummary(sources, { days, provider, claudePlan, codexPlan });
-        respondJson(res, 200, summary);
+        respondJson(res, HTTP_OK, summary);
       } catch (err) {
-        respondJson(res, 500, {
+        respondJson(res, HTTP_SERVER_ERROR, {
           ok: false,
           error: err && err.message ? err.message : String(err),
         });
@@ -1913,7 +3042,7 @@ function createServer() {
       return;
     }
 
-    respond(res, 404, "Not found");
+    respond(res, HTTP_NOT_FOUND, "Not found");
   });
 }
 
@@ -1921,13 +3050,21 @@ function parseArgs(argv) {
   const out = { port: DEFAULT_PORT, days: DEFAULT_DAYS, provider: "all", claudePlan: "", codexPlan: "", summary: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--summary") out.summary = true;
-    else if (arg === "--days") out.days = Number(argv[++i] || DEFAULT_DAYS);
-    else if (arg === "--provider") out.provider = String(argv[++i] || "all").toLowerCase();
-    else if (arg === "--claude-plan") out.claudePlan = String(argv[++i] || "").toLowerCase();
-    else if (arg === "--codex-plan") out.codexPlan = String(argv[++i] || "").toLowerCase();
-    else if (arg === "--port") out.port = Number(argv[++i] || DEFAULT_PORT);
-    else if (/^\d+$/.test(arg)) out.port = Number(arg);
+    if (arg === "--summary") {
+      out.summary = true;
+    } else if (arg === "--days") {
+      out.days = Number(argv[++i] || DEFAULT_DAYS);
+    } else if (arg === "--provider") {
+      out.provider = String(argv[++i] || "all").toLowerCase();
+    } else if (arg === "--claude-plan") {
+      out.claudePlan = String(argv[++i] || "").toLowerCase();
+    } else if (arg === "--codex-plan") {
+      out.codexPlan = String(argv[++i] || "").toLowerCase();
+    } else if (arg === "--port") {
+      out.port = Number(argv[++i] || DEFAULT_PORT);
+    } else if (/^\d+$/.test(arg)) {
+      out.port = Number(arg);
+    }
   }
   return out;
 }
@@ -1942,6 +3079,8 @@ async function main() {
       range: summary.range,
       totals: summary.totals,
       providerTotals: summary.providerTotals,
+      modelTotals: summary.modelTotals,
+      subagentStats: summary.subagentStats,
       budgetPace: summary.budgetPace,
       planPace: summary.planPace,
       weeklyPace: summary.weeklyPace,
@@ -1967,8 +3106,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildModelCatalog,
   buildSummary,
+  createServer,
   estimateCost,
+  estimateCredits,
   listJsonlFiles,
   normalizeClaudeUsage,
   normalizeCodexUsage,

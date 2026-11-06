@@ -514,6 +514,43 @@
       font-size: 11px;
       margin-top: 3px;
     }
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-left: 5px;
+      vertical-align: middle;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+    }
+    .tag-subagent {
+      color: #d9c4ff;
+      background: rgba(167, 130, 245, 0.14);
+      border-color: rgba(167, 130, 245, 0.34);
+    }
+    .tag-effort {
+      color: #ffe299;
+      background: rgba(227, 189, 95, 0.14);
+      border-color: rgba(227, 189, 95, 0.34);
+    }
+    .tag-busy {
+      color: #b7f7d8;
+      background: rgba(73, 197, 143, 0.16);
+      border-color: rgba(73, 197, 143, 0.38);
+    }
+    .tag-sqlite {
+      color: #b7e6fa;
+      background: rgba(95, 184, 219, 0.14);
+      border-color: rgba(95, 184, 219, 0.32);
+    }
+    .side-panel.quarter {
+      grid-column: span 3;
+    }
     .error {
       padding: 16px;
       border: 1px solid rgba(234, 106, 106, 0.3);
@@ -527,7 +564,7 @@
       .topbar { align-items: flex-start; flex-direction: column; }
       .controls { justify-content: flex-start; }
       .stat, .stat.wide { grid-column: span 6; }
-      .chart-panel, .side-panel { grid-column: span 12; }
+      .chart-panel, .side-panel, .side-panel.quarter { grid-column: span 12; }
       .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .budget-eaters { grid-template-columns: 1fr; }
@@ -551,7 +588,7 @@
         <div class="mark">AI</div>
         <div>
           <h1>AI Spend Local Dashboard</h1>
-          <div class="caption">Claude + Codex token burn from local JSONL logs</div>
+          <div class="caption">Claude 5.5 + OpenAI GPT-6 token, API-cost, subscription-credit, and plan-usage signals from local JSONL &amp; SQLite</div>
         </div>
       </div>
       <div class="controls">
@@ -562,6 +599,7 @@
             <option value="7" selected>7 days</option>
             <option value="30">30 days</option>
             <option value="90">90 days</option>
+            <option value="365">365 days (All)</option>
           </select>
         </label>
         <label class="control">
@@ -578,16 +616,19 @@
             <option value="custom" selected>Custom/env</option>
             <option value="claude-pro">Pro</option>
             <option value="claude-max-5x">Max 5x $100</option>
-            <option value="claude-max-20x">Max 20x $200</option>
+            <option value="claude-ultra">Ultra $200</option>
           </select>
         </label>
         <label class="control">
           <span>Codex Plan</span>
           <select id="codexPlan">
             <option value="custom" selected>Custom/env</option>
-            <option value="codex-plus">Plus/Business</option>
-            <option value="codex-pro-5x">Pro 5x $100</option>
-            <option value="codex-pro-20x">Pro 20x $200</option>
+            <option value="codex-plus">Plus $20</option>
+            <option value="codex-business">Business $20-$25</option>
+            <option value="codex-pro-100">Pro $100</option>
+            <option value="codex-pro-200">Pro $200</option>
+            <option value="codex-pro-500">Pro $500</option>
+            <option value="codex-enterprise-flex">Enterprise/Edu flexible</option>
             <option value="codex-api">API key</option>
           </select>
         </label>
@@ -687,21 +728,28 @@
         <div id="budgetEaters" class="budget-eaters"></div>
       </article>
 
-      <article class="panel side-panel">
+      <article class="panel side-panel quarter">
         <div class="panel-head">
           <h2 class="panel-title">Provider Split</h2>
         </div>
         <div id="providers" class="bar-list"></div>
       </article>
 
-      <article class="panel side-panel">
+      <article class="panel side-panel quarter">
         <div class="panel-head">
           <h2 class="panel-title">Model Split</h2>
         </div>
         <div id="models" class="bar-list"></div>
       </article>
 
-      <article class="panel side-panel">
+      <article class="panel side-panel quarter">
+        <div class="panel-head">
+          <h2 class="panel-title">Subagents &amp; Effort</h2>
+        </div>
+        <div id="subagents" class="bar-list"></div>
+      </article>
+
+      <article class="panel side-panel quarter">
         <div class="panel-head">
           <h2 class="panel-title">Log Sources</h2>
         </div>
@@ -729,6 +777,7 @@
                 <th class="num">Cache</th>
                 <th class="num">Tokens</th>
                 <th class="num">Estimate</th>
+                <th class="num">Credits</th>
               </tr>
             </thead>
             <tbody id="sessions"></tbody>
@@ -758,9 +807,37 @@
                 <th class="num">Output</th>
                 <th class="num">Total</th>
                 <th class="num">Estimate</th>
+                <th class="num">Credits</th>
               </tr>
             </thead>
             <tbody id="events"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="panel table-panel">
+        <div style="padding:14px 14px 0">
+          <div class="panel-head">
+            <h2 class="panel-title">Latest Model Catalog &amp; API Pricing Reference</h2>
+            <span class="pill">official standard API and OpenAI credit rates per 1M tokens</span>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Recommended Role &amp; Routing</th>
+                <th class="num">Context</th>
+                <th>Efforts</th>
+                <th class="num">Input / 1M</th>
+                <th class="num">Cached / 1M</th>
+                <th class="num">Cache Write / 1M</th>
+                <th class="num">Output / 1M</th>
+                <th class="num">OpenAI credits I / C / O</th>
+              </tr>
+            </thead>
+            <tbody id="modelCatalog"></tbody>
           </table>
         </div>
       </article>
@@ -784,13 +861,26 @@
 
     function compact(n) {
       n = Number(n || 0);
-      if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-      if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+      if (n >= 1000000000) {
+        return `${(n / 1000000000).toFixed(2)}B`;
+      }
+      if (n >= 1000000) {
+        return `${(n / 1000000).toFixed(1)}M`;
+      }
+      if (n >= 1000) {
+        return `${(n / 1000).toFixed(1)}K`;
+      }
       return nf.format(Math.round(n));
     }
 
     function money(value) {
       return cf.format(Number(value || 0));
+    }
+
+    function spendEstimate(row) {
+      const value = row || {};
+      const api = `${money(value.costUsd)} API`;
+      return Number(value.credits || 0) > 0 ? `${api} · ${compact(value.credits)} credits` : api;
     }
 
     function pct(value) {
@@ -847,7 +937,7 @@
       el("pricingNotice").textContent = data.pricingNotice || "";
       el("generatedAt").textContent = `Updated ${dtf.format(new Date(data.generatedAt))}`;
       el("todayTokens").textContent = compact(data.windows.today.totalTokens);
-      el("todaySpend").textContent = `${money(data.windows.today.costUsd)} API estimate`;
+      el("todaySpend").textContent = spendEstimate(data.windows.today);
       el("hourTokens").textContent = compact(data.windows.lastHour.totalTokens);
       el("hourPace").textContent = `${compact(data.windows.lastHour.totalTokens)} tokens/hour current pace`;
       const fiveHour = data.budgetPace && data.budgetPace.fiveHour ? data.budgetPace.fiveHour : {};
@@ -859,11 +949,11 @@
         el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens || data.windows.last5h.totalTokens)} used. Set AI_SPEND_5H_TOKEN_BUDGET.`;
       }
       el("dayTokens").textContent = compact(data.windows.last24h.totalTokens);
-      el("daySpend").textContent = `${money(data.windows.last24h.costUsd)} API estimate`;
+      el("daySpend").textContent = spendEstimate(data.windows.last24h);
       el("weekTokens").textContent = compact(data.windows.last7d.totalTokens);
-      el("weekSpend").textContent = `${money(data.windows.last7d.costUsd)} API estimate`;
+      el("weekSpend").textContent = spendEstimate(data.windows.last7d);
       el("rangeTokens").textContent = compact(data.totals.totalTokens);
-      el("rangeSpend").textContent = `${money(data.totals.costUsd)} across ${nf.format(data.totals.eventCount)} turns`;
+      el("rangeSpend").textContent = `${spendEstimate(data.totals)} across ${nf.format(data.totals.eventCount)} turns`;
       const cacheRatio = tokenCacheRatio(data.totals.tokens);
       el("cachePct").textContent = pct(cacheRatio);
       el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens`;
@@ -883,16 +973,20 @@
       el("planOverview").innerHTML = rows.map((plan) => {
         const severe = plan.status === "risk" || plan.status === "over";
         const hasEstimate = Number(plan.estimatedFiveHourTokenBudgetMin || 0) > 0;
-        const budgetRange = hasEstimate
+        const budgetRange = plan.unlimitedFiveHour
+          ? "No five-hour cap"
+          : hasEstimate
           ? plan.estimatedFiveHourTokenBudgetMin === plan.estimatedFiveHourTokenBudgetMax
             ? `~${compact(plan.estimatedFiveHourTokenBudgetMin)} estimated tokens / 5h`
             : `~${compact(plan.estimatedFiveHourTokenBudgetMin)}-${compact(plan.estimatedFiveHourTokenBudgetMax)} estimated tokens / 5h`
           : "No token estimate";
-        const remaining = hasEstimate
+        const remaining = plan.unlimitedFiveHour
+          ? "No 5h cap"
+          : hasEstimate
           ? plan.remainingTokensMin === plan.remainingTokensMax
             ? compact(plan.remainingTokensMin)
             : `${compact(plan.remainingTokensMin)}-${compact(plan.remainingTokensMax)}`
-          : "No cap";
+          : "No estimate";
         const messages = plan.messageRange
           ? plan.messageRange.min === plan.messageRange.max
             ? `${nf.format(plan.messageRange.min)} official messages / 5h`
@@ -958,7 +1052,7 @@
             return `
               <div class="budget-row">
                 <div>
-                  <div class="budget-session">${escapeHtml(sessionName(row))}</div>
+                  <div class="budget-session">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
                   <div class="budget-detail">${providerLabel(row.provider)} ${escapeHtml(row.model || "unknown")} - ${compact(row.totalTokens)} tokens - ${duration(row.durationMinutes)}</div>
                 </div>
                 <div class="budget-share">${pct(share)}</div>
@@ -1023,8 +1117,50 @@
       `;
     }
 
-    function renderBars(id, rows, labelFn) {
-      const max = Math.max(1, ...rows.map((row) => row.totalTokens || 0));
+    function renderBadges(row) {
+      const tags = [];
+      if (row.isSubagent) {
+        tags.push(`<span class="tag tag-subagent">subagent</span>`);
+      }
+      if (row.reasoningEffort) {
+        tags.push(`<span class="tag tag-effort">${escapeHtml(row.reasoningEffort)}</span>`);
+      }
+      if (row.liveStatus) {
+        tags.push(`<span class="tag ${row.liveStatus === "busy" ? "tag-busy" : ""}">${escapeHtml(row.liveStatus)}</span>`);
+      }
+      if (row.sourceType === "sqlite") {
+        tags.push(`<span class="tag tag-sqlite">sqlite</span>`);
+      }
+      return tags.join("");
+    }
+
+    function renderSubagentsAndEffort(data) {
+      const sub = data.subagentStats || {};
+      const total = Math.max(1, Number(data.totals && data.totals.totalTokens || 0));
+      const rows = [
+        {
+          label: `Main Threads (${nf.format(sub.mainSessionCount || 0)})`,
+          totalTokens: Number(sub.mainTokens || 0),
+          costUsd: Math.max(0, Number(data.totals && data.totals.costUsd || 0) - Number(sub.subagentCostUsd || 0)),
+        },
+        {
+          label: `Subagents (${nf.format(sub.subagentSessionCount || 0)})`,
+          totalTokens: Number(sub.subagentTokens || 0),
+          costUsd: Number(sub.subagentCostUsd || 0),
+        },
+      ];
+      for (const eff of (sub.effortTotals || []).slice(0, 4)) {
+        rows.push({
+          label: `Effort: ${eff.effort}`,
+          totalTokens: Number(eff.totalTokens || 0),
+          costUsd: Number(eff.costUsd || 0),
+        });
+      }
+      renderBars("subagents", rows.filter((r) => r.totalTokens > 0), (row) => escapeHtml(row.label), total);
+    }
+
+    function renderBars(id, rows, labelFn, forcedMax) {
+      const max = forcedMax || Math.max(1, ...rows.map((row) => row.totalTokens || 0));
       el(id).innerHTML = rows.slice(0, 8).map((row) => `
         <div class="bar-item">
           <div class="bar-meta">
@@ -1040,11 +1176,14 @@
       const roots = data.roots || {};
       const sourceRows = ["claude", "codex"].map((key) => {
         const source = roots[key] || {};
+        const sqliteNote = source.sqliteThreads
+          ? ` (${nf.format(source.sqliteThreads)} from state SQLite)`
+          : "";
         return `
           <div class="insight">
             <div class="insight-title">${key}</div>
             <div class="insight-detail mono">${escapeHtml(source.root || "not found")}</div>
-            <div class="insight-detail">${nf.format(source.files || 0)} files - ${nf.format((source.sessions || []).length)} sessions - ${nf.format((source.errors || []).length)} errors</div>
+            <div class="insight-detail">${nf.format(source.files || 0)} sources${escapeHtml(sqliteNote)} - ${nf.format((source.sessions || []).length)} sessions - ${nf.format((source.errors || []).length)} errors</div>
           </div>
         `;
       });
@@ -1056,7 +1195,7 @@
         <tr>
           <td>${providerLabel(row.provider)}</td>
           <td class="session-cell">
-            <div class="session-title">${escapeHtml(sessionName(row))}</div>
+            <div class="session-title">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
             <div class="muted mono session-meta">${escapeHtml(shortId(row.id))}</div>
             <div class="muted session-meta">${escapeHtml(row.nameSource || "session id")} - ${escapeHtml(trimPath(row.file || ""))}</div>
           </td>
@@ -1068,6 +1207,7 @@
           <td class="num ${cacheClass(row.cacheHitRatio)}">${pct(row.cacheHitRatio)}</td>
           <td class="num">${compact(row.totalTokens)}</td>
           <td class="num">${money(row.costUsd)}</td>
+          <td class="num">${row.credits > 0 ? compact(row.credits) : `<span class="muted">-</span>`}</td>
         </tr>
       `).join("");
 
@@ -1076,7 +1216,7 @@
           <td>${providerLabel(row.provider)}</td>
           <td>${dtf.format(new Date(row.timestampMs))}</td>
           <td class="session-cell">
-            <div class="session-title">${escapeHtml(sessionName(row))}</div>
+            <div class="session-title">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
             <div class="muted mono session-meta">${escapeHtml(shortId(row.sessionId))} - turn ${row.turnIndex}</div>
           </td>
           <td class="action-cell">${renderAction(row.recommendation)}</td>
@@ -1087,6 +1227,26 @@
           <td class="num">${compact(row.tokens.outputTokens)}</td>
           <td class="num">${compact(row.totalTokens)}</td>
           <td class="num">${row.costKnown ? money(row.costUsd) : "unknown"}</td>
+          <td class="num">${row.creditKnown ? compact(row.credits) : `<span class="muted">-</span>`}</td>
+        </tr>
+      `).join("");
+
+      el("modelCatalog").innerHTML = (data.modelCatalog || []).map((row) => `
+        <tr>
+          <td>${providerLabel(row.provider)}</td>
+          <td>
+            <div class="session-title">${escapeHtml(row.label)}${row.estimated ? `<span class="tag">est</span>` : ""}</div>
+            <div class="muted mono session-meta">${escapeHtml(row.id)}</div>
+            ${row.longContextThreshold ? `<div class="muted session-meta">long-context rates above ${compact(row.longContextThreshold)} input tokens</div>` : ""}
+          </td>
+          <td>${escapeHtml(row.role || "")}</td>
+          <td class="num">${compact(row.contextWindow || 0)}</td>
+          <td>${(row.efforts && row.efforts.length) ? escapeHtml(row.efforts.join(", ")) : `<span class="muted">standard</span>`}</td>
+          <td class="num">${money(row.inputPer1M)}</td>
+          <td class="num">${money(row.cachedInputPer1M)}</td>
+          <td class="num">${row.cacheWrite5mPer1M != null ? money(row.cacheWrite5mPer1M) : `<span class="muted">-</span>`}</td>
+          <td class="num">${money(row.outputPer1M)}</td>
+          <td class="num">${row.creditInputPer1M != null ? `${compact(row.creditInputPer1M)} / ${compact(row.creditCachedInputPer1M)} / ${compact(row.creditOutputPer1M)}` : `<span class="muted">-</span>`}</td>
         </tr>
       `).join("");
     }
@@ -1229,8 +1389,9 @@
         renderPlanOverview(data);
         renderBudgetOverview(data);
         renderBudgetEaters(data);
-        renderBars("providers", data.providerTotals || [], (row) => row.provider);
-        renderBars("models", data.modelTotals || [], (row) => `${row.provider} - ${row.model}`);
+        renderBars("providers", data.providerTotals || [], (row) => escapeHtml(row.provider));
+        renderBars("models", data.modelTotals || [], (row) => escapeHtml(`${row.provider} - ${row.model}`));
+        renderSubagentsAndEffort(data);
         renderSources(data);
         renderTables(data);
         renderChart(data);
