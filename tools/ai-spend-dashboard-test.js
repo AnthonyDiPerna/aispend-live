@@ -5,12 +5,16 @@ const path = require("path");
 
 const {
   buildSummary,
+  buildObservedRateLimits,
   estimateCost,
   estimateCredits,
   normalizeClaudeUsage,
   normalizeCodexUsage,
+  normalizeImportedUsage,
   parseClaude,
   parseCodex,
+  parseImportedUsage,
+  buildWorkflowGuidance,
 } = require("./ai-spend-dashboard-server");
 
 function writeJsonl(filePath, rows) {
@@ -24,6 +28,7 @@ async function run() {
   const claudeSessionsRoot = path.join(root, "claude", "sessions");
   const codexRoot = path.join(root, "codex", "sessions");
   const codexSqlitePath = path.join(root, "codex", "state_5.sqlite");
+  const importRoot = path.join(root, "imports");
   const recentIso = new Date(Date.now() - 60000).toISOString();
   const recentEpochSec = Math.floor((Date.now() - 120000) / 1000);
 
@@ -185,6 +190,10 @@ async function run() {
       timestamp: "2026-05-04T13:00:02.000Z",
       payload: {
         type: "token_count",
+        rate_limits: {
+          limit_id: "codex",
+          primary: { used_percent: 12, window_minutes: 10080, resets_at: Math.floor(Date.now() / 1000) + 3600 },
+        },
         info: {
           last_token_usage: {
             input_tokens: 2000,
@@ -244,10 +253,44 @@ async function run() {
   });
   assert.equal(codexTokens.totalTokens, 14);
 
+  const importedTokens = normalizeImportedUsage({
+    input_tokens: 100,
+    cached_input_tokens: 25,
+    output_tokens: 10,
+    total_tokens: 135,
+  });
+  assert.equal(importedTokens.totalTokens, 135);
+
+  writeJsonl(path.join(importRoot, "runner.jsonl"), [
+    {
+      id: "imported-turn-1",
+      timestamp: recentIso,
+      provider: "local-runner",
+      model: "mystery-model-v9",
+      session_id: "import-session",
+      is_subagent: true,
+      usage: { input_tokens: 100, cached_input_tokens: 25, output_tokens: 10, total_tokens: 135 },
+    },
+    {
+      id: "imported-turn-1",
+      timestamp: recentIso,
+      provider: "local-runner",
+      model: "mystery-model-v9",
+      session_id: "import-session",
+      is_subagent: true,
+      usage: { input_tokens: 100, cached_input_tokens: 25, output_tokens: 10, total_tokens: 135 },
+    },
+  ]);
+
   const claude = await parseClaude(claudeRoot, 0, { sessionsMetaRoot: claudeSessionsRoot });
   const codex = await parseCodex(codexRoot, 0, { sqlitePath: codexSqlitePath, sessionIndexPath: path.join(root, "codex", "session_index.jsonl") });
+  const imported = await parseImportedUsage(importRoot, 0);
   assert.equal(claude.sessions.length, 2);
   assert.equal(codex.sessions.length, 2);
+  assert(codex.rateLimitSnapshots.length > 0, "Codex rate-limit snapshots should be parsed");
+  assert.equal(imported.events.length, 1, "duplicate imported IDs must not double count");
+  assert.equal(imported.events[0].model, "mystery-model-v9");
+  assert.equal(imported.events[0].isSubagent, true);
   const mainClaudeEvent = claude.events.find((event) => event.sessionId === "claude-session");
   const firstCodexEvent = codex.events.find((event) => event.sessionId === "codex-session" && event.turnIndex === 1);
   const secondCodexEvent = codex.events.find((event) => event.sessionId === "codex-session" && event.turnIndex === 2);
@@ -310,14 +353,17 @@ async function run() {
   assert.equal(sqliteSession.model, "gpt-6-astra");
   assert.equal(sqliteSession.reasoningEffort, "xhigh");
   assert.equal(sqliteSession.totalTokens, 125000);
-  assert(sqliteSession.credits > 0);
+  assert.equal(sqliteSession.credits, 0, "SQLite totals must not fabricate credits from an inferred breakdown");
+  assert(sqliteSession.unknownCostTokens >= 125000);
   assert.equal(sqliteSession.displayName, "Weapon overlay alignment");
 
   const summary = buildSummary([claude, codex], { days: 365, provider: "all" });
   assert.equal(summary.topEvents.length, 4);
   assert.equal(summary.totals.eventCount, 5);
   assert(summary.totals.totalTokens >= 135220);
-  assert.equal(summary.totals.unknownCostTokens, 0);
+  assert(summary.totals.breakdownUnknownTokens >= 125000);
+  assert.equal(summary.windows.last5h.breakdownUnknownTokens, 0);
+  assert(summary.totals.unknownCostTokens >= 125000);
   assert(summary.totals.credits > 0);
   assert(Array.isArray(summary.modelCatalog) && summary.modelCatalog.length >= 10);
   const astraCatalog = summary.modelCatalog.find((model) => model.id === "gpt-6-astra");
@@ -336,11 +382,36 @@ async function run() {
   assert.equal(summary.weeklyPace.status, "unset");
   assert.equal(summary.budgetPace.fiveHour.status, "unset");
   assert(summary.windows.last5h.totalTokens >= 3500);
+  assert.equal(summary.windows.last5h.totalTokens, 5700, "SQLite cumulative totals must not inflate fresh pacing windows");
   assert(summary.budgetSessions.fiveHour.some((session) => session.displayName === "Build spend dashboard" || session.displayName === "Weapon overlay alignment"));
   assert.equal(summary.planPace.selected.claude, "custom");
   assert.equal(summary.planPace.selected.codex, "custom");
   assert(summary.promptGuidance.some((item) => item.title.includes("GPT-6")));
   assert(summary.promptGuidance.some((item) => item.title === "Protect the 5h window"));
+
+  const importedSummary = buildSummary([claude, codex, imported], { days: 365, provider: "all", task: "implement" });
+  const unknownCatalog = importedSummary.modelCatalog.find((model) => model.id === "mystery-model-v9");
+  assert(unknownCatalog, "observed model IDs must appear in the catalog");
+  assert.equal(unknownCatalog.pricingKnown, false);
+  assert(importedSummary.modelTotals.some((model) => model.model === "mystery-model-v9"));
+  assert(importedSummary.workflowGuidance.some((item) => item.title.includes("implementation")));
+  const workflow = buildWorkflowGuidance(importedSummary, "review");
+  assert(workflow.some((item) => /review/i.test(item.title)));
+
+  const rateNow = Date.now();
+  const rateLimits = buildObservedRateLimits([
+    { provider: "codex", limitId: "codex:primary", limitName: "weekly", windowMinutes: 10080, resetAt: rateNow + 4 * 3600000, usedPercent: 20, timestampMs: rateNow - 3600000 },
+    { provider: "codex", limitId: "codex:primary", limitName: "weekly", windowMinutes: 10080, resetAt: rateNow + 4 * 3600000, usedPercent: 30, timestampMs: rateNow - 1800000 },
+    { provider: "codex", limitId: "codex:primary", limitName: "weekly", windowMinutes: 10080, resetAt: rateNow + 8 * 3600000, usedPercent: 2, timestampMs: rateNow - 600000 },
+    { provider: "codex", limitId: "codex:secondary", limitName: "short", windowMinutes: 300, resetAt: rateNow - 600000, usedPercent: 80, timestampMs: rateNow - 3 * 3600000 },
+  ], rateNow, true);
+  assert.equal(rateLimits.length, 3);
+  const projectedRate = rateLimits.find((item) => item.limitId === "codex:primary" && item.resetAt === new Date(rateNow + 4 * 3600000).toISOString());
+  assert(projectedRate && projectedRate.projectedPercent !== null, "fresh same-reset samples should project");
+  const resetRate = rateLimits.find((item) => item.resetAt === new Date(rateNow + 8 * 3600000).toISOString());
+  assert(resetRate && resetRate.projectedPercent === null, "reset changes must not reuse the prior slope");
+  const staleRate = rateLimits.find((item) => item.limitId === "codex:secondary");
+  assert(staleRate && staleRate.status === "stale");
 
   const planSummary = buildSummary([claude, codex], {
     days: 365,
@@ -349,7 +420,7 @@ async function run() {
     codexPlan: "codex-plus",
   });
   assert.equal(planSummary.planPace.claude.unlimitedFiveHour, true);
-  assert.equal(planSummary.planPace.codex.messageRange.min, 5);
+  assert.equal(planSummary.planPace.codex.messageRange.min, 15, "plan estimates must use timestamped usage, not SQLite cumulative totals");
   assert(planSummary.planPace.codex.estimatedFiveHourTokenBudgetMin > 0);
   assert(planSummary.planPace.codex.weeklyNote.includes("weekly limits"));
 
@@ -359,8 +430,8 @@ async function run() {
   delete process.env.AI_SPEND_5H_TOKEN_BUDGET;
   delete process.env.AI_SPEND_WEEKLY_TOKEN_BUDGET;
   assert.equal(pacedSummary.budgetPace.fiveHour.status, "over");
-  assert.equal(pacedSummary.weeklyPace.status, "over");
-  assert(pacedSummary.budgetPace.fiveHour.remainingTokens === 0);
+  assert.equal(pacedSummary.weeklyPace.status, "risk");
+  assert.equal(pacedSummary.budgetPace.fiveHour.remainingTokens, 0);
   assert(pacedSummary.recommendations.some((item) => item.title === "Stop the 5h drain"));
   assert(pacedSummary.recommendations.some((item) => item.title === "Slow the weekly burn"));
   assert(pacedSummary.budgetSessions.fiveHour[0].shareOfBudget > 0);

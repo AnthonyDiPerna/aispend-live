@@ -1,12 +1,14 @@
 {
   "name": "aispend-live",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "private": false,
-  "description": "Private local Claude and Codex usage dashboard with current model pricing, credits, plan pacing, and subagent attribution.",
+  "description": "Local AI usage dashboard with model coverage, pacing, cache reuse, and workflow guidance.",
   "main": "tools/ai-spend-dashboard-server.js",
   "scripts": {
     "dashboard": "node tools/ai-spend-dashboard-server.js",
     "summary": "node tools/ai-spend-dashboard-server.js --summary",
+    "demo:export": "node tools/export-public-demo.js",
+    "test:public-demo": "node tools/public-demo-test.js",
     "test": "node tools/ai-spend-dashboard-test.js"
   },
   "keywords": [

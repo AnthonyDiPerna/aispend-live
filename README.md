@@ -1,32 +1,54 @@
 # AI Spend Live
 
-Find the Claude or Codex session (or subagent swarm) draining your token budget.
+Release 0.4.1 adds canonical per-model daily burn, reconciled fresh/cache/
+write/output token components, and explicit unknown/free-zero pricing handling.
 
-AI Spend Live reads local JSONL usage logs and SQLite session state from Claude Code and Codex CLI, estimates API-equivalent cost and OpenAI Standard-speed credit use across the current model catalog, and shows which sessions, subagents, reasoning efforts, and turns are driving the burn. The goal is action, not trivia: split the thread, cap subagent fan-out, summarize and restart, narrow the context, or route the work to the right model tier before wasting another hundred million tokens.
+See what is burning your local AI usage, then decide what to do next.
+
+AI Spend Live turns supported local usage records into model-level totals,
+cache and context signals, measured 5-hour/weekly pacing, and deterministic
+workflow suggestions. It helps you choose a model tier for the task in front
+of you, preserve useful cache reuse, split a runaway thread, and checkpoint
+before a rolling limit is reached. It never changes models or installs skills
+for you.
 
 ## What It Shows
 
-- **Claude & Codex token usage** from local JSONL logs plus `~/.codex/state_*.sqlite` thread history when JSONL rollouts are rotated
-- **Current model catalog, API pricing, and OpenAI credit reference** (verified 2026-11-06):
-  - **Claude**: `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5`, and `claude-haiku-5-5`, with legacy models retained for historical logs
-  - **OpenAI / Codex**: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, and `gpt-6-luna`, with legacy models retained for historical logs
+- **Supported local sources**: Claude JSONL project logs, Codex JSONL
+  rollouts, Codex state SQLite recovery, and an optional normalized JSON/JSONL
+  import for other tools. This is not an all-cloud or all-chat tracker.
+- **Model coverage without a whitelist wall**: known pricing is shown when
+  configured, while every observed/new/unknown model ID remains in totals and
+  the model catalog with a clear “pricing not configured” state.
 - **Subagent & live-session attribution**:
   - Resolves `~/.claude/sessions/*.json` live process status (`busy`, `idle`, `shell`, PID) and session names
   - Attributes `<project>/<sessionId>/subagents/agent-<id>.jsonl` sidechains to their true project and parent session + subagent slug (`launch-taketoon-platform / parallel-pudding #a0145c`)
   - Tracks **Main Threads vs Subagents** token share and **Reasoning Effort** (`low`, `medium`, `high`, `xhigh`, `max`, `ultra`)
 - **Largest single turns** for sudden spike detection (excluding synthetic full-thread SQLite totals so genuine single-turn spikes stand out)
-- **Session duration, cache reuse, token totals, and estimated API-equivalent cost**
+- **Session duration, reconciled fresh/cache/write/output token totals, and estimated API-equivalent cost**
 - **Provider, model, subagent, and reasoning-effort splits**
 - **Daily token burn chart** across `1`, `7`, `30`, `90`, and `365` day windows
-- **Remaining-budget cards** for rolling 5-hour and weekly envelopes when you set local budget values
+- **Measured pacing** for rolling 5-hour and weekly envelopes when you set
+  local budgets. Projections use observed token rates and an optional local
+  reset timestamp; they are not provider quota counters.
 - **Selectable Claude and Codex plan presets** that convert published message windows into local token estimates
 - **Actionable recommendations & copyable prompts** for when to split, summarize, restart, `/clear`, cap subagents, close stale CLI windows, or step down from frontier models
 
-No prompt text is exposed in the dashboard payload. Session names come from metadata only:
+No prompt text is exposed in the dashboard payload. Session names come from metadata only for the local view. Public demo exports contain aggregate counts, model IDs, and anonymized time buckets only; they contain no prompts, titles, paths, IDs, environment values, or credentials.
 
 - Claude: `custom-title`, live `~/.claude/sessions/*.json` `name`, `agent-name`, subagent `slug` / `agentId`
 - Codex: `~/.codex/session_index.jsonl` `thread_name`, `agent_nickname` / `agent_role`
 - Fallback: project path or short session ID (raw prompt text in SQLite `threads.title` is never exposed)
+
+Normalized import records may be JSONL rows or a JSON array. The minimal
+contract is:
+
+```json
+{"timestamp":"2026-11-07T12:00:00Z","provider":"local-runner","model":"example-model","session_id":"optional","usage":{"input_tokens":1200,"cached_input_tokens":300,"output_tokens":400}}
+```
+
+Set `AI_SPEND_IMPORT_ROOT` or `AI_SPEND_IMPORT` to a file or directory. Keep
+imports aggregate-safe if the dashboard is ever exported.
 
 ## Quick Start
 
@@ -46,8 +68,14 @@ http://127.0.0.1:9020/
 ```powershell
 npm run dashboard
 npm run summary
+npm run demo:export
+npm run test:public-demo
 npm test
 ```
+
+`npm run demo:export` writes an aggregate-only public example. Pass `--out`
+to place it in a static landing folder; it never exports prompts, titles,
+paths, session IDs, environment values, or credentials.
 
 ## Expected Local Log Paths
 
@@ -60,6 +88,10 @@ By default the dashboard reads:
 %USERPROFILE%\.codex\session_index.jsonl
 %USERPROFILE%\.codex\state_5.sqlite
 ```
+
+If Codex uses a separate home, `CODEX_HOME` is honored automatically (for
+example `H:\CodexData`). Explicit `CODEX_SESSIONS_ROOT`, `CODEX_SESSION_INDEX`,
+and `CODEX_STATE_DB` values still take precedence.
 
 You can override paths and budgets with environment variables:
 
@@ -74,6 +106,8 @@ $env:AI_SPEND_CLAUDE_PLAN="claude-ultra"
 $env:AI_SPEND_CODEX_PLAN="codex-pro-200"
 $env:AI_SPEND_5H_TOKEN_BUDGET="8000000"
 $env:AI_SPEND_WEEKLY_TOKEN_BUDGET="50000000"
+$env:AI_SPEND_5H_RESET_AT="2026-11-07T17:00:00-05:00"
+$env:AI_SPEND_WEEKLY_RESET_AT="2026-11-10T00:00:00-05:00"
 npm run dashboard
 ```
 
@@ -96,7 +130,13 @@ Plan and price sources:
 
 ## Notes On Cost
 
-Costs and OpenAI credit equivalents are estimates based on local token logs, SQLite thread totals, and pricing tables in `tools/ai-spend-dashboard-server.js`. They are not provider invoices, subscription limit counters, or guaranteed billing totals. Subscription plans publish message windows and fair-use limits rather than a fixed included token balance, so the dashboard keeps those signals separate from API dollars and credits.
+Costs and credit equivalents are estimates based on local token logs, SQLite
+thread totals, and pricing tables in `tools/ai-spend-dashboard-server.js`.
+They are not provider invoices, subscription limit counters, or guaranteed
+billing totals. Subscription plans publish message windows and fair-use limits
+rather than a fixed included token balance, so the dashboard keeps those
+signals separate from API dollars and credits. A reset timestamp is only shown
+when you supply it locally.
 
 ## License
 

@@ -20,8 +20,6 @@ const MS_PER_HOUR = 3600000;
 const MS_PER_DAY = 86400000;
 const TOKENS_PER_MILLION = 1000000;
 const OPENAI_LONG_CONTEXT_THRESHOLD = 272000;
-const SQLITE_SYNTHETIC_INPUT_RATIO = 0.92;
-const SQLITE_SYNTHETIC_CACHE_RATIO = 0.65;
 
 const CLAUDE_PRICING = [
   {
@@ -414,8 +412,8 @@ const OPENAI_PRICING = [
   },
 ];
 
-function buildModelCatalog() {
-  const claudeRows = CLAUDE_PRICING.filter((item) => !["claude-haiku-3-5", "claude-haiku"].includes(item.id)).map((item) => ({
+function buildModelCatalog(observedModels) {
+  const claudeRows = CLAUDE_PRICING.map((item) => ({
     provider: "claude",
     id: item.id,
     label: item.label,
@@ -433,9 +431,10 @@ function buildModelCatalog() {
     contextWindow: item.contextWindow || 200000,
     efforts: [],
     estimated: Boolean(item.estimated),
+    pricingKnown: true,
     role: item.role || "",
   }));
-  const codexRows = OPENAI_PRICING.filter((item) => !["gpt-5.2-codex", "gpt-5.2", "gpt-5"].includes(item.id)).map((item) => ({
+  const codexRows = OPENAI_PRICING.map((item) => ({
     provider: "codex",
     id: item.id,
     label: item.label,
@@ -453,9 +452,42 @@ function buildModelCatalog() {
     contextWindow: item.contextWindow || 272000,
     efforts: item.efforts || [],
     estimated: Boolean(item.estimated),
+    pricingKnown: true,
     role: item.role || "",
   }));
-  return [...claudeRows, ...codexRows];
+  const rows = [...claudeRows, ...codexRows];
+  const known = new Set(rows.map((row) => `${row.provider}:${row.id}`));
+  for (const observed of observedModels || []) {
+    const provider = String(observed.provider || "imported").toLowerCase();
+    const id = String(observed.model || "unknown").trim() || "unknown";
+    const key = `${provider}:${id}`;
+    if (known.has(key)) {
+      continue;
+    }
+    known.add(key);
+    rows.push({
+      provider,
+      id,
+      label: id,
+      inputPer1M: null,
+      cachedInputPer1M: null,
+      cacheWrite5mPer1M: null,
+      outputPer1M: null,
+      longContextThreshold: 0,
+      longContextInputPer1M: null,
+      longContextCachedInputPer1M: null,
+      longContextOutputPer1M: null,
+      creditInputPer1M: null,
+      creditCachedInputPer1M: null,
+      creditOutputPer1M: null,
+      contextWindow: 0,
+      efforts: [],
+      estimated: false,
+      pricingKnown: false,
+      role: "Observed in local usage; pricing is not configured for this model ID.",
+    });
+  }
+  return rows;
 }
 
 const PLAN_PRESETS = {
@@ -864,6 +896,126 @@ function normalizeCodexUsage(usage) {
   return tokens;
 }
 
+function normalizeImportedUsage(record) {
+  const source = record && typeof record === "object" ? record : {};
+  const usage = source.usage && typeof source.usage === "object"
+    ? source.usage
+    : source.tokens && typeof source.tokens === "object"
+      ? source.tokens
+      : source;
+  const read = (...keys) => {
+    for (const key of keys) {
+      if (usage[key] != null) {
+        return usage[key];
+      }
+    }
+    return 0;
+  };
+  const tokens = emptyTokens();
+  tokens.inputTokens = numberValue(read("input_tokens", "inputTokens", "prompt_tokens", "promptTokens"));
+  tokens.cachedInputTokens = numberValue(read("cached_input_tokens", "cachedInputTokens", "cache_read_input_tokens", "cacheReadInputTokens"));
+  tokens.cacheCreationInputTokens = numberValue(read("cache_creation_input_tokens", "cacheCreationInputTokens"));
+  tokens.cacheCreation1hInputTokens = numberValue(read("cache_creation_1h_input_tokens", "cacheCreation1hInputTokens"));
+  tokens.cacheReadInputTokens = numberValue(read("cache_read_input_tokens", "cacheReadInputTokens"));
+  tokens.outputTokens = numberValue(read("output_tokens", "outputTokens", "completion_tokens", "completionTokens"));
+  tokens.reasoningOutputTokens = numberValue(read("reasoning_output_tokens", "reasoningOutputTokens"));
+  tokens.totalTokens = numberValue(read("total_tokens", "totalTokens")) || tokenTotal(tokens);
+  return tokens;
+}
+
+function epochMs(value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return numeric < 1e12 ? numeric * 1000 : numeric;
+}
+
+function normalizeRateLimitSnapshot(raw, timestampMs) {
+  const source = raw && raw.rate_limits && typeof raw.rate_limits === "object" ? raw.rate_limits : raw;
+  if (!source || typeof source !== "object") return [];
+  const rows = [];
+  const baseId = String(source.limit_id || source.limitId || "codex");
+  for (const [kind, value] of [["primary", source.primary], ["secondary", source.secondary]]) {
+    if (!value || typeof value !== "object") continue;
+    const usedPercent = Number(value.used_percent ?? value.usedPercent);
+    if (!Number.isFinite(usedPercent)) continue;
+    const windowMinutes = numberValue(value.window_minutes ?? value.windowMinutes);
+    const resetAt = epochMs(value.resets_at ?? value.resetsAt);
+    rows.push({
+      provider: "codex",
+      limitId: `${baseId}:${kind}`,
+      limitName: String(source.limit_name || source.limitName || kind),
+      windowMinutes,
+      resetAt,
+      usedPercent: Math.max(0, Math.min(100, usedPercent)),
+      timestampMs,
+    });
+  }
+  return rows;
+}
+
+function buildObservedRateLimits(snapshots, nowMs = Date.now(), includeHistory = false) {
+  const groups = new Map();
+  for (const snapshot of snapshots || []) {
+    const key = `${snapshot.limitId || "codex"}:${snapshot.windowMinutes || 0}:${snapshot.resetAt || 0}`;
+    const list = groups.get(key) || [];
+    list.push(snapshot);
+    groups.set(key, list);
+  }
+  const rows = Array.from(groups.values()).map((list) => {
+    list.sort((a, b) => a.timestampMs - b.timestampMs);
+    const latest = list[list.length - 1];
+    const previous = list.length > 1 ? list[list.length - 2] : null;
+    const resetAt = latest.resetAt || 0;
+    const windowMs = Math.max(0, numberValue(latest.windowMinutes) * MS_PER_MINUTE);
+    const freshnessMs = Math.max(2 * MS_PER_HOUR, windowMs > 0 ? windowMs * 0.25 : 2 * MS_PER_HOUR);
+    const fresh = latest.timestampMs >= nowMs - freshnessMs;
+    const sameReset = previous && previous.resetAt === latest.resetAt;
+    const elapsedHours = previous && latest.timestampMs > previous.timestampMs
+      ? (latest.timestampMs - previous.timestampMs) / MS_PER_HOUR
+      : 0;
+    const slopePercentPerHour = sameReset && elapsedHours > 0
+      ? (latest.usedPercent - previous.usedPercent) / elapsedHours
+      : null;
+    const resetHours = resetAt > nowMs ? (resetAt - nowMs) / MS_PER_HOUR : 0;
+    const canProject = fresh && sameReset && elapsedHours > 0 && resetAt > nowMs && slopePercentPerHour >= 0;
+    const projectedPercent = canProject
+      ? Math.min(100, latest.usedPercent + slopePercentPerHour * resetHours)
+      : null;
+    return {
+      provider: latest.provider || "codex",
+      limitId: latest.limitId || "codex",
+      limitName: latest.limitName || "Observed allowance",
+      windowMinutes: latest.windowMinutes || 0,
+      usedPercent: latest.usedPercent,
+      resetAt: resetAt ? new Date(resetAt).toISOString() : "",
+      latestAt: latest.timestampMs ? new Date(latest.timestampMs).toISOString() : "",
+      sampleCount: list.length,
+      fresh,
+      measured: true,
+      slopePercentPerHour,
+      projectedPercent,
+      status: !fresh ? "stale" : canProject ? "projected" : "observed",
+      statusText: !fresh
+        ? "No fresh rate-limit snapshot; showing the last observed value."
+        : canProject
+          ? `Observed ${latest.usedPercent.toFixed(1)}%; projected ${projectedPercent.toFixed(1)}% by reset at the measured slope.`
+          : `Observed ${latest.usedPercent.toFixed(1)}%; no safe forecast without two fresh samples on the same reset window.`,
+    };
+  }).sort((a, b) => b.usedPercent - a.usedPercent);
+  if (includeHistory) return rows;
+  const latestByWindow = new Map();
+  for (const row of rows) {
+    const key = `${row.limitId}:${row.windowMinutes}`;
+    const current = latestByWindow.get(key);
+    const rowReset = row.resetAt ? Date.parse(row.resetAt) : 0;
+    const currentReset = current && current.resetAt ? Date.parse(current.resetAt) : 0;
+    if (!current || rowReset > currentReset || (rowReset === currentReset && row.latestAt > current.latestAt)) {
+      latestByWindow.set(key, row);
+    }
+  }
+  return Array.from(latestByWindow.values()).sort((a, b) => b.usedPercent - a.usedPercent);
+}
+
 function diffCodexTotals(current, previous) {
   const out = emptyTokens();
   if (!current || typeof current !== "object") return out;
@@ -1249,6 +1401,7 @@ async function parseCodex(root, sinceMs, options) {
   const sessions = [];
   const events = [];
   const errors = [];
+  const rateLimitSnapshots = [];
   const seenSessionIds = new Set();
   const seenRolloutPaths = new Set();
 
@@ -1267,6 +1420,10 @@ async function parseCodex(root, sinceMs, options) {
         session.endMs = Math.max(session.endMs || 0, timestampMs);
 
         const payload = record.payload && typeof record.payload === "object" ? record.payload : {};
+        const rateLimits = payload.rate_limits || payload.rateLimits || payload.rate_limit_snapshot || payload.rateLimitSnapshot || record.rate_limits || record.rateLimits;
+        if (rateLimits) {
+          rateLimitSnapshots.push(...normalizeRateLimitSnapshot(rateLimits, timestampMs));
+        }
         if (record.type === "session_meta") {
           if (payload.id) {
             session.id = String(payload.id);
@@ -1442,21 +1599,8 @@ async function parseCodex(root, sinceMs, options) {
       setSessionTitle(session, `${project} #${threadId.slice(0, 8)}`, "Codex SQLite thread", 2);
     }
 
-    const synthInput = Math.round(totalUsed * SQLITE_SYNTHETIC_INPUT_RATIO);
-    const synthCached = Math.round(totalUsed * SQLITE_SYNTHETIC_CACHE_RATIO);
-    const synthOutput = Math.max(0, totalUsed - synthInput);
-    const tokens = {
-      inputTokens: synthInput,
-      cacheCreationInputTokens: 0,
-      cacheCreation1hInputTokens: 0,
-      cacheReadInputTokens: 0,
-      cachedInputTokens: synthCached,
-      outputTokens: synthOutput,
-      reasoningOutputTokens: 0,
-      totalTokens: totalUsed,
-    };
-    const cost = estimateCost("codex", model, tokens);
-    const credit = estimateCredits("codex", model, tokens);
+    const tokens = emptyTokens();
+    tokens.totalTokens = totalUsed;
     const event = {
       provider: "codex",
       id: `${threadId}:1`,
@@ -1475,13 +1619,13 @@ async function parseCodex(root, sinceMs, options) {
       hour: localHourKey(endMs),
       tokens,
       totalTokens: totalUsed,
-      costUsd: cost.usd,
-      costKnown: cost.known,
-      pricingLabel: cost.label,
-      pricingEstimated: true,
-      pricingTier: cost.pricingTier || "standard",
-      credits: credit.credits,
-      creditKnown: credit.known,
+      costUsd: 0,
+      costKnown: false,
+      pricingLabel: "Token total; breakdown unavailable",
+      pricingEstimated: false,
+      pricingTier: "unknown",
+      credits: 0,
+      creditKnown: false,
       syntheticThreadTotal: true,
     };
     addEvent(session, event);
@@ -1503,7 +1647,167 @@ async function parseCodex(root, sinceMs, options) {
     sessions,
     events,
     errors,
+    rateLimitSnapshots,
   };
+}
+
+function listImportedFiles(root) {
+  if (!root || !fs.existsSync(root)) {
+    return [];
+  }
+  let stat = null;
+  try {
+    stat = fs.statSync(root);
+  } catch (_) {
+    return [];
+  }
+  if (stat.isFile()) {
+    return /\.jsonl?$/i.test(root) ? [{ path: root, size: stat.size, mtimeMs: stat.mtimeMs }] : [];
+  }
+  return listJsonlFiles(root).concat(listJsonFiles(root));
+}
+
+function listJsonFiles(root) {
+  const out = [];
+  if (!root || !fs.existsSync(root)) return out;
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch (_) {
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".json")) {
+        let stat = null;
+        try {
+          stat = fs.statSync(fullPath);
+        } catch (_) {
+          stat = null;
+        }
+        out.push({ path: fullPath, size: stat ? stat.size : 0, mtimeMs: stat ? stat.mtimeMs : 0 });
+      }
+    }
+  }
+  return out;
+}
+
+function importedProvider(value) {
+  const name = String(value || "imported").trim().toLowerCase();
+  if (/claude|anthropic/.test(name)) return "claude";
+  if (/codex|openai|chatgpt/.test(name)) return "codex";
+  return sanitizeSessionTitle(name.replace(/[^a-z0-9._-]+/g, "-"), 40) || "imported";
+}
+
+async function readImportedRecords(filePath, onRecord) {
+  if (filePath.toLowerCase().endsWith(".jsonl")) {
+    await readJsonLines(filePath, (record) => onRecord(record));
+    return;
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (_) {
+    return;
+  }
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed && parsed.records)
+      ? parsed.records
+      : Array.isArray(parsed && parsed.events)
+        ? parsed.events
+        : [parsed];
+  for (const row of rows) {
+    if (row && typeof row === "object") onRecord(row);
+  }
+}
+
+async function parseImportedUsage(root, sinceMs) {
+  const files = listImportedFiles(root);
+  const sessions = [];
+  const events = [];
+  const errors = [];
+  const seen = new Set();
+  const rootDir = root && fs.existsSync(root) && fs.statSync(root).isDirectory() ? root : path.dirname(String(root || ""));
+
+  for (const fileInfo of files) {
+    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) continue;
+    const sessionMap = new Map();
+    let rowIndex = 0;
+    try {
+      await readImportedRecords(fileInfo.path, (record) => {
+        rowIndex += 1;
+        const tokens = normalizeImportedUsage(record);
+        if (tokenTotal(tokens) <= 0) return;
+        const provider = importedProvider(record.provider || record.source || record.tool);
+        const model = String(record.model || record.model_id || record.modelId || "unknown").trim() || "unknown";
+        const sessionId = String(record.session_id || record.sessionId || record.thread_id || record.threadId || path.basename(fileInfo.path, path.extname(fileInfo.path))).trim();
+        const suppliedId = String(record.id || record.event_id || record.eventId || "").trim();
+        const dedupeKey = `${provider}:${suppliedId || `${sessionId}:${rowIndex}`}`;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+        const sessionKey = `${provider}:${sessionId}`;
+        let session = sessionMap.get(sessionKey);
+        if (!session) {
+          session = createSession(provider, fileInfo, rootDir);
+          session.sourceType = "import";
+          session.id = sessionId;
+          session.project = "imported usage";
+          sessionMap.set(sessionKey, session);
+        }
+        session.model = session.model === "unknown" ? model : session.model;
+        const timestampMs = parseTimestampMs(record.timestamp || record.time || record.created_at || record.createdAt, fileInfo.mtimeMs || Date.now());
+        if (sinceMs && timestampMs < sinceMs) return;
+        const costProvider = provider === "claude" || provider === "codex" ? provider : "unknown";
+        const cost = estimateCost(costProvider, model, tokens);
+        const credit = estimateCredits(costProvider, model, tokens);
+        const turnIndex = session.eventCount + 1;
+        const event = {
+          provider,
+          id: `${session.id}:${turnIndex}`,
+          dedupeKey,
+          sessionId: session.id,
+          parentSessionId: String(record.parent_session_id || record.parentSessionId || ""),
+          isSubagent: Boolean(record.is_subagent || record.isSubagent || record.role === "subagent"),
+          turnIndex,
+          file: session.relativeFile,
+          project: session.project,
+          cwd: "",
+          model,
+          reasoningEffort: String(record.reasoning_effort || record.reasoningEffort || ""),
+          timestampMs,
+          timestamp: new Date(timestampMs).toISOString(),
+          date: localDateKey(timestampMs),
+          hour: localHourKey(timestampMs),
+          tokens,
+          totalTokens: tokenTotal(tokens),
+          costUsd: cost.usd,
+          costKnown: cost.known,
+          pricingLabel: cost.label,
+          pricingEstimated: Boolean(cost.estimated),
+          pricingTier: cost.pricingTier || "standard",
+          credits: credit.credits,
+          creditKnown: credit.known,
+        };
+        addEvent(session, event);
+        events.push(event);
+      });
+    } catch (err) {
+      errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
+    }
+    for (const session of sessionMap.values()) {
+      if (session.eventCount > 0) {
+        applySessionIdentityToEvents(session);
+        sessions.push(finalizeSession(session));
+      }
+    }
+  }
+  return { provider: "imported", root, files: files.length, sessions, events, errors };
 }
 
 function finalizeSession(session) {
@@ -1635,12 +1939,14 @@ function buildSubagentStats(sessions, events, totalTokens) {
 }
 
 function buildSummary(parsed, options) {
+  const opts = options || {};
   const nowMs = Date.now();
-  const days = Math.max(1, Number(options.days || DEFAULT_DAYS));
+  const days = Math.max(1, Number(opts.days || DEFAULT_DAYS));
   const sinceMs = nowMs - days * MS_PER_DAY;
-  const providerFilter = String(options.provider || "all").toLowerCase();
+  const providerFilter = String(opts.provider || "all").toLowerCase();
   const allEvents = [];
   const allSessions = [];
+  const seenEventKeys = new Set();
   const sourceSessionLookup = new Map();
   for (const source of parsed) {
     for (const sess of source.sessions || []) {
@@ -1651,6 +1957,7 @@ function buildSummary(parsed, options) {
     costUsd: 0,
     knownCostUsd: 0,
     unknownCostTokens: 0,
+    breakdownUnknownTokens: 0,
     credits: 0,
     creditKnownTokens: 0,
     eventCount: 0,
@@ -1681,6 +1988,13 @@ function buildSummary(parsed, options) {
         continue;
       }
 
+      const eventKey = event.dedupeKey
+        || `${event.provider}:${event.sessionId}:${event.turnIndex}:${event.timestampMs}:${event.totalTokens}`;
+      if (seenEventKeys.has(eventKey)) {
+        continue;
+      }
+      seenEventKeys.add(eventKey);
+
       const sessionKey = `${event.provider}:${event.sessionId}:${event.file}`;
       const sessionMeta = sourceSessionLookup.get(sessionKey);
       const inLastHour = event.timestampMs >= nowMs - MS_PER_HOUR;
@@ -1688,24 +2002,24 @@ function buildSummary(parsed, options) {
       const inLast24h = event.timestampMs >= nowMs - MS_PER_DAY;
       const inLast7d = event.timestampMs >= nowMs - 7 * MS_PER_DAY;
 
-      if (inLastHour) {
+      if (!event.syntheticThreadTotal && inLastHour) {
         addWindowTotal(windows.lastHour, event);
         addProviderPlanWindow(planWindowStats, event, "lastHour");
       }
-      if (inLast5h) {
+      if (!event.syntheticThreadTotal && inLast5h) {
         addWindowTotal(windows.last5h, event);
         addProviderPlanWindow(planWindowStats, event, "last5h");
         addEventToRangeSession(addRangeSession(fiveHourSessionMap, sessionKey, event, sessionMeta), event);
       }
-      if (inLast24h) {
+      if (!event.syntheticThreadTotal && inLast24h) {
         addWindowTotal(windows.last24h, event);
       }
-      if (inLast7d) {
+      if (!event.syntheticThreadTotal && inLast7d) {
         addWindowTotal(windows.last7d, event);
         addProviderPlanWindow(planWindowStats, event, "last7d");
         addEventToRangeSession(addRangeSession(weeklySessionMap, sessionKey, event, sessionMeta), event);
       }
-      if (localDateKey(event.timestampMs) === localDateKey(nowMs)) {
+      if (!event.syntheticThreadTotal && localDateKey(event.timestampMs) === localDateKey(nowMs)) {
         addWindowTotal(windows.today, event);
       }
 
@@ -1723,13 +2037,15 @@ function buildSummary(parsed, options) {
       const modelGroup = addGroup(modelMap, modelKey, { provider: event.provider, model: event.model || "unknown" });
       addWindowTotal(modelGroup, event);
 
-      const dayKey = `${event.date}:${event.provider}`;
-      const dayGroup = addGroup(dayMap, dayKey, { date: event.date, provider: event.provider });
-      addWindowTotal(dayGroup, event);
+       if (!event.syntheticThreadTotal) {
+         const dayKey = `${event.date}:${event.provider}`;
+         const dayGroup = addGroup(dayMap, dayKey, { date: event.date, provider: event.provider });
+         addWindowTotal(dayGroup, event);
 
-      const hourKey = `${event.hour}:${event.provider}`;
-      const hourGroup = addGroup(hourMap, hourKey, { hour: event.hour, provider: event.provider });
-      addWindowTotal(hourGroup, event);
+         const hourKey = `${event.hour}:${event.provider}`;
+         const hourGroup = addGroup(hourMap, hourKey, { hour: event.hour, provider: event.provider });
+         addWindowTotal(hourGroup, event);
+       }
 
       const sessionGroup = addRangeSession(sessionMap, sessionKey, event, sessionMeta);
       addEventToRangeSession(sessionGroup, event);
@@ -1761,10 +2077,12 @@ function buildSummary(parsed, options) {
   }
 
   const subagentStats = buildSubagentStats(allSessions, allEvents, totals.totalTokens);
-  const modelCatalog = buildModelCatalog();
+  const modelCatalog = buildModelCatalog(modelTotals);
+  const rateLimitSnapshots = parsed.flatMap((source) => source.rateLimitSnapshots || []);
+  const observedRateLimits = buildObservedRateLimits(rateLimitSnapshots, nowMs);
   const budgetPace = buildBudgetPace(windows);
   const weeklyPace = budgetPace.weekly;
-  const planPace = buildPlanPace(planWindowStats, options);
+  const planPace = buildPlanPace(planWindowStats, opts);
   const budgetSessions = buildBudgetSessions(fiveHourSessionMap, weeklySessionMap, budgetPace);
   const insightContext = {
     totals,
@@ -1778,6 +2096,7 @@ function buildSummary(parsed, options) {
     budgetSessions,
     planPace,
     subagentStats,
+    task: String(opts.task || "auto"),
   };
 
   return {
@@ -1786,6 +2105,7 @@ function buildSummary(parsed, options) {
     roots: {
       claude: parsed.find((source) => source.provider === "claude"),
       codex: parsed.find((source) => source.provider === "codex"),
+      imported: parsed.find((source) => source.provider === "imported"),
     },
     totals,
     windows,
@@ -1793,6 +2113,7 @@ function buildSummary(parsed, options) {
     modelTotals,
     subagentStats,
     modelCatalog,
+    observedRateLimits,
     daily,
     hourly,
     topSessions,
@@ -1802,9 +2123,10 @@ function buildSummary(parsed, options) {
     weeklyPace,
     budgetSessions,
     promptGuidance: buildPromptGuidance(insightContext),
+    workflowGuidance: buildWorkflowGuidance(insightContext, opts.task),
     insights: buildInsights(insightContext),
     recommendations: buildRecommendations(insightContext),
-    pricingNotice: "API dollars and OpenAI Standard-speed credits are estimates from local logs and SQLite state, not provider invoices or official subscription counters. Claude and Codex plans publish message windows and fair-use limits, not fixed included token caps; set env budgets for exact local targets.",
+    pricingNotice: "API dollars and credits are estimates from timestamped usage with a known token breakdown, not provider invoices or subscription counters. SQLite recovery contributes token totals only; its cumulative totals are excluded from cache, cost, and pacing breakdowns. Plans publish message windows and fair-use limits, not fixed included token caps; set local budgets for a separate envelope.",
   };
 }
 
@@ -1898,6 +2220,7 @@ function makeWindowTotal() {
     costUsd: 0,
     knownCostUsd: 0,
     unknownCostTokens: 0,
+    breakdownUnknownTokens: 0,
     credits: 0,
     creditKnownTokens: 0,
     eventCount: 0,
@@ -1919,6 +2242,9 @@ function addWindowTotal(target, event) {
     target.unknownCostTokens += event.totalTokens;
   }
   target.eventCount += 1;
+  if (event.syntheticThreadTotal) {
+    target.breakdownUnknownTokens = numberValue(target.breakdownUnknownTokens) + event.totalTokens;
+  }
   addTokens(target.tokens, event.tokens);
   target.totalTokens = tokenTotal(target.tokens);
 }
@@ -1976,6 +2302,16 @@ function readWeeklyBudgetTokens() {
     "AI_SPEND_WEEKLY_TOKEN_BUDGET",
     "AI_SPEND_WEEKLY_BUDGET_TOKENS",
   ]);
+}
+
+function readResetAt(names) {
+  for (const name of names) {
+    const value = String(process.env[name] || "").trim();
+    if (!value) continue;
+    const ms = Date.parse(value);
+    if (Number.isFinite(ms)) return new Date(ms).toISOString();
+  }
+  return "";
 }
 
 function buildBudgetPace(windows) {
@@ -2048,6 +2384,9 @@ function buildFiveHourPace(windows) {
     lastHourTokens,
     projected5hAtHourPace,
     projected5hTokens,
+    measuredTokensPerHour: lastHourTokens,
+    resetAt: readResetAt(["AI_SPEND_5H_RESET_AT", "AI_SPEND_FIVE_HOUR_RESET_AT"]),
+    projectionNote: "Projection uses the observed last-hour token rate; it is not a provider quota counter.",
     ...status,
   };
 }
@@ -2081,6 +2420,9 @@ function buildWeeklyPace(windows) {
     projected7dAt24hPace,
     projected7dAtHourPace,
     projected7dTokens,
+    measuredTokensPerHour: lastHourTokens,
+    resetAt: readResetAt(["AI_SPEND_WEEKLY_RESET_AT"]),
+    projectionNote: "Projection uses observed rolling-window and hourly rates; it is not a provider quota counter.",
     ...status,
   };
 }
@@ -2378,6 +2720,78 @@ function buildPromptGuidance(summary) {
       ],
     },
   ];
+}
+
+function buildWorkflowGuidance(summary, task) {
+  const mode = ["auto", "explore", "implement", "review", "repeat"].includes(String(task || "auto"))
+    ? String(task || "auto")
+    : "auto";
+  const totalTokens = numberValue(summary.totals && summary.totals.totalTokens);
+  const cacheRatio = cacheHitRatio(summary.totals && summary.totals.tokens ? summary.totals.tokens : emptyTokens());
+  const contextRatio = contextTokenRatio(summary.totals && summary.totals.tokens ? summary.totals.tokens : emptyTokens());
+  const subagentShare = numberValue(summary.subagentStats && summary.subagentStats.subagentShare);
+  const topModel = summary.modelTotals && summary.modelTotals[0] ? summary.modelTotals[0].model : "an observed model";
+  const guidance = [];
+
+  if (mode === "explore" || (mode === "auto" && subagentShare >= 0.3)) {
+    guidance.push({
+      severity: subagentShare >= 0.3 ? "high" : "info",
+      title: "Explore with one bounded thread",
+      target: "Workflow / exploration",
+      detail: subagentShare >= 0.3
+        ? "Subagents are a large share of the observed burn. Search locally first, then delegate only independent questions."
+        : "Start with a local file search and a short evidence packet before opening parallel work.",
+      doNow: [
+        "Use the smallest available model tier for file discovery and inventory.",
+        "Keep any existing search or code-navigation skill scoped to named paths; AI Spend does not install skills automatically.",
+      ],
+    });
+  }
+
+  if (mode === "implement" || (mode === "auto" && cacheRatio < 0.2 && totalTokens >= 10000)) {
+    guidance.push({
+      severity: cacheRatio < 0.2 ? "high" : "info",
+      title: "Use an efficient implementation loop",
+      target: `Model suggestion: efficient tier after a compact plan (${topModel} observed most often)`,
+      detail: cacheRatio < 0.2
+        ? "Low cache reuse means repeated broad context is expensive. Keep the write set and test command explicit."
+        : "Bounded edits and focused tests rarely need the strongest reasoning tier.",
+      doNow: [
+        "Ask for the exact files and acceptance test, then edit only that set.",
+        "Use low or medium effort where supported; reserve frontier reasoning for ambiguity or final review.",
+      ],
+    });
+  }
+
+  if (mode === "review" || (mode === "auto" && contextRatio >= 0.65)) {
+    guidance.push({
+      severity: contextRatio >= 0.85 ? "high" : "info",
+      title: "Review from a compact handoff",
+      target: "Workflow / review",
+      detail: contextRatio >= 0.65
+        ? "Most observed usage is input/context. Preserve decisions and test evidence, not the entire thread."
+        : "A focused review packet makes a stronger model spend easier to justify.",
+      doNow: [
+        "Summarize changed files, risks, and the failing or passing command before review.",
+        "Choose a stronger model only for the decision or review that needs it; do not assume the dashboard can switch models for you.",
+      ],
+    });
+  }
+
+  if (mode === "repeat" || (mode === "auto" && cacheRatio >= 0.2 && guidance.length === 0)) {
+    guidance.push({
+      severity: "info",
+      title: "Preserve useful cache reuse",
+      target: `${Math.round(cacheRatio * 100)}% observed cache reuse`,
+      detail: "Keep stable instructions and file scope together when repeating a task; start a fresh thread when the goal changes.",
+      doNow: [
+        "Repeat the same narrow task shape before adding unrelated context.",
+        "Use a compact skill/workflow checklist already available in your toolchain; no automatic skill installation is performed.",
+      ],
+    });
+  }
+
+  return guidance.slice(0, 3);
 }
 
 function quotePowerShellPath(value) {
@@ -2965,13 +3379,16 @@ async function parseAllUsage(options) {
   const days = Math.max(1, Number(opts.days || DEFAULT_DAYS));
   const logDays = Math.max(days, 7);
   const sinceMs = Date.now() - logDays * MS_PER_DAY;
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
   const claudeRoot = path.resolve(opts.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects"));
-  const codexRoot = path.resolve(opts.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(os.homedir(), ".codex", "sessions"));
-  const [claude, codex] = await Promise.all([
+  const codexRoot = path.resolve(opts.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(codexHome, "sessions"));
+  const importRoot = opts.importRoot || process.env.AI_SPEND_IMPORT_ROOT || process.env.AI_SPEND_IMPORT || "";
+  const [claude, codex, imported] = await Promise.all([
     parseClaude(claudeRoot, sinceMs, opts),
     parseCodex(codexRoot, sinceMs, opts),
+    parseImportedUsage(importRoot, sinceMs),
   ]);
-  return [claude, codex];
+  return [claude, codex, imported];
 }
 
 function respond(res, status, body, contentType) {
@@ -3028,10 +3445,11 @@ function createServer() {
       try {
         const days = Math.max(1, Number(parsed.query.get("days") || DEFAULT_DAYS));
         const provider = String(parsed.query.get("provider") || "all").toLowerCase();
+        const task = String(parsed.query.get("task") || "auto").toLowerCase();
         const claudePlan = String(parsed.query.get("claudePlan") || "").toLowerCase();
         const codexPlan = String(parsed.query.get("codexPlan") || "").toLowerCase();
         const sources = await parseAllUsage({ days });
-        const summary = buildSummary(sources, { days, provider, claudePlan, codexPlan });
+        const summary = buildSummary(sources, { days, provider, task, claudePlan, codexPlan });
         respondJson(res, HTTP_OK, summary);
       } catch (err) {
         respondJson(res, HTTP_SERVER_ERROR, {
@@ -3047,7 +3465,7 @@ function createServer() {
 }
 
 function parseArgs(argv) {
-  const out = { port: DEFAULT_PORT, days: DEFAULT_DAYS, provider: "all", claudePlan: "", codexPlan: "", summary: false };
+  const out = { port: DEFAULT_PORT, days: DEFAULT_DAYS, provider: "all", task: "auto", claudePlan: "", codexPlan: "", summary: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--summary") {
@@ -3056,6 +3474,8 @@ function parseArgs(argv) {
       out.days = Number(argv[++i] || DEFAULT_DAYS);
     } else if (arg === "--provider") {
       out.provider = String(argv[++i] || "all").toLowerCase();
+    } else if (arg === "--task") {
+      out.task = String(argv[++i] || "auto").toLowerCase();
     } else if (arg === "--claude-plan") {
       out.claudePlan = String(argv[++i] || "").toLowerCase();
     } else if (arg === "--codex-plan") {
@@ -3073,13 +3493,14 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.summary) {
     const sources = await parseAllUsage({ days: args.days });
-    const summary = buildSummary(sources, { days: args.days, provider: args.provider, claudePlan: args.claudePlan, codexPlan: args.codexPlan });
+    const summary = buildSummary(sources, { days: args.days, provider: args.provider, task: args.task, claudePlan: args.claudePlan, codexPlan: args.codexPlan });
     console.log(JSON.stringify({
       generatedAt: summary.generatedAt,
       range: summary.range,
       totals: summary.totals,
       providerTotals: summary.providerTotals,
       modelTotals: summary.modelTotals,
+      observedRateLimits: summary.observedRateLimits,
       subagentStats: summary.subagentStats,
       budgetPace: summary.budgetPace,
       planPace: summary.planPace,
@@ -3088,6 +3509,7 @@ async function main() {
       promptGuidance: summary.promptGuidance,
       insights: summary.insights,
       recommendations: summary.recommendations,
+      workflowGuidance: summary.workflowGuidance,
     }, null, 2));
     return;
   }
@@ -3107,14 +3529,18 @@ if (require.main === module) {
 
 module.exports = {
   buildModelCatalog,
+  buildObservedRateLimits,
   buildSummary,
   createServer,
   estimateCost,
   estimateCredits,
+  buildWorkflowGuidance,
   listJsonlFiles,
   normalizeClaudeUsage,
   normalizeCodexUsage,
+  normalizeImportedUsage,
   parseAllUsage,
   parseClaude,
   parseCodex,
+  parseImportedUsage,
 };

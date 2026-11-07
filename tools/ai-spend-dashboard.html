@@ -588,7 +588,7 @@
         <div class="mark">AI</div>
         <div>
           <h1>AI Spend Local Dashboard</h1>
-          <div class="caption">Claude 5.5 + OpenAI GPT-6 token, API-cost, subscription-credit, and plan-usage signals from local JSONL &amp; SQLite</div>
+      <div class="caption">Local usage signals, model coverage, cache reuse, and pacing guidance from JSONL, SQLite, or normalized imports</div>
         </div>
       </div>
       <div class="controls">
@@ -603,11 +603,22 @@
           </select>
         </label>
         <label class="control">
-          <span>Provider</span>
+          <span>Source</span>
           <select id="provider">
             <option value="all" selected>All</option>
             <option value="claude">Claude</option>
             <option value="codex">Codex</option>
+            <option value="imported">Imported</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Work mode</span>
+          <select id="task">
+            <option value="auto" selected>Auto</option>
+            <option value="explore">Explore</option>
+            <option value="implement">Implement</option>
+            <option value="review">Review</option>
+            <option value="repeat">Repeat</option>
           </select>
         </label>
         <label class="control">
@@ -654,7 +665,7 @@
         <div id="hourPace" class="subvalue">...</div>
       </article>
       <article class="panel stat">
-        <div class="label">5h Remaining</div>
+        <div class="label">5h Pacing</div>
         <div id="fiveHourRemaining" class="value">...</div>
         <div id="fiveHourDetail" class="subvalue">...</div>
       </article>
@@ -679,7 +690,12 @@
         <div id="cacheDetail" class="subvalue">...</div>
       </article>
       <article class="panel stat wide">
-        <div class="label">Weekly Remaining</div>
+        <div class="label">Token Mix / Cost</div>
+        <div id="tokenMix" class="value">...</div>
+        <div id="tokenCostMix" class="subvalue">...</div>
+      </article>
+      <article class="panel stat wide">
+        <div class="label">Weekly Pacing</div>
         <div id="weekPace" class="value">...</div>
         <div id="weekPaceDetail" class="subvalue">...</div>
       </article>
@@ -688,8 +704,8 @@
         <div class="panel-head">
           <h2 class="panel-title">Daily Token Burn</h2>
           <div class="pill-row">
-            <span class="pill">Claude context + output</span>
-            <span class="pill">Codex input/cache/output</span>
+            <span class="pill">input / cache / output</span>
+            <span class="pill">observed usage only</span>
           </div>
         </div>
         <canvas id="dailyChart" width="1000" height="280"></canvas>
@@ -712,17 +728,19 @@
 
       <article class="panel guidance-panel">
         <div class="panel-head">
-          <h2 class="panel-title">Prompt and Budget Pacing Rules</h2>
-          <span class="pill">based on current model guidance</span>
+          <h2 class="panel-title">Workflow, Model &amp; Budget Guidance</h2>
+          <span class="pill">deterministic from this range and work mode</span>
         </div>
+        <div id="workflowGuidance" class="guidance-grid"></div>
         <div id="promptGuidance" class="guidance-grid"></div>
       </article>
 
       <article class="panel budget-panel">
         <div class="panel-head">
           <h2 class="panel-title">Budget By Plan And Session</h2>
-          <span class="pill">official message windows, local token estimate</span>
+          <span class="pill">observed allowance + optional local envelopes</span>
         </div>
+        <div id="observedLimits" class="budget-summary-grid"></div>
         <div id="planOverview" class="budget-summary-grid"></div>
         <div id="budgetOverview" class="budget-summary-grid"></div>
         <div id="budgetEaters" class="budget-eaters"></div>
@@ -730,7 +748,7 @@
 
       <article class="panel side-panel quarter">
         <div class="panel-head">
-          <h2 class="panel-title">Provider Split</h2>
+          <h2 class="panel-title">Source Split</h2>
         </div>
         <div id="providers" class="bar-list"></div>
       </article>
@@ -767,7 +785,7 @@
           <table>
             <thead>
               <tr>
-                <th>Provider</th>
+                <th>Source</th>
                 <th>Session</th>
                 <th>Recommended Action</th>
                 <th>Project</th>
@@ -796,7 +814,7 @@
           <table>
             <thead>
               <tr>
-                <th>Provider</th>
+                <th>Source</th>
                 <th>Time</th>
                 <th>Session</th>
                 <th>Do Next</th>
@@ -817,15 +835,15 @@
       <article class="panel table-panel">
         <div style="padding:14px 14px 0">
           <div class="panel-head">
-            <h2 class="panel-title">Latest Model Catalog &amp; API Pricing Reference</h2>
-            <span class="pill">official standard API and OpenAI credit rates per 1M tokens</span>
+            <h2 class="panel-title">Observed Models &amp; Pricing Reference</h2>
+            <span class="pill">unknown/new IDs stay visible; estimates are not invoices</span>
           </div>
         </div>
         <div class="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Provider</th>
+                <th>Source</th>
                 <th>Model</th>
                 <th>Recommended Role &amp; Routing</th>
                 <th class="num">Context</th>
@@ -892,20 +910,27 @@
     }
 
     function providerLabelText(provider) {
-      return provider === "claude" ? "Claude" : provider === "codex" ? "Codex" : String(provider || "Provider");
+      return provider === "claude" ? "Claude Code" : provider === "codex" ? "Codex CLI" : String(provider || "Imported");
     }
 
     let claudePlanTouched = false;
     let codexPlanTouched = false;
 
     function tokenCacheRatio(tokens) {
-      const cached = Number(tokens.cachedInputTokens || 0) + Number(tokens.cacheReadInputTokens || 0);
-      const input = Number(tokens.inputTokens || 0)
-        + Number(tokens.cachedInputTokens || 0)
-        + Number(tokens.cacheCreationInputTokens || 0)
-        + Number(tokens.cacheCreation1hInputTokens || 0)
-        + Number(tokens.cacheReadInputTokens || 0);
-      return input > 0 ? cached / input : 0;
+      const mix = disjointTokenMix(tokens);
+      const inputLike = mix.fresh + mix.cached + mix.writes;
+      return inputLike > 0 ? mix.cached / inputLike : 0;
+    }
+
+    function disjointTokenMix(tokens) {
+      const input = Number(tokens.inputTokens || 0);
+      const cached = Math.min(input, Number(tokens.cachedInputTokens || 0));
+      return {
+        fresh: Math.max(0, input - cached),
+        cached: cached + Number(tokens.cacheReadInputTokens || 0),
+        writes: Number(tokens.cacheCreationInputTokens || 0) + Number(tokens.cacheCreation1hInputTokens || 0),
+        output: Number(tokens.outputTokens || 0),
+      };
     }
 
     async function loadData() {
@@ -913,9 +938,10 @@
       el("pricingNotice").textContent = "Loading local usage...";
       const days = el("days").value;
       const provider = el("provider").value;
+      const task = el("task").value;
       const claudePlan = el("claudePlan").value;
       const codexPlan = el("codexPlan").value;
-      const params = new URLSearchParams({ days, provider });
+      const params = new URLSearchParams({ days, provider, task });
       if (claudePlanTouched || claudePlan !== "custom") params.set("claudePlan", claudePlan);
       if (codexPlanTouched || codexPlan !== "custom") params.set("codexPlan", codexPlan);
       const response = await fetch(`/api/summary?${params.toString()}`);
@@ -943,10 +969,10 @@
       const fiveHour = data.budgetPace && data.budgetPace.fiveHour ? data.budgetPace.fiveHour : {};
       if (fiveHour.budgetTokens > 0) {
         el("fiveHourRemaining").textContent = compact(fiveHour.remainingTokens);
-        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens)} of ${compact(fiveHour.budgetTokens)} used - ${fiveHour.statusText}`;
+        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens)} of ${compact(fiveHour.budgetTokens)} used - ${fiveHour.statusText}${fiveHour.resetAt ? ` Reset ${dtf.format(new Date(fiveHour.resetAt))}.` : ""}`;
       } else {
         el("fiveHourRemaining").textContent = "Set budget";
-        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens || data.windows.last5h.totalTokens)} used. Set AI_SPEND_5H_TOKEN_BUDGET.`;
+        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens || data.windows.last5h.totalTokens)} used. Set AI_SPEND_5H_TOKEN_BUDGET; projection uses observed pace.`;
       }
       el("dayTokens").textContent = compact(data.windows.last24h.totalTokens);
       el("daySpend").textContent = spendEstimate(data.windows.last24h);
@@ -956,14 +982,18 @@
       el("rangeSpend").textContent = `${spendEstimate(data.totals)} across ${nf.format(data.totals.eventCount)} turns`;
       const cacheRatio = tokenCacheRatio(data.totals.tokens);
       el("cachePct").textContent = pct(cacheRatio);
-      el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens`;
+      const unknownBreakdown = Number(data.totals.breakdownUnknownTokens || 0);
+      el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens from known breakdown${unknownBreakdown > 0 ? `; ${compact(unknownBreakdown)} total-only tokens excluded` : ""}`;
+      const mix = disjointTokenMix(data.totals.tokens);
+      el("tokenMix").textContent = `${compact(mix.fresh)} fresh / ${compact(mix.cached)} cached / ${compact(mix.writes)} writes / ${compact(mix.output)} out`;
+      el("tokenCostMix").textContent = `${money(data.totals.knownCostUsd)} known API estimate · ${compact(unknownBreakdown)} unknown breakdown`;
       const pace = data.weeklyPace || {};
       if (pace.budgetTokens > 0) {
         el("weekPace").textContent = compact(pace.remainingTokens);
-        el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}`;
+        el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}${pace.resetAt ? ` Reset ${dtf.format(new Date(pace.resetAt))}.` : ""}`;
       } else {
         el("weekPace").textContent = "Set budget";
-        el("weekPaceDetail").textContent = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to track runout risk.";
+        el("weekPaceDetail").textContent = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to track runout risk from observed pace.";
       }
     }
 
@@ -1034,6 +1064,21 @@
       }).join("");
     }
 
+    function renderObservedLimits(data) {
+      const rows = data.observedRateLimits || [];
+      el("observedLimits").innerHTML = rows.map((row) => {
+        const reset = row.resetAt ? `Reset ${dtf.format(new Date(row.resetAt))}` : "Reset unknown";
+        const forecast = row.projectedPercent == null ? "No safe forecast" : `${row.projectedPercent.toFixed(1)}% projected`;
+        return `
+          <div class="budget-card ${row.usedPercent >= 80 ? "high" : ""}">
+            <div><div class="guidance-title">Observed allowance · ${escapeHtml(row.limitName || row.limitId)}</div><div class="guidance-target">${escapeHtml(row.limitId)} · ${row.windowMinutes ? `${compact(row.windowMinutes)} min window` : "window unknown"}</div></div>
+            <div class="budget-value">${row.usedPercent.toFixed(1)}%</div>
+            <div class="budget-detail">${escapeHtml(row.statusText)} ${escapeHtml(reset)} · ${escapeHtml(forecast)}</div>
+          </div>
+        `;
+      }).join("") || `<div class="budget-card"><div class="guidance-title">Observed allowance</div><div class="budget-detail">No fresh rate-limit snapshots were found. This is separate from manual token budgets below.</div></div>`;
+    }
+
     function renderBudgetEaters(data) {
       const budgets = data.budgetPace || {};
       const sessions = data.budgetSessions || {};
@@ -1098,6 +1143,20 @@
           ${renderSteps(item.doNow)}
         </div>
       `).join("") || `<div class="muted">No prompt guidance for this range yet.</div>`;
+    }
+
+    function renderWorkflowGuidance(data) {
+      const rows = data.workflowGuidance || [];
+      el("workflowGuidance").innerHTML = rows.map((item) => `
+        <div class="guidance-card ${item.severity === "high" ? "high" : ""}">
+          <div>
+            <div class="guidance-title">${escapeHtml(item.title || "Workflow suggestion")}</div>
+            <div class="guidance-target">${escapeHtml(item.target || "")}</div>
+          </div>
+          <div class="guidance-detail">${escapeHtml(item.detail || "")}</div>
+          ${renderSteps(item.doNow)}
+        </div>
+      `).join("") || `<div class="muted">Choose a work mode to get a focused model and workflow suggestion.</div>`;
     }
 
     function renderSteps(steps) {
@@ -1174,14 +1233,14 @@
 
     function renderSources(data) {
       const roots = data.roots || {};
-      const sourceRows = ["claude", "codex"].map((key) => {
+      const sourceRows = ["claude", "codex", "imported"].map((key) => {
         const source = roots[key] || {};
         const sqliteNote = source.sqliteThreads
           ? ` (${nf.format(source.sqliteThreads)} from state SQLite)`
           : "";
         return `
           <div class="insight">
-            <div class="insight-title">${key}</div>
+            <div class="insight-title">${escapeHtml(key === "imported" ? "Normalized imports" : providerLabelText(key))}</div>
             <div class="insight-detail mono">${escapeHtml(source.root || "not found")}</div>
             <div class="insight-detail">${nf.format(source.files || 0)} sources${escapeHtml(sqliteNote)} - ${nf.format((source.sessions || []).length)} sessions - ${nf.format((source.errors || []).length)} errors</div>
           </div>
@@ -1242,11 +1301,11 @@
           <td>${escapeHtml(row.role || "")}</td>
           <td class="num">${compact(row.contextWindow || 0)}</td>
           <td>${(row.efforts && row.efforts.length) ? escapeHtml(row.efforts.join(", ")) : `<span class="muted">standard</span>`}</td>
-          <td class="num">${money(row.inputPer1M)}</td>
-          <td class="num">${money(row.cachedInputPer1M)}</td>
-          <td class="num">${row.cacheWrite5mPer1M != null ? money(row.cacheWrite5mPer1M) : `<span class="muted">-</span>`}</td>
-          <td class="num">${money(row.outputPer1M)}</td>
-          <td class="num">${row.creditInputPer1M != null ? `${compact(row.creditInputPer1M)} / ${compact(row.creditCachedInputPer1M)} / ${compact(row.creditOutputPer1M)}` : `<span class="muted">-</span>`}</td>
+          <td class="num">${row.pricingKnown ? money(row.inputPer1M) : `<span class="muted">not configured</span>`}</td>
+          <td class="num">${row.pricingKnown ? money(row.cachedInputPer1M) : `<span class="muted">not configured</span>`}</td>
+          <td class="num">${row.pricingKnown && row.cacheWrite5mPer1M != null ? money(row.cacheWrite5mPer1M) : `<span class="muted">-</span>`}</td>
+          <td class="num">${row.pricingKnown ? money(row.outputPer1M) : `<span class="muted">not configured</span>`}</td>
+          <td class="num">${row.pricingKnown && row.creditInputPer1M != null ? `${compact(row.creditInputPer1M)} / ${compact(row.creditCachedInputPer1M)} / ${compact(row.creditOutputPer1M)}` : `<span class="muted">-</span>`}</td>
         </tr>
       `).join("");
     }
@@ -1334,11 +1393,11 @@
       ctx.fillStyle = colors.claude;
       ctx.fillRect(pad.l, 2, 10, 10);
       ctx.fillStyle = colors.text;
-      ctx.fillText("Claude", pad.l + 15, 11);
+      ctx.fillText("Source A", pad.l + 15, 11);
       ctx.fillStyle = colors.codex;
       ctx.fillRect(pad.l + 82, 2, 10, 10);
       ctx.fillStyle = colors.text;
-      ctx.fillText("Codex", pad.l + 97, 11);
+      ctx.fillText("Source B", pad.l + 97, 11);
     }
 
     function sessionName(row) {
@@ -1386,11 +1445,13 @@
         renderInsights(data);
         renderRecommendations(data);
         renderPromptGuidance(data);
+        renderWorkflowGuidance(data);
+        renderObservedLimits(data);
         renderPlanOverview(data);
         renderBudgetOverview(data);
         renderBudgetEaters(data);
-        renderBars("providers", data.providerTotals || [], (row) => escapeHtml(row.provider));
-        renderBars("models", data.modelTotals || [], (row) => escapeHtml(`${row.provider} - ${row.model}`));
+        renderBars("providers", data.providerTotals || [], (row) => escapeHtml(providerLabelText(row.provider)));
+        renderBars("models", data.modelTotals || [], (row) => escapeHtml(row.model || "unknown"));
         renderSubagentsAndEffort(data);
         renderSources(data);
         renderTables(data);
@@ -1405,6 +1466,7 @@
     el("refresh").addEventListener("click", refresh);
     el("days").addEventListener("change", refresh);
     el("provider").addEventListener("change", refresh);
+    el("task").addEventListener("change", refresh);
     el("claudePlan").addEventListener("change", () => {
       claudePlanTouched = true;
       refresh();
