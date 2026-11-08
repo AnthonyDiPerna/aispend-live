@@ -3257,6 +3257,7 @@ function buildRecommendations(summary) {
       reason: `${observedLimit.statusText} This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.`,
       doNow: [
         "Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.",
+        "Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.",
         "Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.",
         "Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity.",
       ],
