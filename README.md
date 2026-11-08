@@ -1,7 +1,9 @@
 # AI Spend Live
 
-Release 0.4.1 adds canonical per-model daily burn, reconciled fresh/cache/
-write/output token components, and explicit unknown/free-zero pricing handling.
+Release 0.5.0 adds a merging history export (`npm run history:export`) so usage
+survives transcript cleanup, and corrects Claude content-block double counting
+and Codex fork-replay double counting in the parsers. 0.4.1 added canonical
+per-model daily burn, reconciled token components, and explicit unknown pricing.
 
 See what is burning your local AI usage, then decide what to do next.
 
@@ -69,13 +71,49 @@ http://127.0.0.1:9020/
 npm run dashboard
 npm run summary
 npm run demo:export
+npm run history:export -- --out <ledger.json>
 npm run test:public-demo
+npm run test:history
 npm test
 ```
 
 `npm run demo:export` writes an aggregate-only public example. Pass `--out`
 to place it in a static landing folder; it never exports prompts, titles,
 paths, session IDs, environment values, or credentials.
+
+## History Export
+
+Claude Code prunes transcripts after roughly 30 days and the dashboard only
+reads what is still on disk. `npm run history:export` walks every local record
+for both providers with the same parsers and merges the aggregates into a
+durable ledger, so a year-long "where did my tokens go" analysis survives log
+cleanup:
+
+```powershell
+npm run history:export -- --out D:\aispend-ledger\ai-spend-ledger.json --since 2026-01-01 --summary-out D:\aispend-ledger\ai-spend-summary.md
+```
+
+- One row per **day x provider x model x project** with fresh input, cache
+  read, cache write, output, reasoning output, turns, sessions touched,
+  subagent tokens, reasoning-effort buckets, and estimated API-equivalent USD
+  (`null` when pricing is unknown, never zero), plus per-day totals, hashed
+  per-session summaries, the 100 largest single turns, and a `coverage` block
+  with first/last record per source and explicit missing-day ranges.
+- **Merge semantics**: when `--out` already exists, rows merge by
+  (day, provider, model, project) taking the max of each token field.
+  Re-scanning the same logs never double counts, and a day whose logs were
+  pruned keeps its old row. Run it weekly; the previous file is kept as `.bak`.
+- `stats-cache.json` whole-history model totals and its patchy daily series are
+  folded in as separate `claudeStatsCacheTotals` / `claudeStatsCacheDaily`
+  blocks and never mixed into the rows.
+- `--since` / `--until` limit the aggregated days (files that cannot overlap
+  the window are skipped), `--provider claude|codex` scans one source, and
+  `--summary-only` regenerates the Markdown summary from an existing ledger.
+  Files stream through the parser, so a 50 GB Codex history runs in a few
+  hundred MB of memory.
+- Project names are directory basenames (`H--devland-aiv-git` becomes
+  `aiv-git`; Codex uses the rollout `cwd`, else `unknown`). Session ids are
+  hashed. No prompt text, titles, or user content is written.
 
 ## Expected Local Log Paths
 

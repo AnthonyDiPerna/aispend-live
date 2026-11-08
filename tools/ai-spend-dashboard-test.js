@@ -244,6 +244,16 @@ async function run() {
     output_tokens: 40,
   });
   assert.equal(claudeTokens.totalTokens, 100);
+  const claudeBreakdownTokens = normalizeClaudeUsage({
+    input_tokens: 10,
+    cache_creation_input_tokens: 20,
+    cache_creation: { ephemeral_5m_input_tokens: 15, ephemeral_1h_input_tokens: 5 },
+    cache_read_input_tokens: 30,
+    output_tokens: 40,
+  });
+  assert.equal(claudeBreakdownTokens.cacheCreationInputTokens, 15, "cache_creation breakdown must not be added on top of the total");
+  assert.equal(claudeBreakdownTokens.cacheCreation1hInputTokens, 5);
+  assert.equal(claudeBreakdownTokens.totalTokens, 100);
 
   const codexTokens = normalizeCodexUsage({
     input_tokens: 10,

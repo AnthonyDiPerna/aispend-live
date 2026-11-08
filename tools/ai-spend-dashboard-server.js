@@ -724,7 +724,7 @@ function safeJsonParse(line) {
   }
 }
 
-async function readJsonLines(filePath, onObject) {
+async function readJsonLines(filePath, onObject, onRawLine) {
   const stream = fs.createReadStream(filePath, { encoding: "utf8" });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   let lineNumber = 0;
@@ -732,6 +732,9 @@ async function readJsonLines(filePath, onObject) {
     lineNumber += 1;
     const trimmed = line.trim();
     if (!trimmed) continue;
+    // An optional raw-line hook may fully handle a line (return true) so large
+    // irrelevant records never pay for JSON.parse.
+    if (onRawLine && onRawLine(trimmed, lineNumber)) continue;
     const parsed = safeJsonParse(trimmed);
     if (!parsed || typeof parsed !== "object") continue;
     onObject(parsed, lineNumber);
@@ -868,18 +871,32 @@ function normalizeClaudeUsage(usage) {
 
   tokens.inputTokens = numberValue(usage.input_tokens);
   tokens.outputTokens = numberValue(usage.output_tokens);
-  tokens.cacheCreationInputTokens = numberValue(usage.cache_creation_input_tokens);
   tokens.cacheReadInputTokens = numberValue(usage.cache_read_input_tokens);
 
+  // cache_creation_input_tokens is the total; usage.cache_creation splits that
+  // same total into ephemeral 5m/1h buckets, so the breakdown replaces the
+  // total instead of adding to it.
+  const cacheCreationTotal = numberValue(usage.cache_creation_input_tokens);
+  let fiveMinute = 0;
+  let oneHour = 0;
+  let hasBreakdown = false;
   if (usage.cache_creation && typeof usage.cache_creation === "object") {
     for (const [key, value] of Object.entries(usage.cache_creation)) {
+      hasBreakdown = true;
       if (/1h|hour/i.test(key)) {
-        tokens.cacheCreation1hInputTokens += numberValue(value);
+        oneHour += numberValue(value);
       } else {
-        tokens.cacheCreationInputTokens += numberValue(value);
+        fiveMinute += numberValue(value);
       }
     }
   }
+  if (!hasBreakdown) {
+    fiveMinute = cacheCreationTotal;
+  } else if (fiveMinute + oneHour < cacheCreationTotal) {
+    fiveMinute += cacheCreationTotal - (fiveMinute + oneHour);
+  }
+  tokens.cacheCreationInputTokens = fiveMinute;
+  tokens.cacheCreation1hInputTokens = oneHour;
 
   tokens.totalTokens = tokenTotal(tokens);
   return tokens;
@@ -1069,6 +1086,7 @@ function createSession(provider, fileInfo, root) {
     parentSessionId: subagentInfo.parentSessionId || "",
     agentId: subagentInfo.agentId || "",
     isSubagent: subagentInfo.isSubagent,
+    subagentKind: subagentInfo.isSubagent ? "sidechain" : "",
     liveStatus: "",
     livePid: 0,
     reasoningEffort: "",
@@ -1260,17 +1278,83 @@ function readCodexSqliteThreads(sqlitePath) {
   }
 }
 
+// Claude Code streams one JSONL record per content block; all records of a
+// message share message.id, repeat the prompt-side usage, and later records can
+// carry a larger (final) output count. Grow the existing event to the
+// field-wise max instead of counting the message again.
+function growEventTokens(session, event, tokens) {
+  const delta = emptyTokens();
+  let grew = false;
+  for (const key of Object.keys(delta)) {
+    if (key === "totalTokens") continue;
+    const diff = numberValue(tokens[key]) - numberValue(event.tokens[key]);
+    if (diff > 0) {
+      delta[key] = diff;
+      event.tokens[key] += diff;
+      grew = true;
+    }
+  }
+  if (!grew) return false;
+  delta.totalTokens = tokenTotal(delta);
+  event.tokens.totalTokens = 0;
+  event.tokens.totalTokens = tokenTotal(event.tokens);
+  event.totalTokens = event.tokens.totalTokens;
+  addTokens(session.tokens, delta);
+  const cost = estimateCost(event.provider, event.model, event.tokens);
+  const costDelta = cost.usd - event.costUsd;
+  event.costUsd = cost.usd;
+  event.pricingTier = cost.pricingTier || event.pricingTier;
+  session.costUsd += costDelta;
+  if (event.costKnown) {
+    session.knownCostUsd += costDelta;
+  } else {
+    session.unknownCostTokens += delta.totalTokens;
+  }
+  return true;
+}
+
+function emitSession(opts, collect, sessions, events, session) {
+  const finalized = finalizeSession(session);
+  if (typeof opts.onSession === "function") {
+    opts.onSession(finalized, session.events);
+  }
+  if (collect) {
+    sessions.push(finalized);
+    for (const event of session.events) {
+      events.push(event);
+    }
+  }
+  return finalized;
+}
+
+function fileAllowed(opts, fileInfo) {
+  return typeof opts.fileFilter !== "function" || Boolean(opts.fileFilter(fileInfo));
+}
+
 async function parseClaude(root, sinceMs, options) {
+  const opts = options || {};
+  const collect = opts.collect !== false;
   const files = listJsonlFiles(root);
-  const liveSessions = readClaudeLiveSessions(root, options);
+  const liveSessions = readClaudeLiveSessions(root, opts);
   const sessions = [];
   const events = [];
   const errors = [];
+  let scannedFiles = 0;
+  let duplicateUsageRecords = 0;
+  let mergedUsageRecords = 0;
   for (const fileInfo of files) {
     if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) {
       continue;
     }
+    if (!fileAllowed(opts, fileInfo)) {
+      continue;
+    }
+    scannedFiles += 1;
+    if (typeof opts.onFile === "function") {
+      opts.onFile(fileInfo, scannedFiles, files.length);
+    }
     const session = createSession("claude", fileInfo, root);
+    const eventsByMessageId = new Map();
     let sessionSlug = "";
     let turnIndex = 0;
     try {
@@ -1282,6 +1366,7 @@ async function parseClaude(root, sinceMs, options) {
         }
         if (record.isSidechain || record.agentId) {
           session.isSubagent = true;
+          session.subagentKind = session.subagentKind || "sidechain";
           if (record.agentId) {
             session.agentId = String(record.agentId);
           }
@@ -1321,6 +1406,15 @@ async function parseClaude(root, sinceMs, options) {
         if (tokenTotal(tokens) <= 0) {
           return;
         }
+        const usageId = String(message.id || record.requestId || "");
+        const existingEvent = usageId ? eventsByMessageId.get(usageId) : null;
+        if (existingEvent) {
+          duplicateUsageRecords += 1;
+          if (growEventTokens(session, existingEvent, tokens)) {
+            mergedUsageRecords += 1;
+          }
+          return;
+        }
         turnIndex += 1;
         const model = String(message.model || record.model || session.model || "unknown");
         if (model !== "unknown") {
@@ -1355,7 +1449,9 @@ async function parseClaude(root, sinceMs, options) {
           creditKnown: false,
         };
         addEvent(session, event);
-        events.push(event);
+        if (usageId) {
+          eventsByMessageId.set(usageId, event);
+        }
       });
     } catch (err) {
       errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
@@ -1388,15 +1484,84 @@ async function parseClaude(root, sinceMs, options) {
         }
       }
       applySessionIdentityToEvents(session);
-      sessions.push(finalizeSession(session));
+      emitSession(opts, collect, sessions, events, session);
     }
   }
-  return { provider: "claude", root, files: files.length, sessions, events, errors };
+  return {
+    provider: "claude",
+    root,
+    files: files.length,
+    scannedFiles,
+    duplicateUsageRecords,
+    mergedUsageRecords,
+    sessions,
+    events,
+    errors,
+  };
+}
+
+// Codex rollout lines start with a fixed header; only session_meta, turn_context
+// and token_count events carry usage, so other (often multi-megabyte) records
+// are handled from the header alone.
+const CODEX_LINE_HEAD = /^\{"timestamp":"([^"]{20,40})",(?:"[a-z_]+":(?:\d+|"[^"]*"|true|false|null),)*?"type":"([a-z_]+)"(?:,"payload":\{"type":"([a-z_]+)")?/;
+const CODEX_LINE_HEAD_CHARS = 160;
+const CODEX_TOTAL_USAGE_KEYS = ["input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens"];
+// Real responses in one thread are seconds apart; a fork's replayed history is
+// written back-to-back within milliseconds.
+const CODEX_REPLAY_GAP_MS = 250;
+
+function codexReasoningEffort(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  const settings = payload.collaboration_mode && typeof payload.collaboration_mode === "object"
+    && payload.collaboration_mode.settings && typeof payload.collaboration_mode.settings === "object"
+    ? payload.collaboration_mode.settings
+    : {};
+  const effort = payload.reasoning_effort || payload.reasoningEffort || payload.effort || settings.reasoning_effort || "";
+  return effort ? String(effort) : "";
+}
+
+function codexSubagentSource(payload) {
+  const source = payload && typeof payload === "object" ? payload.source : null;
+  if (!source || typeof source !== "object" || !source.subagent) return null;
+  const subagent = source.subagent;
+  const spawn = subagent && typeof subagent === "object" && subagent.thread_spawn && typeof subagent.thread_spawn === "object"
+    ? subagent.thread_spawn
+    : null;
+  const kind = spawn
+    ? "thread_spawn"
+    : subagent && typeof subagent === "object" && typeof subagent.other === "string"
+      ? subagent.other
+      : "subagent";
+  return {
+    kind,
+    parentThreadId: String((spawn && spawn.parent_thread_id) || payload.parent_thread_id || ""),
+    nickname: String((spawn && spawn.agent_nickname) || ""),
+  };
+}
+
+function sameCodexTotals(current, previous) {
+  if (!current || !previous) return false;
+  for (const key of CODEX_TOTAL_USAGE_KEYS) {
+    if (numberValue(current[key]) !== numberValue(previous[key])) return false;
+  }
+  return true;
+}
+
+// Cumulative totals grow monotonically inside a thread, so (total, output,
+// last) identifies one response; a fork replays the parent's exact stream.
+function codexUsageSignature(info) {
+  const total = info.total_token_usage;
+  if (!total || typeof total !== "object") return "";
+  const last = info.last_token_usage && typeof info.last_token_usage === "object" ? info.last_token_usage : {};
+  return `${numberValue(total.total_tokens)}:${numberValue(total.output_tokens)}:${numberValue(last.total_tokens)}`;
 }
 
 async function parseCodex(root, sinceMs, options) {
   const opts = options || {};
-  const files = listJsonlFiles(root);
+  const collect = opts.collect !== false;
+  // Chronological order lets a parent thread claim its usage before any fork
+  // that replays it.
+  const files = listJsonlFiles(root).sort((a, b) => a.path.localeCompare(b.path));
   const sessionNames = readCodexSessionIndex(root, opts);
   const sessions = [];
   const events = [];
@@ -1404,46 +1569,94 @@ async function parseCodex(root, sinceMs, options) {
   const rateLimitSnapshots = [];
   const seenSessionIds = new Set();
   const seenRolloutPaths = new Set();
+  const seenUsageByRoot = new Map();
+  let scannedFiles = 0;
+  let repeatedTokenCounts = 0;
+  let replayedTokenCounts = 0;
+  let burstTokenCounts = 0;
 
   for (const fileInfo of files) {
     seenRolloutPaths.add(path.resolve(fileInfo.path).toLowerCase());
     if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) {
       continue;
     }
+    if (!fileAllowed(opts, fileInfo)) {
+      continue;
+    }
+    scannedFiles += 1;
+    if (typeof opts.onFile === "function") {
+      opts.onFile(fileInfo, scannedFiles, files.length);
+    }
     const session = createSession("codex", fileInfo, root);
     let previousTotalUsage = null;
+    let previousTokenCountMs = 0;
     let turnIndex = 0;
+    let sessionMetaSeen = false;
+    let rootSessionId = "";
+    let forked = false;
+    const touchTimestamp = (timestampMs) => {
+      session.startMs = session.startMs ? Math.min(session.startMs, timestampMs) : timestampMs;
+      session.endMs = Math.max(session.endMs || 0, timestampMs);
+    };
+    const skipUnusedLine = (line) => {
+      const head = CODEX_LINE_HEAD.exec(line.length > CODEX_LINE_HEAD_CHARS ? line.slice(0, CODEX_LINE_HEAD_CHARS) : line);
+      if (!head) return false;
+      const type = head[2];
+      if (type === "session_meta" || type === "turn_context") return false;
+      if (type === "event_msg" && (!head[3] || head[3] === "token_count")) return false;
+      if (line.includes("rate_limit")) return false;
+      touchTimestamp(parseTimestampMs(head[1], fileInfo.mtimeMs || Date.now()));
+      return true;
+    };
     try {
       await readJsonLines(fileInfo.path, (record) => {
         const timestampMs = parseTimestampMs(record.timestamp, fileInfo.mtimeMs || Date.now());
-        session.startMs = session.startMs ? Math.min(session.startMs, timestampMs) : timestampMs;
-        session.endMs = Math.max(session.endMs || 0, timestampMs);
+        touchTimestamp(timestampMs);
 
         const payload = record.payload && typeof record.payload === "object" ? record.payload : {};
         const rateLimits = payload.rate_limits || payload.rateLimits || payload.rate_limit_snapshot || payload.rateLimitSnapshot || record.rate_limits || record.rateLimits;
-        if (rateLimits) {
+        if (rateLimits && collect) {
           rateLimitSnapshots.push(...normalizeRateLimitSnapshot(rateLimits, timestampMs));
         }
         if (record.type === "session_meta") {
-          if (payload.id) {
+          // A forked sub-thread replays its parent's session_meta right after
+          // its own, so only the first record names this file's thread.
+          const ownMeta = !sessionMetaSeen;
+          sessionMetaSeen = true;
+          if (!ownMeta || payload.forked_from_id) {
+            forked = true;
+          }
+          if (ownMeta && payload.id) {
             session.id = String(payload.id);
+            rootSessionId = String(payload.session_id || payload.id);
             const indexed = sessionNames.get(session.id);
             if (indexed) {
               setSessionTitle(session, indexed.title, indexed.source, 5);
             }
           }
-          if (payload.agent_nickname) {
+          if (ownMeta && payload.agent_nickname) {
             setSessionTitle(session, payload.agent_nickname, "Codex agent name", 3);
           }
-          if (payload.cwd) {
+          const subagentSource = ownMeta ? codexSubagentSource(payload) : null;
+          if (subagentSource) {
+            session.isSubagent = true;
+            session.subagentKind = sanitizeSessionTitle(subagentSource.kind, 32);
+            session.parentSessionId = subagentSource.parentThreadId || session.parentSessionId;
+            session.agentId = sanitizeSessionTitle(subagentSource.nickname || subagentSource.kind, 48);
+          }
+          if (ownMeta && !session.parentSessionId && payload.forked_from_id) {
+            session.parentSessionId = String(payload.forked_from_id);
+          }
+          if (payload.cwd && (ownMeta || !session.cwd)) {
             session.cwd = String(payload.cwd);
             session.project = path.basename(session.cwd);
           }
-          if (payload.model) {
+          if (payload.model && (ownMeta || session.model === "unknown")) {
             session.model = String(payload.model);
           }
-          if (payload.reasoning_effort || payload.reasoningEffort) {
-            session.reasoningEffort = String(payload.reasoning_effort || payload.reasoningEffort);
+          const metaEffort = codexReasoningEffort(payload);
+          if (metaEffort && (ownMeta || !session.reasoningEffort)) {
+            session.reasoningEffort = metaEffort;
           }
           return;
         }
@@ -1456,8 +1669,9 @@ async function parseCodex(root, sinceMs, options) {
           if (payload.model) {
             session.model = String(payload.model);
           }
-          if (payload.reasoning_effort || payload.reasoningEffort) {
-            session.reasoningEffort = String(payload.reasoning_effort || payload.reasoningEffort);
+          const turnEffort = codexReasoningEffort(payload);
+          if (turnEffort) {
+            session.reasoningEffort = turnEffort;
           }
           return;
         }
@@ -1466,6 +1680,34 @@ async function parseCodex(root, sinceMs, options) {
           return;
         }
         const info = payload.info && typeof payload.info === "object" ? payload.info : {};
+        // A snapshot whose cumulative totals did not move repeats the previous
+        // last_token_usage and carries no new usage.
+        if (info.total_token_usage && sameCodexTotals(info.total_token_usage, previousTotalUsage)) {
+          repeatedTokenCounts += 1;
+          return;
+        }
+        const signature = codexUsageSignature(info);
+        if (signature) {
+          const rootKey = rootSessionId || session.id;
+          let seenSignatures = seenUsageByRoot.get(rootKey);
+          if (!seenSignatures) {
+            seenSignatures = new Set();
+            seenUsageByRoot.set(rootKey, seenSignatures);
+          }
+          if (seenSignatures.has(signature)) {
+            replayedTokenCounts += 1;
+            previousTotalUsage = info.total_token_usage;
+            return;
+          }
+          seenSignatures.add(signature);
+        }
+        if (forked && previousTokenCountMs && timestampMs - previousTokenCountMs < CODEX_REPLAY_GAP_MS) {
+          burstTokenCounts += 1;
+          previousTotalUsage = info.total_token_usage || previousTotalUsage;
+          previousTokenCountMs = timestampMs;
+          return;
+        }
+        previousTokenCountMs = timestampMs;
         let tokens = null;
         if (info.last_token_usage) {
           tokens = normalizeCodexUsage(info.last_token_usage);
@@ -1487,8 +1729,8 @@ async function parseCodex(root, sinceMs, options) {
           provider: "codex",
           id: `${session.id}:${turnIndex}`,
           sessionId: session.id,
-          parentSessionId: "",
-          isSubagent: false,
+          parentSessionId: session.parentSessionId || "",
+          isSubagent: Boolean(session.isSubagent),
           turnIndex,
           file: session.relativeFile,
           project: session.project,
@@ -1510,8 +1752,7 @@ async function parseCodex(root, sinceMs, options) {
           creditKnown: credit.known,
         };
         addEvent(session, event);
-        events.push(event);
-      });
+      }, skipUnusedLine);
     } catch (err) {
       errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
     }
@@ -1523,13 +1764,15 @@ async function parseCodex(root, sinceMs, options) {
         }
       }
       applySessionIdentityToEvents(session);
-      sessions.push(finalizeSession(session));
+      emitSession(opts, collect, sessions, events, session);
     }
   }
 
-  const sqlitePath = opts.sqlitePath
-    || process.env.CODEX_STATE_DB
-    || findLatestCodexSqlite(path.resolve(root, ".."));
+  const sqlitePath = opts.includeSqlite === false
+    ? ""
+    : opts.sqlitePath
+      || process.env.CODEX_STATE_DB
+      || findLatestCodexSqlite(path.resolve(root, ".."));
   const sqliteRows = readCodexSqliteThreads(sqlitePath);
   let sqliteRecoveredCount = 0;
 
@@ -1562,6 +1805,7 @@ async function parseCodex(root, sinceMs, options) {
       parentSessionId: "",
       agentId: sanitizeSessionTitle(row.agent_nickname || "", 48),
       isSubagent,
+      subagentKind: isSubagent ? "thread_spawn" : "",
       liveStatus: "",
       livePid: 0,
       reasoningEffort,
@@ -1632,8 +1876,7 @@ async function parseCodex(root, sinceMs, options) {
     session.startMs = Math.min(startMs, endMs);
     session.endMs = Math.max(startMs, endMs);
     applySessionIdentityToEvents(session);
-    sessions.push(finalizeSession(session));
-    events.push(event);
+    emitSession(opts, collect, sessions, events, session);
     seenSessionIds.add(threadId);
     sqliteRecoveredCount += 1;
   }
@@ -1644,6 +1887,10 @@ async function parseCodex(root, sinceMs, options) {
     sqlitePath: sqliteRecoveredCount > 0 ? sqlitePath : "",
     sqliteThreads: sqliteRecoveredCount,
     files: files.length + sqliteRecoveredCount,
+    scannedFiles,
+    repeatedTokenCounts,
+    replayedTokenCounts,
+    burstTokenCounts,
     sessions,
     events,
     errors,
@@ -1820,6 +2067,7 @@ function finalizeSession(session) {
     parentSessionId: session.parentSessionId || "",
     agentId: session.agentId || "",
     isSubagent: Boolean(session.isSubagent),
+    subagentKind: session.subagentKind || "",
     liveStatus: session.liveStatus || "",
     livePid: session.livePid || 0,
     reasoningEffort: session.reasoningEffort || "",
@@ -3528,19 +3776,26 @@ if (require.main === module) {
 }
 
 module.exports = {
+  addTokens,
   buildModelCatalog,
   buildObservedRateLimits,
   buildSummary,
   createServer,
+  emptyTokens,
   estimateCost,
   estimateCredits,
   buildWorkflowGuidance,
+  findClaudePricing,
+  findOpenAiPricing,
   listJsonlFiles,
+  localDateKey,
   normalizeClaudeUsage,
   normalizeCodexUsage,
   normalizeImportedUsage,
+  numberValue,
   parseAllUsage,
   parseClaude,
   parseCodex,
   parseImportedUsage,
+  tokenTotal,
 };
