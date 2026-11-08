@@ -398,6 +398,7 @@ async function run() {
   assert.equal(summary.planPace.selected.codex, "custom");
   assert(summary.promptGuidance.some((item) => item.title.includes("GPT-6")));
   assert(summary.promptGuidance.some((item) => item.title === "Protect the 5h window"));
+  assert(summary.recommendations.some((item) => /handoff|restart/i.test(`${item.title} ${item.reason}`)));
 
   const importedSummary = buildSummary([claude, codex, imported], { days: 365, provider: "all", task: "implement" });
   const unknownCatalog = importedSummary.modelCatalog.find((model) => model.id === "mystery-model-v9");
@@ -422,6 +423,21 @@ async function run() {
   assert(resetRate && resetRate.projectedPercent === null, "reset changes must not reuse the prior slope");
   const staleRate = rateLimits.find((item) => item.limitId === "codex:secondary");
   assert(staleRate && staleRate.status === "stale");
+
+  const pressureNow = Date.now();
+  const pressureReset = pressureNow + 4 * 3600000;
+  const pressureSummary = buildSummary([{
+    provider: "codex",
+    sessions: [],
+    events: [],
+    rateLimitSnapshots: [
+      { provider: "codex", limitId: "codex:primary", limitName: "weekly", windowMinutes: 10080, resetAt: pressureReset, usedPercent: 82, timestampMs: pressureNow - 30 * 60000 },
+      { provider: "codex", limitId: "codex:primary", limitName: "weekly", windowMinutes: 10080, resetAt: pressureReset, usedPercent: 88, timestampMs: pressureNow - 10 * 60000 },
+    ],
+  }], { days: 365, provider: "all" });
+  assert(pressureSummary.recommendations.some((item) => item.title === "Protect the observed limit"));
+  assert(pressureSummary.recommendations.some((item) => /measured|observed/i.test(item.reason)));
+  assert(pressureSummary.insights.some((item) => item.title === "Observed limit pressure"));
 
   const planSummary = buildSummary([claude, codex], {
     days: 365,

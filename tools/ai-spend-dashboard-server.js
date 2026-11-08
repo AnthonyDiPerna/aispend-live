@@ -20,6 +20,8 @@ const MS_PER_HOUR = 3600000;
 const MS_PER_DAY = 86400000;
 const TOKENS_PER_MILLION = 1000000;
 const OPENAI_LONG_CONTEXT_THRESHOLD = 272000;
+const LIMIT_WARNING_USED_PERCENT = 80;
+const LIMIT_WARNING_PROJECTED_PERCENT = 90;
 
 const CLAUDE_PRICING = [
   {
@@ -1031,6 +1033,16 @@ function buildObservedRateLimits(snapshots, nowMs = Date.now(), includeHistory =
     }
   }
   return Array.from(latestByWindow.values()).sort((a, b) => b.usedPercent - a.usedPercent);
+}
+
+function selectFreshLimitPressure(rows) {
+  return (rows || [])
+    .filter((row) => row && row.fresh && (
+      numberValue(row.usedPercent) >= LIMIT_WARNING_USED_PERCENT
+      || numberValue(row.projectedPercent) >= LIMIT_WARNING_PROJECTED_PERCENT
+    ))
+    .sort((a, b) => Math.max(numberValue(b.usedPercent), numberValue(b.projectedPercent))
+      - Math.max(numberValue(a.usedPercent), numberValue(a.projectedPercent)))[0];
 }
 
 function diffCodexTotals(current, previous) {
@@ -2344,6 +2356,7 @@ function buildSummary(parsed, options) {
     budgetSessions,
     planPace,
     subagentStats,
+    observedRateLimits,
     task: String(opts.task || "auto"),
   };
 
@@ -3094,10 +3107,13 @@ function buildSessionRecommendation(session, totals) {
     : "After the handoff, close that Codex CLI tab/window and start a new Codex session for the next task.";
 
   if (share >= 0.25 || (durationMinutes >= 240 && totalTokens >= 100000)) {
+    const longLivedNote = durationMinutes >= 240
+      ? " Large history can inflate input on later turns; restart from a compact handoff when the task changes."
+      : "";
     return {
       label: "Summarize and restart",
       severity: "high",
-      detail: `"${name}" is ${Math.round(share * 100)}% of the selected range and has been active for ${formatDurationMinutes(durationMinutes)}.`,
+      detail: `"${name}" is ${Math.round(share * 100)}% of the selected range and has been active for ${formatDurationMinutes(durationMinutes)}.${longLivedNote}`,
       ask: handoffPrompt(session),
       cli: [
         `Target: ${targetCliWindow(session)}`,
@@ -3226,6 +3242,27 @@ function buildRecommendations(summary) {
     }
     used.add(key);
     recommendations.push(item);
+  }
+
+  const observedLimit = selectFreshLimitPressure(summary.observedRateLimits);
+  if (observedLimit) {
+    const observed = `${numberValue(observedLimit.usedPercent).toFixed(1)}% observed`;
+    const projection = observedLimit.projectedPercent === null || observedLimit.projectedPercent === undefined
+      ? "no safe forecast"
+      : `${numberValue(observedLimit.projectedPercent).toFixed(1)}% projected by reset`;
+    push("observed-limit", {
+      severity: "high",
+      title: "Protect the observed limit",
+      target: `${providerDisplay(observedLimit.provider)} ${observedLimit.limitName || "allowance"}: ${observed}`,
+      reason: `${observedLimit.statusText} This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.`,
+      doNow: [
+        "Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.",
+        "Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.",
+        "Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity.",
+      ],
+      ask: `Checkpoint the current work and identify one bounded next action. Treat this as ${projection}; do not estimate remaining quota from token counts.`,
+      cli: [],
+    });
   }
 
   if (fiveHourPace.status === "risk" || fiveHourPace.status === "over") {
@@ -3463,6 +3500,18 @@ function buildInsights(summary) {
   const last24 = summary.windows.last24h;
   const lastHour = summary.windows.lastHour;
   const subagentStats = summary.subagentStats || {};
+  const observedLimit = selectFreshLimitPressure(summary.observedRateLimits);
+
+  if (observedLimit) {
+    const projection = observedLimit.projectedPercent === null || observedLimit.projectedPercent === undefined
+      ? "No safe forecast is available without two fresh samples on the same reset window."
+      : `The current slope projects ${numberValue(observedLimit.projectedPercent).toFixed(1)}% by reset.`;
+    insights.push({
+      severity: "high",
+      title: "Observed limit pressure",
+      detail: `${providerDisplay(observedLimit.provider)} reports ${numberValue(observedLimit.usedPercent).toFixed(1)}% used on its ${observedLimit.limitName || "allowance"} window. ${projection} This is measured provider telemetry, not a quota derived from token totals.`,
+    });
+  }
 
   if (claude && summary.totals.totalTokens > 0) {
     const claudeShare = claude.totalTokens / summary.totals.totalTokens;
