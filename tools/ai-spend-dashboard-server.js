@@ -987,7 +987,10 @@ function buildObservedRateLimits(snapshots, nowMs = Date.now(), includeHistory =
     const resetAt = latest.resetAt || 0;
     const windowMs = Math.max(0, numberValue(latest.windowMinutes) * MS_PER_MINUTE);
     const freshnessMs = Math.max(2 * MS_PER_HOUR, windowMs > 0 ? windowMs * 0.25 : 2 * MS_PER_HOUR);
-    const fresh = latest.timestampMs >= nowMs - freshnessMs;
+    // Ended windows and old earlier samples cannot describe current pressure.
+    const windowExpired = resetAt > 0 && resetAt <= nowMs;
+    const fresh = !windowExpired && latest.timestampMs >= nowMs - freshnessMs;
+    const previousFresh = previous && previous.timestampMs >= nowMs - freshnessMs;
     const sameReset = previous && previous.resetAt === latest.resetAt;
     const elapsedHours = previous && latest.timestampMs > previous.timestampMs
       ? (latest.timestampMs - previous.timestampMs) / MS_PER_HOUR
@@ -996,7 +999,7 @@ function buildObservedRateLimits(snapshots, nowMs = Date.now(), includeHistory =
       ? (latest.usedPercent - previous.usedPercent) / elapsedHours
       : null;
     const resetHours = resetAt > nowMs ? (resetAt - nowMs) / MS_PER_HOUR : 0;
-    const canProject = fresh && sameReset && elapsedHours > 0 && resetAt > nowMs && slopePercentPerHour >= 0;
+    const canProject = fresh && previousFresh && sameReset && elapsedHours > 0 && resetAt > nowMs && slopePercentPerHour >= 0;
     const projectedPercent = canProject
       ? Math.min(100, latest.usedPercent + slopePercentPerHour * resetHours)
       : null;
@@ -1014,7 +1017,9 @@ function buildObservedRateLimits(snapshots, nowMs = Date.now(), includeHistory =
       slopePercentPerHour,
       projectedPercent,
       status: !fresh ? "stale" : canProject ? "projected" : "observed",
-      statusText: !fresh
+      statusText: windowExpired
+        ? "This allowance window has ended; waiting for a new snapshot."
+        : !fresh
         ? "No fresh rate-limit snapshot; showing the last observed value."
         : canProject
           ? `Observed ${latest.usedPercent.toFixed(1)}%; projected ${projectedPercent.toFixed(1)}% by reset at the measured slope.`

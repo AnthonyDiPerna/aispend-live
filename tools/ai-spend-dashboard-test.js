@@ -439,6 +439,23 @@ async function run() {
   assert(pressureSummary.recommendations.some((item) => /measured|observed/i.test(item.reason)));
   assert(pressureSummary.insights.some((item) => item.title === "Observed limit pressure"));
 
+  const oldSlopeSummary = buildSummary([{
+    provider: "codex", sessions: [], events: [],
+    rateLimitSnapshots: [
+      { provider: "codex", limitId: "codex:primary", limitName: "5h", windowMinutes: 300, resetAt: pressureReset, usedPercent: 10, timestampMs: pressureNow - 3 * 3600000 },
+      { provider: "codex", limitId: "codex:primary", limitName: "5h", windowMinutes: 300, resetAt: pressureReset, usedPercent: 70, timestampMs: pressureNow - 10 * 60000 },
+    ],
+  }], { days: 365, provider: "all" });
+  assert.equal(oldSlopeSummary.observedRateLimits[0].projectedPercent, null, "A stale earlier sample must not support a forecast");
+  assert(!oldSlopeSummary.recommendations.some((item) => item.title === "Protect the observed limit"), "Stale slopes must not cause a limit warning");
+
+  const expiredSummary = buildSummary([{
+    provider: "codex", sessions: [], events: [],
+    rateLimitSnapshots: [{ provider: "codex", limitId: "codex:primary", limitName: "5h", windowMinutes: 300, resetAt: pressureNow - 30000, usedPercent: 95, timestampMs: pressureNow - 60000 }],
+  }], { days: 365, provider: "all" });
+  assert.equal(expiredSummary.observedRateLimits[0].fresh, false, "A reset window must not remain fresh");
+  assert(!expiredSummary.recommendations.some((item) => item.title === "Protect the observed limit"), "Expired windows must not cause a current limit warning");
+
   const planSummary = buildSummary([claude, codex], {
     days: 365,
     provider: "all",
