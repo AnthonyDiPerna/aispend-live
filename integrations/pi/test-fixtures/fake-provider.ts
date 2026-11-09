@@ -12,7 +12,8 @@ export default function fixture(pi:any) {
       calls++;
       if(process.env.AI_SPEND_FIXTURE_COUNT)appendFileSync(process.env.AI_SPEND_FIXTURE_COUNT,'request\n');
       const compact=process.env.AI_SPEND_FIXTURE_COMPACT==='1';
-      const loop=process.env.AI_SPEND_FIXTURE_LOOP==='1' || (compact && calls<=8);
+      const recovered=process.env.AI_SPEND_FIXTURE_RECOVER==='1' && JSON.stringify(_context.messages).includes('Guard automatic recovery:');
+      const loop=!recovered && (process.env.AI_SPEND_FIXTURE_LOOP==='1' || (compact && calls<=8));
       const message:any={role:'assistant',api:'guard-fixture',provider,model:model.id,timestamp:Date.now(),
         content:loop?[{type:'toolCall',id:'fixture-'+Date.now(),name:'bash',arguments:{command:compact?'fixture-'+calls:'fixture'}}]:[{type:'text',text:'Guard fixture completed.'}],
         stopReason:loop?'toolUse':'stop',usage:{input:compact && calls===8?170000:100,output:10,cacheRead:0,cacheWrite:0,totalTokens:compact && calls===8?170010:110,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:api?.001:0}}};
@@ -28,5 +29,5 @@ export default function fixture(pi:any) {
     api:{stream,streamSimple:stream},
   } as any));
   pi.registerTool({name:'bash',label:'Fixture output',description:'Return test output without executing anything',parameters:{type:'object',properties:{command:{type:'string'}},required:['command']},
-    async execute(){return {content:[{type:'text',text:'START\n'+'.'.repeat(40000)+'\nEND'}],details:{}};}});
+    async execute(){if(process.env.AI_SPEND_FIXTURE_COUNT)appendFileSync(process.env.AI_SPEND_FIXTURE_COUNT+'.tools','tool\n');return {content:[{type:'text',text:'START\n'+'.'.repeat(40000)+'\nEND'}],details:{}};}});
 }

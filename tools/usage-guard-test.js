@@ -56,7 +56,7 @@ async function run() {
   const trimmed=trimToolOutput([{type:'text',text},image],16000,'local-result.txt');
   assert.ok(trimmed.content.find(x=>x.type==='text').text.startsWith('begin'));
   assert.ok(trimmed.content.find(x=>x.type==='text').text.endsWith('end'));
-  assert.equal(trimmed.removedChars,24008);
+  assert.equal(trimmed.removedChars,text.length-trimmed.content.find(x=>x.type==='text').text.length,'measure net removal including the archive notice');
   assert.equal(trimmed.content[0],image);
   assert.deepEqual(trimToolOutput([{type:'text',text:'short'}],16000,'unused').content,[{type:'text',text:'short'}]);
   const snapshot={limit_id:'codex',primary:{used_percent:15,window_minutes:10080,resets_at:(NOW+6*24*HOUR)/1000}};

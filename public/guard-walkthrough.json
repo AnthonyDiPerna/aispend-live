@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-11-09T12:52:39.585Z",
+  "recordedAt": "2026-11-09T14:23:07.836Z",
   "runtime": "Pi 1.5.0 with real Guard extension; RPC transcript replay",
   "fixtureProviders": true,
   "realModelCalls": 0,
@@ -7,6 +7,8 @@
     "autoBindings": true,
     "providerSwitch": true,
     "contextCheckpoint": true,
+    "automaticRepair": true,
+    "impactEvidence": true,
     "reservePause": true,
     "handoff": true,
     "newSession": true,
@@ -17,7 +19,7 @@
       "title": "Connect once. See limits and protection.",
       "command": "/guard",
       "lines": [
-        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 120,000 context · 60 min/task · medium effort\nProtected defaults; learning your usage pattern\nConnected subscriptions are selected automatically. API fallback stays off.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021"
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 120,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nConnected subscriptions are selected automatically. API fallback stays off.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
       ],
       "fixtureCalls": 0
     },
@@ -33,7 +35,7 @@
       "title": "Recent usage leads to tighter work budgets.",
       "command": "/guard",
       "lines": [
-        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAdapting to your recent local usage\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021"
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
       ],
       "fixtureCalls": 1
     },
@@ -50,11 +52,28 @@
       "title": "Growing context triggers a saved checkpoint.",
       "command": "/fixture-context",
       "lines": [
-        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAdapting to your recent local usage\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021",
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021",
         "Guard: Compacting at the context ceiling\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
         "Guard: Automatic context checkpoint\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept."
       ],
       "fixtureCalls": 13
+    },
+    {
+      "title": "Repeated search blocked. One different approach.",
+      "command": "/fixture-loop",
+      "lines": [
+        "Guard: Repeated operation stopped before execution\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
+        "Guard automatic repair 1/1: changing approach. Original task and dollar budgets still apply."
+      ],
+      "fixtureCalls": 17
+    },
+    {
+      "title": "Evidence: shortened input, blocked work, repair cost.",
+      "command": "/guard status",
+      "lines": [
+        "Guard active · Guard · Claude 5% (reserve) | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:02 AM · codex: 11/12/2026, 9:23:02 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 238740 characters trimmed; ~53712 input tokens avoided on completed replays; 1 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
+      ],
+      "fixtureCalls": 17
     },
     {
       "title": "Both reserves protected. Work pauses.",
@@ -63,7 +82,7 @@
         "Guard: No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
         ""
       ],
-      "fixtureCalls": 13
+      "fixtureCalls": 17
     },
     {
       "title": "Save portable notes without spending tokens.",
@@ -71,13 +90,13 @@
       "lines": [
         "Saved ./guard-artifacts/handoff.md\nReview these excerpts before /guard-new. No model call was made."
       ],
-      "fixtureCalls": 13
+      "fixtureCalls": 17
     },
     {
       "title": "Start fresh; keep the original session.",
       "command": "/guard-new",
       "lines": [],
-      "fixtureCalls": 13
+      "fixtureCalls": 17
     },
     {
       "title": "Bring Claude or Codex notes into Pi.",
@@ -85,7 +104,7 @@
       "lines": [
         "Imported bounded handoff into a fresh session. Original session and file preserved. Review it, then send your next instruction through Guard. No model call was made."
       ],
-      "fixtureCalls": 13
+      "fixtureCalls": 17
     }
   ]
 }

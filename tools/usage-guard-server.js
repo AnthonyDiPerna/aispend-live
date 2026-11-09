@@ -3,10 +3,12 @@ const path = require('node:path');
 const os = require('node:os');
 const http = require('node:http');
 const {randomUUID} = require('node:crypto');
-const {initialState, cleanPolicy, mergeObservations, buildPlan, decide, PROVIDERS} = require('./usage-guard');
+const {initialState, cleanPolicy, mergeObservations, buildPlan, decide, recoveryPlan, PROVIDERS} = require('./usage-guard');
 const {createCollector,fetchClaudeUsage,fetchCodexUsage,fetchAgyUsage,readStatusFile}=require('./usage-collectors');
 const {accounting,checkApiBudget}=require('./guard-accounting');
 const {buildAdvice,applyAdvice,defaultBindings}=require('./guard-advisor');
+const {recordImpact,attributeTrimReplay,impactReport}=require('./guard-impact');
+const {nativeEvent,COVERAGE}=require('./guard-native');
 const {Worker}=require('node:worker_threads');
 
 const MAX_BODY = 128 * 1024;
@@ -23,6 +25,8 @@ function demoState(now = Date.now()) {
   state.insights = {generatedAt:new Date(now).toISOString(),providers:[{provider:'claude',requests:45,totalTokens:900000,metrics:[
     {id:'context',percent:65,label:'Tokens in requests with >150k input context',action:'Checkpoint earlier.'},
     {id:'long',percent:55,label:'Tokens in sessions spanning 8+ hours',action:'Review a bounded handoff.'}]}]};
+  state.impact={rows:[{id:'example-trim',taskId:'example-task',kind:'tool-trim',harness:'pi',at:new Date(now-60000).toISOString(),removedChars:36000,replayed:true,estimatedTokens:9000,billing:'subscription',usdLow:.0027,usdHigh:.027},
+    ...['loop-block','repair','compact'].map(kind=>({id:'example-'+kind,taskId:'example-task',kind,harness:'pi',at:new Date(now).toISOString()}))],seen:[]};
   return state;
 }
 
@@ -110,9 +114,9 @@ function createGuardServer(options={}) {
   }
   const refreshCollectors=()=>Promise.allSettled(Object.values(collectors).map(c=>c.refresh()));
   const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
-    accounting:accounting(state,leases,now()),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
+    accounting:accounting(state,leases,now()),impact:impactReport(state),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
     models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
-    events:state.events, lastSyncAt,syncError});
+    harnesses:Object.entries(COVERAGE).map(([id,coverage])=>({id,...coverage,...state.harnesses?.[id]})),events:state.events, lastSyncAt,syncError});
   broadcast=()=>{if(!clients.size)return;const data='data: '+JSON.stringify(publicState())+'\n\n';for(const client of clients)if(client.writableLength>1024*1024){clients.delete(client);client.destroy();}else client.write(data);};
   function safeTaskId(id) {if(typeof id!=='string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(id)) throw new Error('Invalid task ID');return id;}
   async function body(req) {
@@ -180,6 +184,33 @@ function createGuardServer(options={}) {
         if(!model || model.group!==data.group) throw new Error('Select an authenticated model discovered by the Pi extension');
         state.bindings[data.group]={provider:data.provider,model:data.model};event('binding',`${data.group} model selected.`);save();
       } else if(url.pathname==='/api/sync') { sync();await refreshCollectors();
+      } else if(url.pathname==='/api/native-event') {
+        if(options.demo)return reply(res,403,{error:'Demo cannot guard native requests'});
+        safeTaskId(data.taskId);const result=nativeEvent(state,data,now());save();return reply(res,200,result);
+      } else if(url.pathname==='/api/intervention') {
+        if(options.demo)return reply(res,403,{error:'Demo cannot record real interventions'});
+        const id=safeTaskId(data.taskId);
+        if(!state.tasks[id])throw Error('Unknown task');
+        if(recordImpact(state,{...data,taskId:id,harness:'pi'},now())){
+          if(data.kind==='tool-trim')state.tasks[id].removedChars+=(data.removedChars||0);
+          if(data.kind==='compact')for(const row of state.impact.rows)if(row.taskId===id && row.kind==='tool-trim' && !row.replayed)row.discarded=true;
+          event('protection',`${data.kind}: ${data.kind==='tool-trim'?data.removedChars+' net characters removed from context':'Guard enforced a work rule'}.`);save();
+        }
+      } else if(url.pathname==='/api/recovery') {
+        if(options.demo)return reply(res,403,{error:'Demo cannot authorize recovery'});
+        const id=safeTaskId(data.taskId),task=state.tasks[id];
+        if(!task)throw Error('Unknown task');
+        if([...leases.values()].some(l=>l.taskId===id))return reply(res,200,{action:'pause',code:'concurrency',reason:'Wait for the active request to finish.'});
+        const plan=buildPlan(state,now());
+        let decision=recoveryPlan(plan,{...task,currentProvider:data.currentProvider,continuation:true,repeatedTools:Number(data.repeatedTools)||0,
+          contextTokens:Number(data.contextTokens)||0,availableProviders:data.availableProviders||[],availableModels:data.availableModels},now());
+        if(decision.action==='repair' && decision.provider==='api')decision={...decision,...checkApiBudget(state,leases,id,models.get(decision.binding.provider+':'+decision.binding.model),plan.policy,now())};
+        if(decision.action==='repair'){
+          task.autoRepairs=decision.attempt;task.nextPhase='repair';
+          recordImpact(state,{id:randomUUID(),taskId:id,kind:'repair',harness:'pi'},now());
+          event('repair',decision.reason);
+        }else event('pause',decision.reason);
+        save();return reply(res,200,{...decision,policy:plan.policy});
       } else if(url.pathname==='/api/preflight' || url.pathname==='/api/readiness') {
         if(options.demo) return reply(res,403,{error:'Demo cannot authorize real model requests'});
         const id=safeTaskId(data.taskId);
@@ -189,8 +220,8 @@ function createGuardServer(options={}) {
           currentProvider:data.currentProvider,continuation:Boolean(data.continuation),
           contextTokens:Number(data.contextTokens)||0,repeatedTools:Number(data.repeatedTools)||0,
           availableProviders:Array.isArray(data.availableProviders)?data.availableProviders:[],
+          availableModels:Array.isArray(data.availableModels)?data.availableModels:undefined,
         }},now());
-        if(['continue','switch'].includes(decision.action) && Array.isArray(data.availableModels) && !data.availableModels.includes(decision.binding.provider+'/'+decision.binding.model))decision={action:'pause',code:'model-unavailable',reason:'The selected model is not authenticated in this Pi session. Choose a connected model.'};
         if(['continue','switch'].includes(decision.action) && decision.provider==='api'){
           const budget=checkApiBudget(state,leases,id,models.get(decision.binding.provider+':'+decision.binding.model),plan.policy,now());
           decision={...decision,...budget};
@@ -202,10 +233,15 @@ function createGuardServer(options={}) {
         if(['continue','switch'].includes(decision.action)) {
           // Expired leases still reserve dollars until reported; a crashed client cannot erase spend.
           if([...leases.values()].filter(l=>l.expiresAt>now()).length>=plan.policy.maxConcurrentRequests) return reply(res,200,{action:'pause',code:'concurrency',reason:'Other guarded requests are using the configured slots. Resume when a slot is free.',policy:plan.policy});
-          const lease=randomUUID();leases.set(lease,{taskId:id,expiresAt:now()+LEASE_MS,billing:decision.provider==='api'?'api':'subscription',reserveUsd:decision.reserveUsd || 0,day:new Date(now()).toISOString().slice(0,10)});
+          const lease=randomUUID();leases.set(lease,{taskId:id,expiresAt:now()+LEASE_MS,billing:decision.provider==='api'?'api':'subscription',reserveUsd:decision.reserveUsd || 0,day:new Date(now()).toISOString().slice(0,10),
+            model:models.get(decision.binding.provider+':'+decision.binding.model),phase:data.phase==='compact'?'compact':task.nextPhase||'work',
+            trimIds:data.phase==='compact'?[]:(state.impact?.rows||[]).filter(r=>r.taskId===id&&r.kind==='tool-trim'&&!r.replayed&&!r.discarded).map(r=>r.id)});
+          delete task.nextPhase;
+          if(decision.action==='switch')recordImpact(state,{id:randomUUID(),taskId:id,kind:'switch'},now());
           task.startedAt ||= new Date(now()).toISOString();task.contextTokens=Number(data.contextTokens)||0;task.thinkingLevel=plan.policy.maxThinkingLevel;
           task.requests++;task.status='running';task.provider=decision.provider;decision.leaseId=lease;
-        } else {task.status=decision.action;event(decision.action,`${decision.code}: ${decision.reason}`);}
+          state.harnesses ||= {};state.harnesses.pi={lastSeenAt:new Date(now()).toISOString()};
+        } else {task.status=decision.action;event(decision.action,`${decision.code}: ${decision.reason}`);if(decision.action==='pause')recordImpact(state,{id:randomUUID(),taskId:id,kind:'budget-pause'},now());}
         task.updatedAt=new Date(now()).toISOString();state.tasks[id]=task;save();
         return reply(res,200,{...decision,policy:plan.policy});
       } else if(url.pathname==='/api/complete') {
@@ -215,7 +251,8 @@ function createGuardServer(options={}) {
         if(!Number.isFinite(tokens) || tokens<0 || tokens>100000000 || !Number.isFinite(removed) || removed<0) throw new Error('Invalid usage');
         const reported=typeof data.costEstimateUsd==='number' && Number.isFinite(data.costEstimateUsd) && data.costEstimateUsd>=0 && data.costEstimateUsd<100000;
         const usd=reported?data.costEstimateUsd:(lease.reserveUsd||0);
-        state.costLedger ||= [];state.costLedger.push({taskId:id,billing:lease.billing || 'subscription',day:lease.day || new Date(now()).toISOString().slice(0,10),usd,unknown:!reported,at:new Date(now()).toISOString()});
+        state.costLedger ||= [];state.costLedger.push({taskId:id,billing:lease.billing || 'subscription',day:lease.day || new Date(now()).toISOString().slice(0,10),usd,unknown:!reported,phase:lease.phase||'work',at:new Date(now()).toISOString()});
+        if(!data.failed && tokens>0)attributeTrimReplay(state,id,data.leaseId,lease.model,lease.billing,lease.trimIds);
         task.costEstimateUsd=(task.costEstimateUsd||0)+usd;task.unknownCostRequests=(task.unknownCostRequests||0)+(reported?0:1);
         leases.delete(data.leaseId);task.totalTokens+=tokens;task.removedChars+=removed;task.status=data.failed?'error':'ready';task.updatedAt=new Date(now()).toISOString();save();
       } else if(url.pathname==='/api/subagent') {
@@ -225,7 +262,7 @@ function createGuardServer(options={}) {
       } else if(url.pathname==='/api/reset-task') {
         const id=safeTaskId(data.taskId);
         if([...leases.values()].some(l=>l.taskId===id)) throw new Error('Wait for the active request to finish');
-        if(state.tasks[id]){state.tasks[id].requests=0;state.tasks[id].totalTokens=0;state.tasks[id].subagentCalls=0;state.tasks[id].startedAt=new Date(now()).toISOString();state.tasks[id].status='ready';event('budget','User renewed a task budget.');save();}
+        if(state.tasks[id]){const task=state.tasks[id];task.requests=0;task.totalTokens=0;task.subagentCalls=0;task.autoRepairs=0;delete task.nativePaused;task.nativeBlocked=[];task.nativeRepeats=0;task.startedAt=new Date(now()).toISOString();task.status='ready';event('budget','User renewed a task budget.');save();}
       } else if(url.pathname==='/api/simulate') {
         const hours=Number(data.hours || 0);
         if(!Number.isFinite(hours) || hours<0 || hours>336) throw new Error('Invalid simulation time');

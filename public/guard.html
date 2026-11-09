@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="application-version" content="0.6.1">
+<meta name="application-version" content="0.6.2">
 <title>Playground · AI Spend Guard — Plan through your next reset</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050505'/%3E%3Cpath d='M8 24V16h4v8m4 0V8h4v16' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="usage-guard.css">
 </head>
 <body><main>
-<header><a class="brand" href="index.html">AI Spend <span class="tag">/ Guard 0.3.0</span></a><nav class="topnav" aria-label="Main"><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
+<header><a class="brand" href="index.html">AI Spend <span class="tag">/ Guard 0.3.1</span></a><nav class="topnav" aria-label="Main"><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
 <div id="demoBanner" class="banner hidden">Public playground · Synthetic readings. Changes stay in this tab and reset on reload. No accounts are connected and no model calls are possible.</div>
 <div class="intro"><span class="tag">Your subscriptions. One work plan.</span><h1>Make your allowance<br>last through the week.</h1>
 <p class="lead">Plan around each subscription’s reset. Keep an emergency reserve, cap long-running tasks, and pass work to a ready provider before the current one runs dry.</p>
@@ -18,7 +18,9 @@
 <section class="section box onboarding"><span class="tag">Connect once. Work as usual.</span><h2>Your next request gets a budget check.</h2><p class="caption">Start the local launcher, sign in to your subscriptions in Pi, then run <code>/guard</code>. Guard selects connected subscription models and protects each reset window. Continue working through <code>aispend/guard</code>.</p><div id="profileSummary" class="profile-summary"></div><p id="adviceSummary" class="caption"></p><details class="section"><summary>Why these protections?</summary><div id="adviceReasons"></div><p class="notes">Automatic tuning only tightens work budgets. It never enables API spending, raises dollar caps, or changes a model you selected. You can turn it off under Advanced settings.</p></details><button id="applyAdvice" class="secondary hidden">Apply usage recommendations</button></section>
 <section id="providers" class="grid" aria-label="Subscription allowances"></section>
 <section class="section box"><div class="row"><h2>Live work &amp; cost</h2><span id="liveStatus" class="tag">Connecting</span></div><div id="spend" class="spend"></div><p class="notes">Request counters and cost estimates update as Pi reports usage. Provider allowances refresh about every five minutes, with backoff on errors. API estimates use model prices; provider invoices and extra tool charges can differ.</p></section>
-<section class="section box"><details><summary>Usage insights ? why protection changes</summary><div id="reportedInsights"></div><div id="insights"></div><p class="notes">Local token characteristics overlap. They are useful signals, not the provider’s private quota calculation. Native Claude /usage may include information unavailable in local logs.</p></details></section>
+<section class="section box" id="impact"><div class="row"><h2>What Guard saved</h2><span id="impactScope" class="tag">Waiting for evidence</span></div><p class="caption">See the work Guard prevented and the context it kept out of later requests.</p><div id="impactTotals" class="spend"></div><div id="impactExplanation"></div><details class="section"><summary>Show the evidence and calculation</summary><p id="impactMethod" class="notes"></p><div id="impactEvidence"></div></details><button id="downloadImpact" class="secondary">Download impact report</button></section>
+<section class="section box"><details><summary>Protection in each harness</summary><p class="caption">HerdR can launch these harnesses. Protection comes from the Guard integration inside each one. Installed hooks must be enabled and trusted in the harness.</p><div id="harnessCoverage"></div><p class="notes">Native hook adapters are tested against their documented event contracts; live end-to-end automation is verified in Pi. Native clients do not get Pi's model routing or API dollar caps. Install instructions: <code>integrations/native/README.md</code>.</p></details></section>
+<section class="section box"><details><summary>Usage insights — why protection changes</summary><div id="reportedInsights"></div><div id="insights"></div><p class="notes">Local token characteristics overlap. They are useful signals, not the provider’s private quota calculation. Native Claude /usage may include information unavailable in local logs.</p></details></section>
 <div class="two section">
 <section class="box"><h2>Upcoming resets</h2><p class="caption">Shown in your local time. A new reading must confirm that an allowance has refreshed.</p><ul id="timeline" class="timeline"></ul><p id="nextReview" class="notes"></p></section>
 <section class="box"><h2>Allowance connections</h2><p class="caption" style="margin-bottom:14px">Claude uses the local CLI login, Codex uses its account API, and Antigravity runs its built-in /usage report. These checks do not call a model. Each card shows the last successful check.</p><details><summary>Enter a reading manually</summary>
@@ -33,6 +35,8 @@
 <div class="two section">
 <section class="box"><details id="advanced"><summary>Advanced settings — optional</summary><p class="caption">Defaults work immediately. Override them for a particular workflow.</p><form id="policy" class="form">
 <label class="full">Usage-based tuning<select name="autoTune"><option value="true">Automatic — tighten protection as usage changes</option><option value="false">Recommendations only — I choose when to apply</option></select></label>
+<label>Automatic loop recovery<select name="autoRecover"><option value="true">On — try a different approach within budget</option><option value="false">Off — pause for review</option></select></label>
+<label>Repair attempts per task<input name="maxAutoRepairs" type="number" min="0" max="3" step="1" required></label>
 <label class="full">Subscription preference<select name="providerOrder"><option value="claude,codex,agy">Claude → Codex → Antigravity</option><option value="claude,agy,codex">Claude → Antigravity → Codex</option><option value="codex,claude,agy">Codex → Claude → Antigravity</option><option value="codex,agy,claude">Codex → Antigravity → Claude</option><option value="agy,claude,codex">Antigravity → Claude → Codex</option><option value="agy,codex,claude">Antigravity → Codex → Claude</option></select></label>
 <label>Emergency reserve (%)<input name="reservePercent" type="number" min="0" max="50" required></label>
 <label>Reading freshness (minutes)<input name="freshnessMinutes" type="number" min="5" max="1440" required></label>
@@ -40,7 +44,7 @@
 <label>Reported tokens per task<input name="maxTokensPerTask" type="number" min="10000" max="100000000" required></label>
 <label>Context ceiling (tokens)<input name="maxContextTokens" type="number" min="8000" max="1000000" required></label>
 <label>Tool output kept (characters)<input name="maxToolOutputChars" type="number" min="2000" max="100000" required></label>
-<label>Identical results before pause<input name="repeatedToolLimit" type="number" min="2" max="10" required></label>
+<label>Repeated operation tripwire<input name="repeatedToolLimit" type="number" min="2" max="10" required></label>
 <label>Concurrent guarded requests<input name="maxConcurrentRequests" type="number" min="1" max="8" required></label>
 <label>Task time budget (minutes)<input name="maxTaskMinutes" type="number" min="5" max="1440" required></label>
 <label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option>medium</option><option>high</option></select></label>
@@ -51,12 +55,12 @@
 <label>API task cap ($)<input name="apiTaskBudgetUsd" type="number" min="0" max="1000" step="0.01" required></label>
 <div class="full"><button>Save rules</button></div></form><p class="notes">Applied before requests made through the Guard model. An in-flight request can exceed a task token budget. Work in other agents is visible only through quota readings.</p></details></section>
 <section class="box"><h2>Test the reset logic</h2><p class="caption">An isolated scenario: Claude is consuming its allowance too quickly; Codex has room. This does not change your readings or rules.</p><div class="simcontrols" style="margin-top:16px"><label>Hours ahead<input id="simHours" type="number" value="0" min="0" max="336"></label><button id="simulate" class="secondary">Run scenario</button><button id="pastReset" class="secondary">Jump past Claude reset</button></div><div id="simulation" class="simresult" aria-live="polite"></div>
-<details class="section" id="connect"><summary>Connect Pi</summary><ol class="setup"><li>Start the local controller with <code>npm run guard</code>.</li><li>Install the extension using <code>integrations/pi/README.md</code>.</li><li>Sign in to each provider in Pi, then run <code>/guard</code>. Select its model above.</li><li>Select <code>aispend/guard</code>. Every request now checks these rules.</li></ol><p class="caption">Reading an allowance and connecting a Pi model are separate. Antigravity monitoring works through agy; routing needs a compatible Pi subscription connector. API fallback requires explicit dollar caps. Radius is a separate gateway, not a transfer of your plan allowances.</p></details>
+<details class="section" id="connect"><summary>Connect Pi</summary><ol class="setup"><li>Start the local controller with <code>npm run guard</code>.</li><li>Install the extension using <code>integrations/pi/README.md</code>.</li><li>Sign in to each provider in Pi, then run <code>/guard</code>. Models are selected automatically.</li><li>Guard activates <code>aispend/guard</code>. Every routed request checks these rules.</li></ol><p class="caption">Reading an allowance and connecting a Pi model are separate. Antigravity monitoring works through agy; routing needs a compatible Pi subscription connector. API fallback requires explicit dollar caps. Radius is a separate gateway, not a transfer of your plan allowances.</p></details>
 </section></div>
-<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> shows balances, resets, and the current protection.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
+<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> activates protection and shows balances, resets, and measured impact.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
 <section class="section box"><h2>Guarded tasks</h2><div id="tasks" class="tasks"></div><p class="notes">Task IDs are hashed. The dashboard receives counters and decisions, not prompts, tool output, credentials, or repository paths. Renewing a task budget is a deliberate local action; it does not refill a provider allowance.</p></section>
 <section class="section box"><h2>Recent decisions</h2><div id="activity" class="activity"></div></section>
-<footer class="foot">In interactive Pi, allowance pauses wait for a fresh reading and resume automatically. Use <code>/guard-hold</code> to cancel waiting. Request budgets and repeated-result pauses require a review. No savings percentage is promised; cached tokens are useful when the context is still relevant.</footer>
+<footer class="foot">In interactive Pi, allowance pauses wait for a fresh reading and resume automatically. Use <code>/guard-hold</code> to cancel waiting. Repeated operations get one bounded repair; exhausted budgets and repeated repair failures pause for review. No savings percentage is promised; cached tokens are useful when the context is still relevant.</footer>
 </main>
 <script>
 (function(){// Policy is deterministic. Token counts never stand in for subscription allowance.
@@ -74,6 +78,8 @@ const DEFAULT_POLICY = Object.freeze({
   maxConcurrentRequests: 1,
   maxTaskMinutes: 60,
   autoTune: true,
+  autoRecover: true,
+  maxAutoRepairs: 1,
   maxThinkingLevel: 'medium',
   maxSubagentCalls: 0,
   allowApiSpend: false,
@@ -89,6 +95,7 @@ const LIMITS = {
   maxContextTokens: [8000, 1000000], maxToolOutputChars: [2000, 100000],
   repeatedToolLimit: [2, 10], maxConcurrentRequests: [1, 8],
   maxTaskMinutes: [5, 1440], maxSubagentCalls: [0, 20],
+  maxAutoRepairs: [0, 3],
   apiDailyBudgetUsd: [0, 1000], apiTaskBudgetUsd: [0, 1000], maxOutputTokens: [512, 32000],
 };
 
@@ -105,6 +112,8 @@ function cleanPolicy(input = {}) {
   }
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
+  if(input.autoRecover!==undefined){if(typeof input.autoRecover!=='boolean')throw Error('autoRecover must be true or false');result.autoRecover=input.autoRecover;}
+  if(!Number.isInteger(result.maxAutoRepairs))throw Error('maxAutoRepairs must be an integer');
   if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
   return result;
 }
@@ -213,7 +222,8 @@ function decide(plan, task = {}, now = Date.now()) {
   if ((task.repeatedTools || 0) >= policy.repeatedToolLimit) return pause('repeated-tools','Repeated identical tool results detected. Inspect the checkpoint before continuing.');
   if ((task.contextTokens || 0) > policy.maxContextTokens) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
   const available = new Set(task.availableProviders || []);
-  const eligible = plan.providers.filter(p=>p.status==='ready' && p.configured && available.has(p.provider));
+  const eligible = plan.providers.filter(p=>p.status==='ready' && p.configured && available.has(p.provider) &&
+    (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)));
   // Stay on the current provider through tool continuations to retain its cache.
   const selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || eligible[0] : eligible[0];
   if (!selected) return pause('allowance','No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.');
@@ -223,6 +233,18 @@ function decide(plan, task = {}, now = Date.now()) {
     decidedAt:new Date(now).toISOString()};
 }
 
+// A repair changes the approach, never the allowance or the original task budget.
+function recoveryPlan(plan, task, now = Date.now()) {
+  const trigger=decide(plan,task,now);
+  if(trigger.code!=='repeated-tools')return {...trigger,action:'pause'};
+  if(!plan.policy.autoRecover || (task.autoRepairs||0)>=plan.policy.maxAutoRepairs)
+    return {action:'pause',code:'repair-limit',reason:'Automatic repair allowance reached. Review the saved handoff; task budgets remain in force.'};
+  const next=decide(plan,{...task,repeatedTools:0},now);
+  if(!['continue','switch'].includes(next.action))return next;
+  return {...next,action:'repair',code:'repeated-tools',attempt:(task.autoRepairs||0)+1,
+    reason:'Repeated operation blocked. Use existing findings and try one different, narrow approach, or report the blocker. Do not repeat the blocked operation or expand the task.'};
+}
+
 function trimToolOutput(content, maxChars, archivePath) {
   const total = content.filter(b=>b.type==='text').reduce((n,b)=>n+String(b.text).length,0);
   if (total <= maxChars) return {content, removedChars:0};
@@ -230,13 +252,13 @@ function trimToolOutput(content, maxChars, archivePath) {
   const joined = content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
   const side = Math.floor(maxChars/2);
   const text = `${joined.slice(0,side)}\n\n[AI Spend Guard: ${joined.length-maxChars} characters omitted from model context. Full result: ${archivePath}]\n\n${joined.slice(-side)}`;
-  return {content:[...content.filter(b=>b.type!=='text'),{type:'text',text}],removedChars:joined.length-maxChars};
+  return {content:[...content.filter(b=>b.type!=='text'),{type:'text',text}],removedChars:Math.max(0,total-text.length)};
 }
 
 
 function initialState() { return {version:1, policy:{...DEFAULT_POLICY}, observations:[], bindings:{}, tasks:{}, events:[]}; }
 
-globalThis.GuardPolicy = {DEFAULT_POLICY, PROVIDERS, cleanPolicy, observation, mergeObservations, buildPlan, decide, trimToolOutput, initialState};
+globalThis.GuardPolicy = {DEFAULT_POLICY, PROVIDERS, cleanPolicy, observation, mergeObservations, buildPlan, decide, recoveryPlan, trimToolOutput, initialState};
 })();
 (function(){// Local, explainable adaptation. Advice can tighten bounds, never buy more usage.
 const {cleanPolicy,buildPlan}=GuardPolicy;
@@ -300,6 +322,55 @@ function defaultBindings(models, current) {
 
 globalThis.GuardAdvice = {buildAdvice, applyAdvice, defaultBindings};
 })();
+(function(){// Evidence of interventions, not an invented counterfactual invoice.
+const KINDS=['tool-trim','loop-block','subagent-block','compact','handoff','repair','switch','effort-cap','budget-pause'];
+function recordImpact(state,input,now=Date.now()) {
+  if(!KINDS.includes(input.kind) || typeof input.id!=='string' || !/^[\w-]{8,100}$/.test(input.id))throw Error('Invalid intervention');
+  state.impact ||= {rows:[],seen:[]};
+  if(state.impact.seen.includes(input.id))return false;
+  const row={id:input.id,taskId:input.taskId,kind:input.kind,harness:input.harness||'pi',at:new Date(now).toISOString()};
+  for(const key of ['removedChars','beforeTokens','afterTokens'])if(input[key]!==undefined){
+    if(!Number.isFinite(input[key]) || input[key]<0 || input[key]>100000000)throw Error('Invalid intervention measurement');
+    row[key]=Math.floor(input[key]);
+  }
+  state.impact.rows.push(row);state.impact.seen.push(row.id);
+  // Keep a bounded evidence window. Totals explicitly cover these retained rows.
+  state.impact.rows=state.impact.rows.slice(-2000);state.impact.seen=state.impact.seen.slice(-4000);
+  return true;
+}
+function attributeTrimReplay(state,taskId,leaseId,model,billing,ids=[]) {
+  // Credit each removal once, only when a subsequent request is authorized.
+  // No credit for hypothetical future turns or after compaction discarded the output.
+  for(const row of state.impact?.rows||[]){
+    if(row.taskId!==taskId || !ids.includes(row.id) || row.kind!=='tool-trim' || row.replayed || row.discarded)continue;
+    row.replayed=true;row.requestId=leaseId;row.billing=billing;
+    row.estimatedTokens=Math.floor((row.removedChars||0)/4);
+    const rates=model?.cost;
+    if(rates && Number.isFinite(rates.input) && rates.input>0 && Number.isFinite(rates.cacheRead) && rates.cacheRead>=0){
+      row.usdLow=row.estimatedTokens*Math.min(rates.input,rates.cacheRead)/1e6;
+      row.usdHigh=row.estimatedTokens*Math.max(rates.input,rates.cacheRead)/1e6;
+    }
+  }
+}
+function impactReport(state) {
+  const rows=state.impact?.rows||[],count=kind=>rows.filter(r=>r.kind===kind).length;
+  const trims=rows.filter(r=>r.kind==='tool-trim'),replayed=trims.filter(r=>r.replayed);
+  const sum=(items,key)=>items.reduce((n,r)=>n+(r[key]||0),0);
+  const costs=billing=>({low:sum(replayed.filter(r=>r.billing===billing),'usdLow'),high:sum(replayed.filter(r=>r.billing===billing),'usdHigh')});
+  const overhead=(state.costLedger||[]).filter(r=>['repair','compact'].includes(r.phase));
+  return {since:rows[0]?.at||null,events:rows.length,removedChars:sum(trims,'removedChars'),
+    estimatedInputTokensAvoided:sum(replayed,'estimatedTokens'),pendingTrimChars:sum(trims.filter(r=>!r.replayed&&!r.discarded),'removedChars'),
+    apiInputCostAvoided:costs('api'),subscriptionReferenceAvoided:costs('subscription'),
+    unpricedReplays:replayed.filter(r=>r.usdHigh===undefined).length,
+    loopBlocks:count('loop-block'),subagentBlocks:count('subagent-block'),repairs:count('repair'),switches:count('switch'),
+    effortCaps:count('effort-cap'),budgetPauses:count('budget-pause'),handoffs:count('handoff'),compactions:count('compact'),
+    contextReductionTokens:rows.filter(r=>r.kind==='compact').reduce((n,r)=>n+Math.max(0,(r.beforeTokens||0)-(r.afterTokens||0)),0),
+    overhead:{requests:overhead.length,apiEstimateUsd:sum(overhead.filter(r=>r.billing==='api'),'usd'),unknown:overhead.filter(r=>r.unknown).length},
+    evidence:rows.slice(-30).reverse(),
+    method:'Retained intervention history (up to 2,000 events). Net text removed includes the archive notice. Estimated tokens = net characters / 4; credited once on the first completed replay with usage, not every later turn. Cost range uses cached-to-uncached input catalog rates. Estimates are not invoices or subscription quota savings. Compaction reduction is separate and is not added to trimmed tokens; repair/compaction overhead is shown separately.'};
+}
+globalThis.GuardImpact={recordImpact,attributeTrimReplay,impactReport};
+})();
 
 const {initialState,cleanPolicy,buildPlan,mergeObservations}=GuardPolicy;
 const {buildAdvice,applyAdvice}=GuardAdvice;
@@ -314,6 +385,8 @@ function demoState(now = Date.now()) {
   state.insights = {generatedAt:new Date(now).toISOString(),providers:[{provider:'claude',requests:45,totalTokens:900000,metrics:[
     {id:'context',percent:65,label:'Tokens in requests with >150k input context',action:'Checkpoint earlier.'},
     {id:'long',percent:55,label:'Tokens in sessions spanning 8+ hours',action:'Review a bounded handoff.'}]}]};
+  state.impact={rows:[{id:'example-trim',taskId:'example-task',kind:'tool-trim',harness:'pi',at:new Date(now-60000).toISOString(),removedChars:36000,replayed:true,estimatedTokens:9000,billing:'subscription',usdLow:.0027,usdHigh:.027},
+    ...['loop-block','repair','compact'].map(kind=>({id:'example-'+kind,taskId:'example-task',kind,harness:'pi',at:new Date(now).toISOString()}))],seen:[]};
   return state;
 }
 function demoModels() {
@@ -323,7 +396,7 @@ function demoModels() {
 let playgroundState=demoState();
 playgroundState.bindings={claude:{provider:'claude-code',model:'example-claude-balanced'},codex:{provider:'openai',model:'example-codex-balanced'}};
 applyAdvice(playgroundState);
-function playgroundView(){return {demo:true,...buildPlan(playgroundState),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
+function playgroundView(){return {demo:true,...buildPlan(playgroundState),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries({"pi":{"label":"Pi / Guard","gate":"Every routed model request","automatic":"Routing, effort/output caps, tool trimming, compaction, one loop repair","limits":"Only aispend/guard; in-flight work can overshoot."},"claude":{"label":"Claude Code hooks","gate":"Prompts, tools and post-tool batches","automatic":"Reserve checks, tool-loop repair, fan-out blocking","limits":"No model routing or output replacement. Request count is a prompt/batch approximation; internal retries and compaction are outside this gate."},"codex":{"label":"Codex hooks","gate":"Prompts and tools","automatic":"Reserve checks, tool-loop repair, fan-out blocking; model usage reporting","limits":"PreModelRequest is diagnostic only. Cannot stop every model call, clamp effort or compact automatically."},"agy":{"label":"Antigravity hooks","gate":"Before each invocation and tool","automatic":"Reserve/request/time gates, repeated-failure repair, fan-out blocking","limits":"No routing, automatic compaction, output trimming or exact token/cost telemetry in these hooks."}}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
 async function playgroundApi(route,body){
   if(route==='/api/state'||route==='/api/sync')return playgroundView();
   if(route==='/api/simulate')return {demo:true,simulation:true,...buildPlan(demoState(),Date.now()+Number(body.hours)*3600000)};
@@ -357,7 +430,7 @@ return '<article class="card"><div class="cardhead"><h3>'+names[p.provider]+'</h
 p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(w.modelFamily||'All models')+' · '+(w.windowMinutes>=1440?'Weekly':'Five-hour')+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day until reset':'Awaiting reset confirmation')+'</p><p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
 (p.provider!=='api' && !p.windows.length?'<div class="window caption">No measured allowance yet.</div>':'')+
 '<details class="binding"><summary>'+(data.demo?'Try example models':p.configured?'Model selected · change':'Connect a model')+'</summary><label>'+(data.demo?'Example model':'Preferred Pi model')+'<select data-bind="'+p.provider+'"><option value="">'+(data.demo?'Select an example model':esc(p.binding?.model||'No connected model yet'))+'</option>'+(data.models||[]).filter(m=>m.group===p.provider).map(m=>'<option value="'+esc(m.provider+'|'+m.id)+'"'+(p.binding?.provider===m.provider && p.binding?.model===m.id?' selected':'')+'>'+esc(m.label||m.id)+'</option>').join('')+'</select></label><p class="caption">'+(data.demo?'Illustrative choices only. Your real model list comes from Pi.':p.configured?'Selected for guarded requests.':p.provider==='agy'?'Allowance monitoring is separate; routing needs a compatible Pi connector.':'Sign in with /login in Pi, then run /guard. Available subscription models are selected automatically.')+'</p></details></article>';
-}).join('');renderLive(data);
+}).join('');renderLive(data);renderImpact(data);
 const advice=data.advice||{};
 $('profileSummary').innerHTML=[data.policy.reservePercent+'% reserve',nf.format(data.policy.maxContextTokens)+' context ceiling',data.policy.maxTaskMinutes+' min/task','API '+(data.policy.allowApiSpend?'opted in':'off')].map(value=>'<span>'+esc(value)+'</span>').join('');
 $('adviceSummary').textContent=(data.demo?'Example: ':'')+(advice.summary||'Protection is active')+'. '+(advice.basis||'');
@@ -380,10 +453,22 @@ const insight=data.insights;
 $('insights').innerHTML=insight?'<p class="caption">'+(data.demo?'Synthetic example · ':'Last 24 hours · analyzed ')+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+names[p.provider]+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
 }
 
+function renderImpact(data){
+const r=data.impact||{},usd=n=>'$'+Number(n||0).toFixed(4),range=value=>value?usd(value.low)+'–'+usd(value.high):'Awaiting priced replay';
+$('impactScope').textContent=data.demo?'Synthetic example':r.events?'Recorded interventions':'No interventions yet';
+$('impactTotals').innerHTML=[['Input tokens avoided · estimate','~'+nf.format(r.estimatedInputTokensAvoided||0)],['Net tool text removed',nf.format(r.removedChars||0)+' chars'],['Repeated operations blocked',nf.format(r.loopBlocks||0)],['API input cost avoided · estimate',range(r.apiInputCostAvoided)]].map(([label,value])=>'<div><span class="caption">'+label+'</span><div class="big">'+value+'</div></div>').join('');
+$('impactExplanation').innerHTML='<p>Guard shortened tool output before reuse, blocked '+nf.format(r.loopBlocks||0)+' repeated operations and '+nf.format(r.subagentBlocks||0)+' subagent calls, and made '+nf.format(r.repairs||0)+' bounded repair attempts.</p><p class="caption">'+nf.format(r.switches||0)+' subscription switches · '+nf.format(r.effortCaps||0)+' effort ceilings applied · '+nf.format(r.compactions||0)+' context checkpoints · '+nf.format(r.budgetPauses||0)+' budget pauses. These actions are counted; their hypothetical token savings are not invented.</p><p class="caption">Subscription input reference: '+range(r.subscriptionReferenceAvoided)+'. This is a price comparison, not money returned or quota recovered. '+nf.format(r.pendingTrimChars||0)+' trimmed characters await a completed replay. '+nf.format(r.unpricedReplays||0)+' replays have unknown prices.</p><p class="caption">Repair/compaction overhead: '+nf.format(r.overhead?.requests||0)+' requests, '+usd(r.overhead?.apiEstimateUsd)+' API estimate; '+nf.format(r.overhead?.unknown||0)+' with unknown cost. Gross input savings above do not subtract this overhead.</p>';
+$('impactMethod').textContent=r.method||'Evidence appears after guarded work. Unknown savings stay unknown.';
+const labels={'tool-trim':'Shortened tool output','loop-block':'Blocked a repeated operation','subagent-block':'Blocked agent fan-out',compact:'Checkpointed context',handoff:'Saved a handoff',repair:'Authorized one different approach',switch:'Switched to a ready subscription','effort-cap':'Applied the reasoning ceiling','budget-pause':'Paused at a work or allowance limit'};
+$('impactEvidence').innerHTML=(r.evidence||[]).map(e=>'<p class="caption">'+date(e.at)+' · '+esc(e.harness)+' · '+esc(labels[e.kind]||e.kind)+(e.kind==='tool-trim'?' · '+nf.format(e.removedChars||0)+' net chars'+(e.replayed?' → ~'+nf.format(e.estimatedTokens||0)+' input tokens avoided on one completed replay':' · awaiting reuse'):'')+'</p>').join('')||'<p class="caption">Your first intervention will appear here.</p>';
+$('harnessCoverage').innerHTML=(data.harnesses||[]).map(h=>'<div class="section"><h3>'+esc(h.label)+'</h3><p class="caption">'+(data.demo?'Example capability':h.lastSeenAt?'Adapter seen '+date(h.lastSeenAt):'No adapter event received')+' · '+esc(h.gate)+'</p><p>'+esc(h.automatic)+'</p><p class="notes">'+esc(h.limits)+'</p></div>').join('');
+}
+
 async function refresh(){try{render(await api('/api/state'));}catch(e){failure(e);}}
 $('sync').onclick=async()=>{$('sync').disabled=true;try{render(await api('/api/sync',{}));}catch(e){failure(e);}finally{$('sync').disabled=false;}};
 $('observation').onsubmit=async event=>{event.preventDefault();const f=new FormData(event.target),minutes=Number(f.get('window'));try{render(await api('/api/observations',{observations:[{provider:f.get('provider'),windowId:current?.providers.find(p=>p.provider===f.get('provider'))?.windows.find(w=>w.windowMinutes===minutes)?.windowId || (minutes>=1440?'weekly':'session'),windowMinutes:minutes,usedPercent:Number(f.get('used')),resetAt:new Date(f.get('reset')).toISOString(),observedAt:new Date().toISOString(),source:'manual'}]}));}catch(e){failure(e);}};
-$('policy').onsubmit=async event=>{event.preventDefault();const values={};for(const [key,value] of new FormData(event.target))values[key]=key==='providerOrder'?value.split(','):key==='maxThinkingLevel'?value:['allowApiSpend','autoTune'].includes(key)?value==='true':Number(value);try{render(await api('/api/policy',values));}catch(e){failure(e);}};
+$('policy').onsubmit=async event=>{event.preventDefault();const values={};for(const [key,value] of new FormData(event.target))values[key]=key==='providerOrder'?value.split(','):key==='maxThinkingLevel'?value:['allowApiSpend','autoTune','autoRecover'].includes(key)?value==='true':Number(value);try{render(await api('/api/policy',values));}catch(e){failure(e);}};
+$('downloadImpact').onclick=()=>{const report={generatedAt:current.generatedAt,demo:current.demo,impact:current.impact,harnesses:current.harnesses};const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='ai-spend-guard-impact.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('applyAdvice').onclick=async()=>{try{formLoaded=false;render(await api('/api/advice',{}));}catch(e){failure(e);}};
 $('providers').onchange=async event=>{const group=event.target.dataset.bind;if(!group||!event.target.value)return;const [provider,model]=event.target.value.split('|');try{render(await api('/api/binding',{group,provider,model}));}catch(e){failure(e);}};
 $('tasks').onclick=async event=>{const taskId=event.target.dataset.renew;if(!taskId)return;try{render(await api('/api/reset-task',{taskId}));}catch(e){failure(e);}};

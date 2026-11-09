@@ -1,10 +1,12 @@
 # AI Spend Live
 
-Release 0.6.1 makes Guard easier to use: connect Pi and work with protected
-defaults, automatic subscription model selection, and optional usage-based
-tightening. Detailed settings are under Advanced. Public example selectors
-now work. Pi Guard 0.3.0 adds local handoff, fresh-session, and cross-agent
-Markdown import commands without making a model call.
+Release 0.6.2 makes `/guard` activate protection, enforce efficient habits,
+and repair repeated-tool loops once within the original budget. Its impact
+report explains net text removed, estimated input tokens/cost avoided on
+completed replays, blocked work, and repair overhead. Detailed settings stay
+under Advanced. Pi Guard 0.3.1 keeps protected routing active across model picks.
+Optional [native hooks](integrations/native/README.md) cover supported Claude,
+Codex and Antigravity boundaries, with their limitations visible in the report.
 
 See the [release history](CHANGELOG.md), [Pi setup](integrations/pi/README.md),
 and [recorded Pi walkthrough](public/guard-walkthrough.gif). The GIF replays

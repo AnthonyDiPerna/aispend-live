@@ -3,6 +3,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const {demoState,demoModels}=require('./usage-guard-server');
+const {COVERAGE}=require('./guard-native');
 const root=path.resolve(__dirname,'..');
 const policy=fs.readFileSync(path.join(__dirname,'usage-guard.js'),'utf8')
   .replace("const crypto = require('node:crypto');",'')
@@ -16,7 +17,7 @@ ${demoModels.toString()}
 let playgroundState=demoState();
 playgroundState.bindings={claude:{provider:'claude-code',model:'example-claude-balanced'},codex:{provider:'openai',model:'example-codex-balanced'}};
 applyAdvice(playgroundState);
-function playgroundView(){return {demo:true,...buildPlan(playgroundState),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
+function playgroundView(){return {demo:true,...buildPlan(playgroundState),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries(${JSON.stringify(COVERAGE)}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
 async function playgroundApi(route,body){
   if(route==='/api/state'||route==='/api/sync')return playgroundView();
   if(route==='/api/simulate')return {demo:true,simulation:true,...buildPlan(demoState(),Date.now()+Number(body.hours)*3600000)};
@@ -37,6 +38,7 @@ async function playgroundApi(route,body){
 const advice=fs.readFileSync(path.join(__dirname,'guard-advisor.js'),'utf8')
   .replace("const {cleanPolicy, buildPlan} = require('./usage-guard');",'const {cleanPolicy,buildPlan}=GuardPolicy;')
   .replace('module.exports =','globalThis.GuardAdvice =');
+const impact=fs.readFileSync(path.join(__dirname,'guard-impact.js'),'utf8').replace('module.exports=','globalThis.GuardImpact=');
 let html=fs.readFileSync(path.join(__dirname,'usage-guard.html'),'utf8');
 html=html.replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
   .replace('href="/"','href="index.html"')
@@ -44,7 +46,7 @@ html=html.replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
   .replace('Refresh allowances','Refresh playground')
   .replace('Connecting…','Loading playground…')
   .replace(/async function api\(route,body\)\{[^\n]+\}/,'async function api(route,body){return playgroundApi(route,body);}')
-  .replace('<script>','<script>\n(function(){'+policy+'})();\n(function(){'+advice+'})();\n'+adapter+'\n');
+  .replace('<script>','<script>\n(function(){'+policy+'})();\n(function(){'+advice+'})();\n(function(){'+impact+'})();\n'+adapter+'\n');
 fs.mkdirSync(path.join(root,'public'),{recursive:true});
 fs.writeFileSync(path.join(root,'public','guard.html'),html);
 fs.copyFileSync(path.join(__dirname,'usage-guard.css'),path.join(root,'public','usage-guard.css'));

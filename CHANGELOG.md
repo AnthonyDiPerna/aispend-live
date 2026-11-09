@@ -3,6 +3,26 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.6.2 — 2026-11-09
+
+- Make `/guard` activate protected Pi routing and automatic tuning/recovery.
+  Subscription model picks update preferences while requests stay guarded;
+  `/guard-unlock` explicitly permits direct model selection.
+- Block a repeated tool before its third identical execution. Save a handoff
+  and permit one different approach, subject to the same allowance, time,
+  request, token and API caps. Persist repair counts; never renew budgets
+  automatically. Fall through unavailable model bindings to a ready route.
+- Add an evidence-based impact report and local JSON download. Measure net
+  text removed, estimate avoided input once on a completed replay, show cached
+  versus uncached API-price ranges, and separate subscription reference costs
+  and repair/compaction overhead. Do not invent savings for blocked operations.
+- Add project-local Claude/Codex/Antigravity hook adapters and a capability
+  table. Native hooks enforce only documented boundaries; Codex model hooks
+  are diagnostic, native dollar caps/routing are not claimed. Preserve other
+  hooks and back up configuration. Native adapters have offline contract tests.
+- Extend the real-Pi offline tests and walkthrough with activation, model
+  selection protection, successful/exhausted repair, and savings evidence.
+
 ## 0.6.1 — 2026-11-09
 
 - Make every public Guard model selector usable with labeled example choices.

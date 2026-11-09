@@ -13,6 +13,8 @@ const DEFAULT_POLICY = Object.freeze({
   maxConcurrentRequests: 1,
   maxTaskMinutes: 60,
   autoTune: true,
+  autoRecover: true,
+  maxAutoRepairs: 1,
   maxThinkingLevel: 'medium',
   maxSubagentCalls: 0,
   allowApiSpend: false,
@@ -28,6 +30,7 @@ const LIMITS = {
   maxContextTokens: [8000, 1000000], maxToolOutputChars: [2000, 100000],
   repeatedToolLimit: [2, 10], maxConcurrentRequests: [1, 8],
   maxTaskMinutes: [5, 1440], maxSubagentCalls: [0, 20],
+  maxAutoRepairs: [0, 3],
   apiDailyBudgetUsd: [0, 1000], apiTaskBudgetUsd: [0, 1000], maxOutputTokens: [512, 32000],
 };
 
@@ -44,6 +47,8 @@ function cleanPolicy(input = {}) {
   }
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
+  if(input.autoRecover!==undefined){if(typeof input.autoRecover!=='boolean')throw Error('autoRecover must be true or false');result.autoRecover=input.autoRecover;}
+  if(!Number.isInteger(result.maxAutoRepairs))throw Error('maxAutoRepairs must be an integer');
   if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
   return result;
 }
@@ -152,7 +157,8 @@ function decide(plan, task = {}, now = Date.now()) {
   if ((task.repeatedTools || 0) >= policy.repeatedToolLimit) return pause('repeated-tools','Repeated identical tool results detected. Inspect the checkpoint before continuing.');
   if ((task.contextTokens || 0) > policy.maxContextTokens) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
   const available = new Set(task.availableProviders || []);
-  const eligible = plan.providers.filter(p=>p.status==='ready' && p.configured && available.has(p.provider));
+  const eligible = plan.providers.filter(p=>p.status==='ready' && p.configured && available.has(p.provider) &&
+    (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)));
   // Stay on the current provider through tool continuations to retain its cache.
   const selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || eligible[0] : eligible[0];
   if (!selected) return pause('allowance','No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.');
@@ -162,6 +168,18 @@ function decide(plan, task = {}, now = Date.now()) {
     decidedAt:new Date(now).toISOString()};
 }
 
+// A repair changes the approach, never the allowance or the original task budget.
+function recoveryPlan(plan, task, now = Date.now()) {
+  const trigger=decide(plan,task,now);
+  if(trigger.code!=='repeated-tools')return {...trigger,action:'pause'};
+  if(!plan.policy.autoRecover || (task.autoRepairs||0)>=plan.policy.maxAutoRepairs)
+    return {action:'pause',code:'repair-limit',reason:'Automatic repair allowance reached. Review the saved handoff; task budgets remain in force.'};
+  const next=decide(plan,{...task,repeatedTools:0},now);
+  if(!['continue','switch'].includes(next.action))return next;
+  return {...next,action:'repair',code:'repeated-tools',attempt:(task.autoRepairs||0)+1,
+    reason:'Repeated operation blocked. Use existing findings and try one different, narrow approach, or report the blocker. Do not repeat the blocked operation or expand the task.'};
+}
+
 function trimToolOutput(content, maxChars, archivePath) {
   const total = content.filter(b=>b.type==='text').reduce((n,b)=>n+String(b.text).length,0);
   if (total <= maxChars) return {content, removedChars:0};
@@ -169,10 +187,10 @@ function trimToolOutput(content, maxChars, archivePath) {
   const joined = content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
   const side = Math.floor(maxChars/2);
   const text = `${joined.slice(0,side)}\n\n[AI Spend Guard: ${joined.length-maxChars} characters omitted from model context. Full result: ${archivePath}]\n\n${joined.slice(-side)}`;
-  return {content:[...content.filter(b=>b.type!=='text'),{type:'text',text}],removedChars:joined.length-maxChars};
+  return {content:[...content.filter(b=>b.type!=='text'),{type:'text',text}],removedChars:Math.max(0,total-text.length)};
 }
 
 function signature(value) { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0,24); }
 function initialState() { return {version:1, policy:{...DEFAULT_POLICY}, observations:[], bindings:{}, tasks:{}, events:[]}; }
 
-module.exports = {DEFAULT_POLICY, PROVIDERS, cleanPolicy, observation, mergeObservations, buildPlan, decide, trimToolOutput, signature, initialState};
+module.exports = {DEFAULT_POLICY, PROVIDERS, cleanPolicy, observation, mergeObservations, buildPlan, decide, recoveryPlan, trimToolOutput, signature, initialState};

@@ -56,6 +56,12 @@ async function main(){
     assert(count().length>=beforeCompact+2,'Expected a real Pi compaction request: '+JSON.stringify({beforeCompact,calls:count(),frame:frames.at(-1),recent:events.filter(e=>['agent_end','agent_settled','extension_ui_request','message_end','compaction_end'].includes(e.type)).slice(-10)}).slice(-6500));
     const contextFrame=frames.at(-1);contextFrame.lines=events.filter(e=>e.type==='extension_ui_request' && e.method==='notify').map(e=>clean(e.message)).filter(line=>/checkpoint|handoff|compact/i.test(line)).slice(-3);
     contextFrame.fixtureCalls=count().length;
+    await command('Repeated search blocked. One different approach.','/fixture-loop');
+    await delay(500);await idle();
+    assert.equal(server.guard.view().impact.repairs,1);assert.equal(server.guard.view().impact.loopBlocks,1);
+    const loopFrame=frames.at(-1);loopFrame.lines=events.filter(e=>e.type==='extension_ui_request' && e.method==='notify').map(e=>clean(e.message)).filter(line=>/automatic repair|Repeated operation stopped/.test(line)).slice(-2);loopFrame.fixtureCalls=count().length;
+    await command('Evidence: shortened input, blocked work, repair cost.','/guard status');
+    assert(server.guard.view().impact.estimatedInputTokensAvoided>0);
     seed(95,95);const beforePause=count().length;
     await command('Both reserves protected. Work pauses.','Continue the fixture after checking allowance.');
     assert.equal(count().length,beforePause,'Paused work must make no provider call');
@@ -70,7 +76,7 @@ async function main(){
     const messages=await send('get_messages');assert(JSON.stringify(messages.data).includes('Claude handoff'));
     assert.equal(count().length,beforePause,'Handoff/new/import must make no model calls');
     assert(frames.some(frame=>frame.lines.some(line=>line.includes('Guard switched'))));
-    const result={recordedAt:new Date().toISOString(),runtime:'Pi 1.5.0 with real Guard extension; RPC transcript replay',fixtureProviders:true,realModelCalls:0,checks:{autoBindings:true,providerSwitch:true,contextCheckpoint:true,reservePause:true,handoff:true,newSession:true,import:true},frames};
+    const result={recordedAt:new Date().toISOString(),runtime:'Pi 1.5.0 with real Guard extension; RPC transcript replay',fixtureProviders:true,realModelCalls:0,checks:{autoBindings:true,providerSwitch:true,contextCheckpoint:true,automaticRepair:true,impactEvidence:true,reservePause:true,handoff:true,newSession:true,import:true},frames};
     fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,JSON.stringify(result,null,2)+'\n');
     console.log(JSON.stringify({recording:destination,frames:frames.length,checks:result.checks,realModelCalls:0}));
   }finally{

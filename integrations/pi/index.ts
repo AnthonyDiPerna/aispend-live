@@ -29,6 +29,8 @@ export default function guard(pi: ExtensionAPI) {
   let localFailure:string|undefined;
   let lastHandoff:string|undefined;
   let watcher:ReturnType<typeof setInterval>|undefined;
+  let guardArmed=false,restoringModel=false,pendingRepair=false,lastOperation='';
+  const blockedOperations=new Set<string>();
 
   async function api(route:string, data?:unknown) {
     const response=await fetch(new URL(route,endpoint), {
@@ -40,6 +42,10 @@ export default function guard(pi: ExtensionAPI) {
     return body;
   }
   const isGuard=(ctx:ExtensionContext)=>ctx.model?.provider==='aispend' && ctx.model.id==='guard';
+  const operation=(event:any)=>signature({tool:event.toolName,input:event.input});
+  const persistBlocks=()=>pi.appendEntry('aispend.guard-blocks',{operations:[...blockedOperations]});
+  const impact=(kind:string,extra:any={})=>api('/api/intervention',{id:randomUUID(),taskId,kind,...extra});
+  const routing=(ctx:ExtensionContext)=>({currentProvider:currentGroup,availableProviders:[...new Set(available(ctx).map(m=>modelGroup(ctx,m)))],availableModels:available(ctx).map(m=>m.provider+'/'+m.id),contextTokens:ctx.getContextUsage()?.tokens||0});
   function statusLine(state:any){
     const labels:any={claude:'Claude',codex:'Codex',agy:'AGY'};
     const quotas=state.providers.filter((p:any)=>p.provider!=='api').map((p:any)=>{
@@ -91,19 +97,41 @@ export default function guard(pi: ExtensionAPI) {
   function checkpoint(ctx:ExtensionContext,reason:string) {
     pi.appendEntry('aispend.guard-checkpoint',{taskId,reason,at:new Date().toISOString()});
     ctx.ui.setStatus('aispend',`Guard paused: ${reason}`);
-    try{const saved=saveHandoff(ctx,reason);ctx.ui.notify(`Guard: ${reason}\nLocal handoff saved: ${saved.file}\n/guard-new starts fresh from these excerpts; the original session is kept.`,'info');}
-    catch{ctx.ui.notify('Guard paused. Could not write a handoff; the original Pi session is still available.','warning');}
+    try{const saved=saveHandoff(ctx,reason);void impact('handoff').catch(()=>{});ctx.ui.notify(`Guard: ${reason}\nLocal handoff saved: ${saved.file}\n/guard-new starts fresh from these excerpts; the original session is kept.`,'info');return true;}
+    catch{ctx.ui.notify('Guard paused. Could not write a handoff; the original Pi session is still available.','warning');return false;}
   }
 
   pi.on('session_start',async(_event,ctx)=>{
     disposed=false;
     waitingForAllowance=false;repeatedTools=0;lastTool='';currentGroup=undefined;lastHandoff=undefined;
     pendingCompact=false;compactedThisRun=false;localFailure=undefined;
+    pendingRepair=false;lastOperation='';blockedOperations.clear();guardArmed=isGuard(ctx);
+    for(const entry of ctx.sessionManager.getBranch() as any[]){
+      if(entry.type==='custom' && entry.customType==='aispend.guard-blocks'){blockedOperations.clear();for(const op of entry.data?.operations||[])blockedOperations.add(op);}
+      if(entry.type==='custom' && entry.customType==='aispend.guard-armed')guardArmed=entry.data?.armed===true;
+    }
     if(watcher){clearInterval(watcher);watcher=undefined;}
     taskId=signature(ctx.sessionManager.getSessionId());
     watch(ctx);
     try {const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));}
     catch {ctx.ui.setStatus('aispend','Start AI Spend Guard on port 9021 · /guard');}
+    if(guardArmed && !isGuard(ctx)){const model=ctx.modelRegistry.find('aispend','guard');if(model)await pi.setModel(model);}
+  });
+  pi.on('model_select',async(event,ctx)=>{
+    if(restoringModel || !guardArmed || event.model.provider==='aispend')return;
+    restoringModel=true;
+    try{
+      const selected=available(ctx).find(m=>m.provider===event.model.provider && m.id===event.model.id);
+      if(selected && modelGroup(ctx,selected)!=='api'){
+        await discover(ctx);await api('/api/binding',{group:modelGroup(ctx,selected),provider:selected.provider,model:selected.id});
+      }
+    }catch{ctx.ui.notify('Could not update the preferred model. Existing Guard routing is retained.','warning');}
+    finally{
+      const guarded=ctx.modelRegistry.find('aispend','guard');
+      if(guarded)await pi.setModel(guarded);
+      restoringModel=false;
+    }
+    ctx.ui.notify('Guard remains active. Subscription model choices update the preference; requests still pass the budget checks. /guard-unlock permits direct model selection.','info');
   });
   pi.on('session_shutdown',async()=>{disposed=true;if(watcher)clearInterval(watcher);watcher=undefined;waitingForAllowance=false;});
   pi.on('before_agent_start',async(_event,ctx)=>{
@@ -128,6 +156,7 @@ export default function guard(pi: ExtensionAPI) {
         availableModels:models.map(model=>model.provider+'/'+model.id),
         contextTokens:request.reason==='direct'?0:ctx.getContextUsage()?.tokens || 0,
         repeatedTools:request.reason==='direct'?0:repeatedTools,
+        phase:request.reason==='direct'?'compact':'work',
       }).catch(error=>{throw new Error(`AI Spend Guard billing guard paused: controller unavailable (${error.message}). Start the local controller; no provider request was authorized.`);});
       policy=decision.policy || policy;
       if(decision.action==='compact') {
@@ -150,6 +179,7 @@ export default function guard(pi: ExtensionAPI) {
       const levels=['off','minimal','low','medium','high','xhigh','max','ultra'];
       const requested=levels.includes(request.thinkingLevel)?request.thinkingLevel:'medium';
       const thinkingLevel=levels[Math.min(levels.indexOf(requested),levels.indexOf(policy.maxThinkingLevel))] as any;
+      if(thinkingLevel!==requested)await impact('effort-cap');
       return {model:{...model,maxTokens:Math.min(model.maxTokens,policy.maxOutputTokens)},thinkingLevel};
     },
   });
@@ -183,14 +213,23 @@ export default function guard(pi: ExtensionAPI) {
     if(rows.length) await api('/api/observations',{observations:rows.map((row:any)=>({...row,source:'provider'}))}).catch(()=>{});
   });
   pi.on('tool_call',async(event,ctx)=>{
-    if(!isGuard(ctx) || !/^(subagent|subagents|spawn_agent|delegate|agent|task)$/i.test(event.toolName))return;
-    try{const result=await api('/api/subagent',{taskId});if(!result.allowed)return {block:true,reason:result.reason};}
+    if(!isGuard(ctx))return;
+    if(localFailure)return {block:true,reason:localFailure};
+    const op=operation(event);
+    if(blockedOperations.has(op) || (op===lastOperation && repeatedTools>=policy.repeatedToolLimit-1)){
+      blockedOperations.add(op);persistBlocks();pendingRepair=true;repeatedTools=policy.repeatedToolLimit;
+      try{await impact('loop-block');}catch{localFailure='Could not record the blocked loop. Check the controller.';}
+      return {block:true,reason:'Guard blocked a repeated operation before execution. A bounded recovery will use a different approach if the existing task budget permits.'};
+    }
+    if(!/^(subagent|subagents|spawn_agent|delegate|agent|task)$/i.test(event.toolName))return;
+    try{const result=await api('/api/subagent',{taskId});if(!result.allowed){await impact('subagent-block');return {block:true,reason:result.reason};}}
     catch{return {block:true,reason:'Guard could not authorize a subagent.'};}
   });
   pi.on('tool_result',async(event,ctx)=>{
     if(!isGuard(ctx)) return;
+    if(blockedOperations.has(operation(event)))return;
     const digest=signature({tool:event.toolName,input:event.input,result:event.content,isError:event.isError});
-    repeatedTools=digest===lastTool?repeatedTools+1:1;lastTool=digest;
+    repeatedTools=digest===lastTool?repeatedTools+1:1;lastTool=digest;lastOperation=operation(event);
     if(!['bash','powershell','grep','find','ls'].includes(event.toolName)) return;
     const total=event.content.filter((block:any)=>block.type==='text').reduce((n:number,block:any)=>n+block.text.length,0);
     if(total<=policy.maxToolOutputChars) return;
@@ -204,34 +243,66 @@ export default function guard(pi: ExtensionAPI) {
       return {content:trimToolOutput(event.content,policy.maxToolOutputChars,'unavailable: local storage error').content,isError:true};
     }
     const trimmed=trimToolOutput(event.content,policy.maxToolOutputChars,file);
-    removedChars+=trimmed.removedChars;
+    try{await impact('tool-trim',{removedChars:trimmed.removedChars});}catch{localFailure='Could not record tool trimming. Check the controller before resuming.';}
     return {content:trimmed.content};
   });
   pi.on('turn_end',async(_event,ctx)=>{
     if(!isGuard(ctx))return;
     if(localFailure){checkpoint(ctx,localFailure);return {continue:false};}
     if((ctx.getContextUsage()?.tokens || 0)<policy.maxContextTokens*0.8) compactedThisRun=false;
-    if(repeatedTools>=policy.repeatedToolLimit){waitingForAllowance=false;checkpoint(ctx,'Repeated identical tool results');return {continue:false};}
+    if(pendingRepair || repeatedTools>=policy.repeatedToolLimit){pendingRepair=true;waitingForAllowance=false;return {continue:false};}
     if((ctx.getContextUsage()?.tokens || 0)>policy.maxContextTokens && !compactedThisRun){pendingCompact=true;return {continue:false};}
   });
   pi.on('agent_end',async(_event,ctx)=>{
-    if(activeLease) await complete(0,true).catch(()=>{});
+    if(activeLease) await complete(0,true).catch(()=>{localFailure='Could not settle the last request.';});
+    if(pendingRepair && isGuard(ctx)){
+      pendingRepair=false;
+      if(localFailure || !checkpoint(ctx,'Repeated operation stopped before execution'))return;
+      try{
+        const repair=await api('/api/recovery',{taskId,...routing(ctx),repeatedTools});
+        if(repair.action!=='repair'){ctx.ui.notify(`Guard paused: ${repair.reason}`,'warning');return;}
+        repeatedTools=0;lastTool='';lastOperation='';
+        ctx.ui.notify(`Guard automatic repair ${repair.attempt}/${policy.maxAutoRepairs}: changing approach. Original task and dollar budgets still apply.`,'info');
+        pi.sendUserMessage('Guard automatic recovery: '+repair.reason+' Preserve the original goal and acceptance criteria. Use the saved findings; do not reread the entire history.',{deliverAs:'followUp'});
+      }catch{localFailure='Recovery could not be authorized. The saved handoff is intact.';ctx.ui.notify(localFailure,'warning');}
+      return;
+    }
     if(!pendingCompact || !isGuard(ctx))return;
     pendingCompact=false;compactedThisRun=true;
-    checkpoint(ctx,'Automatic context checkpoint');
+    if(localFailure || !checkpoint(ctx,'Automatic context checkpoint'))return;
+    const beforeTokens=ctx.getContextUsage()?.tokens;
     ctx.compact({
       customInstructions:'Preserve the user goal, unfinished acceptance criteria, changed files, failing checks, commands needed next, and decisions. Drop obsolete tool output and completed exploration. Do not claim unfinished work is done.',
       onComplete:()=>{
         if(disposed)return;
         // Compaction is counted as a request. Pi does not expose its exact token usage here.
-        void complete(0).catch(()=>{}).then(()=>pi.sendUserMessage('Continue the existing task from the compacted checkpoint. Keep the current scope and acceptance criteria.'));
+        void complete(0).then(async()=>{
+          const afterTokens=ctx.getContextUsage()?.tokens;
+          await impact('compact',typeof beforeTokens==='number' && typeof afterTokens==='number'?{beforeTokens,afterTokens}:{});
+          pi.sendUserMessage('Continue the existing task from the compacted checkpoint. Keep the current scope and acceptance criteria.');
+        }).catch(()=>{localFailure='Compaction accounting was not acknowledged. Check the controller before resuming.';});
       },
       onError:()=>{if(disposed)return;void complete(0,true).catch(()=>{});ctx.ui.notify('Compaction could not complete. The saved session is intact; refresh the budget before resuming.','warning');},
     });
   });
   pi.registerCommand('guard',{
-    description:'Connect to AI Spend Guard, discover subscription models, and show reset planning',
-    handler:async(_args,ctx)=>{try{const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));const resets=state.resetTimeline.filter((w:any)=>w.windowId.includes('week') || w.provider==='codex').map((w:any)=>`${w.provider}: ${new Date(w.resetAt).toLocaleString()}`).join(' · ');ctx.ui.notify(`${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\n${state.advice?.summary || ''}\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: ${endpoint.origin}`,'info');}catch(error:any){ctx.ui.notify(`Start the local guard controller: ${error.message}`,'error');}},
+    description:'Activate automatic protection and show limits, reset planning and measured impact',
+    handler:async(args,ctx)=>{try{
+      let state=await discover(ctx);
+      if(args.trim()!=='status'){
+        state=await api('/api/policy',{autoTune:true,autoRecover:true});
+        const model=ctx.modelRegistry.find('aispend','guard');if(!model || !await pi.setModel(model))throw Error('Guard model could not be activated');
+        guardArmed=true;pi.appendEntry('aispend.guard-armed',{armed:true});
+      }
+      policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+      const resets=state.resetTimeline.filter((w:any)=>w.windowId.includes('week') || w.provider==='codex').map((w:any)=>`${w.provider}: ${new Date(w.resetAt).toLocaleString()}`).join(' · ');
+      const impact=state.impact||{};
+      ctx.ui.notify(`${isGuard(ctx)?'Guard active':'Guard status only'} · ${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\nAutomatic repair: ${policy.autoRecover?'on':'off'}, at most ${policy.maxAutoRepairs}/task. Hard budgets never renew automatically.\nImpact: ${impact.removedChars||0} characters trimmed; ~${impact.estimatedInputTokensAvoided||0} input tokens avoided on completed replays; ${impact.loopBlocks||0} repeated tools blocked.\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: ${endpoint.origin}`,'info');
+    }catch(error:any){ctx.ui.notify(`Guard could not activate: ${error.message}`,'error');}},
+  });
+  pi.registerCommand('guard-unlock',{
+    description:'Allow direct model selection; direct models bypass Guard request protection',
+    handler:async(_args,ctx)=>{await ctx.waitForIdle();guardArmed=false;waitingForAllowance=false;pi.appendEntry('aispend.guard-armed',{armed:false});ctx.ui.notify('Model selection unlocked. Guard still applies while aispend/guard is selected. Selecting a direct model bypasses its request, context, and dollar checks. /guard activates protection again.','warning');},
   });
   pi.registerCommand('guard-handoff',{
     description:'Save bounded goal, progress and checkpoint excerpts locally without a model call',
@@ -247,7 +318,7 @@ export default function guard(pi: ExtensionAPI) {
   });
   pi.registerCommand('guard-resume',{
     description:'Resume the saved task after a budget or reset review; keeps existing task counters',
-    handler:async(_args,ctx)=>{await ctx.waitForIdle();waitingForAllowance=false;localFailure=undefined;repeatedTools=0;lastTool='';pi.sendUserMessage('Continue the saved task from its latest checkpoint. Preserve the original scope and acceptance criteria.');},
+    handler:async(_args,ctx)=>{await ctx.waitForIdle();waitingForAllowance=false;localFailure=undefined;repeatedTools=0;lastTool='';lastOperation='';blockedOperations.clear();persistBlocks();pi.sendUserMessage('Continue the saved task from its latest checkpoint. Preserve the original scope and acceptance criteria.');},
   });
   pi.registerCommand('guard-hold',{
     description:'Cancel automatic resumption while waiting for allowance; /guard-resume continues manually',

@@ -1,4 +1,28 @@
-# AI Spend Guard for Pi 0.3.0 (AI Spend Live 0.6.1 preview)
+# AI Spend Guard for Pi 0.3.1 (AI Spend Live 0.6.2 preview)
+
+Run `/guard` to activate the guarded model, automatic tuning and bounded loop
+recovery. `/guard status` only inspects. Once activated, selecting a subscription
+model updates its preference and keeps requests routed through Guard. Use
+`/guard-unlock` only when you deliberately want to select an unguarded model.
+
+Repeated identical results block the next identical operation before execution.
+Guard writes a local handoff and allows one different approach per task by
+default. That follow-up still consumes the original request/time/token/API
+budget and needs fresh allowance. Another repeat or an exhausted budget pauses;
+there is no automatic budget renewal or new-session bypass. Context growth
+continues to use bounded compaction. Settings are optional under Advanced.
+
+The **What Guard saved** report counts interventions and measures net characters
+removed, including the cost of its archive notice. Estimated input tokens use
+characters / 4 and receive credit once, only after a subsequent completed request
+with usage. Known catalog rates give a cached-to-uncached input-cost range.
+Subscription dollars are comparisons, not refunds or known quota savings.
+Unknown prices remain unknown. Compaction reduction is separate; repair and
+compaction overhead is shown, so gross savings cannot be mistaken for net bills.
+The JSON report contains counters and hashed task IDs, not your work text.
+
+[Native hook setup and coverage](../native/README.md) covers supported Claude,
+Codex and Antigravity boundaries. Full request routing/compaction remains in Pi.
 
 Guard is a local controller plus a Pi virtual model. It checks measured subscription allowance before each request, preserves a reserve, keeps a task request budget, and pauses when it cannot make a supported decision. HerdR remains the terminal and session manager.
 
@@ -48,8 +72,8 @@ pace warning can shorten work to 25 requests per task. Reasons are visible.
 
 Automatic tuning only tightens these work bounds. It never buys API access,
 raises dollar caps, relaxes a tighter user setting, or replaces a selected
-model. New installations enable it by default. Existing installations keep
-manual control until you enable it under Advanced settings. Turn it off for
+model. New installations enable it by default. Running `/guard` enables automatic tuning and recovery on existing installations too.
+Use `/guard status` for inspection without changing those settings. Turn it off for
 recommendations-only operation; review and apply suggestions when convenient.
 
 ## Portable handoffs between agents
@@ -87,12 +111,12 @@ py -3 tools/render-guard-demo.py
 
 - Claude, Codex, and AGY quota collection every five minutes, with cooldown/backoff and visible check times. Local Codex logs also supply recent snapshots. Claude's usage endpoint is undocumented and can change; a failed check preserves dated readings instead of inventing a balance.
 - Claude → Codex → AGY preference among configured, authenticated, ready subscriptions. Tool continuations stay on the same provider while eligible to preserve cache reuse.
-- Configurable subscription preference, selected models, request/token/time budgets, reasoning ceiling (medium by default), concurrent-request cap, and three-identical-result loop stop. Known subagent tools are denied by default; arbitrary shell-launched agents are outside this tool-name guard.
+- Configurable subscription preference, selected models, request/token/time budgets, reasoning ceiling (medium by default), concurrent-request cap, and a repeated-result tripwire with one bounded repair. Known subagent tools are denied by default; arbitrary shell-launched agents are outside this tool-name guard.
 - Live browser events for guarded requests, model-price cost estimates, and budget reservations. API fallback is disabled by default. To enable it, connect an API model in Pi, select it in Guard, and set both daily and task dollar caps. Daily accounting uses UTC. Unknown pricing blocks API routing. Pending requests reserve estimated dollars across controller restarts; missing cost telemetry keeps the reservation as an estimate.
 - Local 24-hour insights for subagents, large contexts, recorded reasoning effort, and long sessions. Metrics use recorded tokens, not provider quota weights. Effort is shown as unknown where the logs omit it. The existing AI Spend dashboard shows Guard's live allowances and these insights.
 - Long shell/search output is archived locally and shortened before the next request. Images remain intact.
 - One context compaction at the configured ceiling, preserving the original task and unfinished work, followed by continuation. Compaction itself needs available allowance and counts as a request.
-- In interactive Pi/RPC, allowance or concurrency pauses check readiness every 30 seconds without calling a model. Work resumes when fresh readings and task budgets permit. Timers never invent refreshed quota. Budget and repeated-result pauses need explicit review. Closing Pi cancels waiting.
+- In interactive Pi/RPC, allowance or concurrency pauses check readiness every 30 seconds without calling a model. Work resumes when fresh readings and task budgets permit. Timers never invent refreshed quota. Hard-budget pauses and exhausted repair attempts need explicit review. Closing Pi cancels waiting.
 
 ## Limits and data
 
