@@ -646,6 +646,11 @@
         <button id="refresh" type="button">Refresh</button>
       </div>
     </header>
+    <section class="panel" style="margin:16px 0;padding:20px;background:#090909;border:1px solid #303030">
+      <div class="panel-head"><h2 class="panel-title">Live subscription allowances</h2><a href="/guard">Open Guard &amp; routing rules →</a></div>
+      <div id="guardLive" style="font-size:13px;color:#bbb">Connecting to the local Guard controller…</div>
+      <div id="protectionInsights" style="margin-top:18px;font-size:13px"></div>
+    </section>
 
     <div id="error" class="error"></div>
     <section class="notice">
@@ -1442,6 +1447,8 @@
         const data = await loadData();
         syncPlanControls(data);
         renderStats(data);
+        const protection=data.protectionInsights;
+        el('protectionInsights').innerHTML=protection?'<strong>Last 24h · overlapping local usage signals</strong><br>'+protection.providers.map(p=>escapeHtml(p.provider)+': '+p.metrics.map(m=>(m.percent===null?'unknown':m.percent+'%')+' '+escapeHtml(m.label)).join(' · ')).join('<br>'):'';
         renderInsights(data);
         renderRecommendations(data);
         renderPromptGuidance(data);
@@ -1476,6 +1483,11 @@
       refresh();
     });
     window.addEventListener("resize", () => refresh());
+    async function refreshGuard(){
+      try{const response=await fetch('/api/guard');if(!response.ok)throw Error();const data=await response.json();el('guardLive').innerHTML=data.providers.filter(p=>p.provider!=='api').map(p=>'<div style="padding:8px 0;border-bottom:1px solid #282828"><strong>'+escapeHtml(p.provider)+'</strong> · '+escapeHtml(p.status)+' · '+p.windows.map(w=>escapeHtml(w.modelFamily||'all models')+' '+(100-w.usedPercent).toFixed(0)+'% left ('+escapeHtml(w.windowId)+'), reset '+dtf.format(new Date(w.resetAt))).join(' / ')+'</div>').join('')+'<p>API estimate today: '+cf.format(data.accounting?.apiEstimateUsd||0)+' · Readings update approximately every 5 minutes. Guarded request counters update live in Guard.</p>';}
+      catch{el('guardLive').textContent='Start AI Spend Guard to see provider percentages, resets, and routing. Your existing usage history is still available below.';}
+    }
+    refreshGuard();setInterval(()=>{if(!document.hidden)refreshGuard();},15000);
     refresh();
   </script>
 </body>

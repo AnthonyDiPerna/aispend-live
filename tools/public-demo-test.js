@@ -74,6 +74,7 @@ const fixtureSources = [
 ];
 const fixtureSummary = buildSummary(fixtureSources, { days: 3, provider: "all", task: "auto" });
 const fixtureDemo = buildPublicDemo(fixtureSummary, fixtureSources, 3);
+assert.equal(fixtureDemo.releaseVersion, require('../package.json').version);
 const modelByDay = fixtureDemo.dailyByModel.reduce((map, row) => {
   map.set(row.period, (map.get(row.period) || 0) + row.tokens);
   return map;

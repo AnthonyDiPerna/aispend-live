@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="application-version" content="0.6.0">
+<title>AI Spend Guard — Plan through your next reset</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050505'/%3E%3Cpath d='M8 24V16h4v8m4 0V8h4v16' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="usage-guard.css">
+</head>
+<body><main>
+<header><a class="brand" href="/">AI Spend <span class="tag">/ Guard 0.2.0</span></a><nav class="topnav" aria-label="Main"><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
+<div id="demoBanner" class="banner hidden">Demo data. This server cannot authorize model requests. Change the simulator clock without spending tokens.</div>
+<div class="intro"><span class="tag">Your subscriptions. One work plan.</span><h1>Make your allowance<br>last through the week.</h1>
+<p class="lead">Plan around each subscription’s reset. Keep an emergency reserve, cap long-running tasks, and pass work to a ready provider before the current one runs dry.</p>
+<div class="toolbar"><button id="sync" class="secondary">Refresh allowances</button><span id="updated" class="caption">Connecting…</span></div>
+</div><div id="error" class="banner error hidden" role="alert"></div>
+<div class="workspace-label"><span>allowance / overview</span><span class="optional" id="routingOrder">CLAUDE &rarr; CODEX &rarr; AGY</span></div><section id="decision" class="decision" aria-live="polite"><div><h2>Loading your reset plan…</h2></div></section>
+<section id="providers" class="grid" aria-label="Subscription allowances"></section>
+<section class="section box"><div class="row"><h2>Live work &amp; cost</h2><span id="liveStatus" class="tag">Connecting</span></div><div id="spend" class="spend"></div><p class="notes">Request counters and cost estimates update as Pi reports usage. Provider allowances refresh about every five minutes, with backoff on errors. API estimates use model prices; provider invoices and extra tool charges can differ.</p></section>
+<section class="section box"><h2>What is using your allowance?</h2><div id="reportedInsights"></div><div id="insights"></div><p class="notes">Local token characteristics overlap. They are useful signals, not the provider’s private quota calculation. Native Claude /usage may include information unavailable in local logs.</p></section>
+<div class="two section">
+<section class="box"><h2>Upcoming resets</h2><p class="caption">Shown in your local time. A new reading must confirm that an allowance has refreshed.</p><ul id="timeline" class="timeline"></ul><p id="nextReview" class="notes"></p></section>
+<section class="box"><h2>Allowance connections</h2><p class="caption" style="margin-bottom:14px">Claude uses the local CLI login, Codex uses its account API, and Antigravity runs its built-in /usage report. These checks do not call a model. Each card shows the last successful check.</p><details><summary>Enter a reading manually</summary>
+<form id="observation" class="form">
+<label>Provider<select name="provider"><option value="claude">Claude</option><option value="codex">Codex</option><option value="agy">Antigravity</option></select></label>
+<label>Window<select name="window"><option value="10080">Weekly</option><option value="300">Five hours</option></select></label>
+<label>Used (%)<input name="used" type="number" min="0" max="100" step="0.1" required placeholder="e.g. 74"></label>
+<label>Resets at (local time)<input name="reset" type="datetime-local" required></label>
+<div class="full"><button>Save provider reading</button></div>
+</form></details><p class="notes">A plan’s dollar price does not imply a fixed token allowance. Missing readings remain unknown; passing a reset time does not refill the meter automatically.</p>
+</section></div>
+<div class="two section">
+<section class="box"><h2>Rules for automatic work</h2><form id="policy" class="form">
+<label class="full">Subscription preference<select name="providerOrder"><option value="claude,codex,agy">Claude → Codex → Antigravity</option><option value="claude,agy,codex">Claude → Antigravity → Codex</option><option value="codex,claude,agy">Codex → Claude → Antigravity</option><option value="codex,agy,claude">Codex → Antigravity → Claude</option><option value="agy,claude,codex">Antigravity → Claude → Codex</option><option value="agy,codex,claude">Antigravity → Codex → Claude</option></select></label>
+<label>Emergency reserve (%)<input name="reservePercent" type="number" min="0" max="50" required></label>
+<label>Reading freshness (minutes)<input name="freshnessMinutes" type="number" min="5" max="1440" required></label>
+<label>Requests per task<input name="maxRequestsPerTask" type="number" min="1" max="1000" required></label>
+<label>Reported tokens per task<input name="maxTokensPerTask" type="number" min="10000" max="100000000" required></label>
+<label>Context ceiling (tokens)<input name="maxContextTokens" type="number" min="8000" max="1000000" required></label>
+<label>Tool output kept (characters)<input name="maxToolOutputChars" type="number" min="2000" max="100000" required></label>
+<label>Identical results before pause<input name="repeatedToolLimit" type="number" min="2" max="10" required></label>
+<label>Concurrent guarded requests<input name="maxConcurrentRequests" type="number" min="1" max="8" required></label>
+<label>Task time budget (minutes)<input name="maxTaskMinutes" type="number" min="5" max="1440" required></label>
+<label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option>medium</option><option>high</option></select></label>
+<label>Subagent calls per task<input name="maxSubagentCalls" type="number" min="0" max="20" required></label>
+<label>Output token ceiling<input name="maxOutputTokens" type="number" min="512" max="32000" required></label>
+<label class="full">Paid API fallback<select name="allowApiSpend"><option value="false">Off — subscriptions only</option><option value="true">On — use the selected API model after subscriptions</option></select></label>
+<label>API daily cap ($, UTC day)<input name="apiDailyBudgetUsd" type="number" min="0" max="1000" step="0.01" required></label>
+<label>API task cap ($)<input name="apiTaskBudgetUsd" type="number" min="0" max="1000" step="0.01" required></label>
+<div class="full"><button>Save rules</button></div></form><p class="notes">Applied before requests made through the Guard model. An in-flight request can exceed a task token budget. Work in other agents is visible only through quota readings.</p></section>
+<section class="box"><h2>Test the reset logic</h2><p class="caption">An isolated scenario: Claude is consuming its allowance too quickly; Codex has room. This does not change your readings or rules.</p><div class="simcontrols" style="margin-top:16px"><label>Hours ahead<input id="simHours" type="number" value="0" min="0" max="336"></label><button id="simulate" class="secondary">Run scenario</button><button id="pastReset" class="secondary">Jump past Claude reset</button></div><div id="simulation" class="simresult" aria-live="polite"></div>
+<details class="section" id="connect"><summary>Connect Pi</summary><ol class="setup"><li>Start the local controller with <code>npm run guard</code>.</li><li>Install the extension using <code>integrations/pi/README.md</code>.</li><li>Sign in to each provider in Pi, then run <code>/guard</code>. Select its model above.</li><li>Select <code>aispend/guard</code>. Every request now checks these rules.</li></ol><p class="caption">Reading an allowance and connecting a Pi model are separate. Antigravity monitoring works through agy; routing needs a compatible Pi subscription connector. API fallback requires explicit dollar caps. Radius is a separate gateway, not a transfer of your plan allowances.</p></details>
+</section></div>
+<section class="section box"><h2>Guarded tasks</h2><div id="tasks" class="tasks"></div><p class="notes">Task IDs are hashed. The dashboard receives counters and decisions, not prompts, tool output, credentials, or repository paths. Renewing a task budget is a deliberate local action; it does not refill a provider allowance.</p></section>
+<section class="section box"><h2>Recent decisions</h2><div id="activity" class="activity"></div></section>
+<footer class="foot">In interactive Pi, allowance pauses wait for a fresh reading and resume automatically. Use <code>/guard-hold</code> to cancel waiting. Request budgets and repeated-result pauses require a review. No savings percentage is promised; cached tokens are useful when the context is still relevant.</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const names={claude:'Claude',codex:'Codex',agy:'Antigravity',api:'API fallback'}, nf=new Intl.NumberFormat(), date=value=>new Date(value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}), pct=n=>Number(n).toFixed(1)+'%';
+let current, formLoaded=false;
+async function api(route,body){const result=await fetch(route,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await result.json();if(!result.ok)throw new Error(data.error||'Request failed');return data;}
+function failure(error){$('error').textContent=error.message;$('error').classList.remove('hidden');}
+function render(data){current=data;$('error').classList.add('hidden');$('demoBanner').classList.toggle('hidden',!data.demo);$('updated').textContent=`Updated ${date(data.generatedAt)} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+const selected=data.providers.find(p=>p.provider===data.recommendedProvider), bound=selected?.configured;
+$('decision').innerHTML=`<div><span class="tag">${data.demo?'Example plan':'Current plan'}</span><h2>${selected?(bound?`Use ${names[selected.provider]}`:`${names[selected.provider]} has allowance`):'Refresh readings or queue the next task'}</h2><p>${selected?(bound?'Keep routine work within the reset plan. Guard preserves the current provider during tool follow-ups when its budget remains ready.':selected.provider==='agy'?'A supported Antigravity subscription connector is not available in this installation. This reading is for planning; guarded work stays paused until a supported provider is ready.':'Connect a subscription model below before Guard can route work to this allowance.'):'No provider has a fresh allowance that fits the plan. Existing work stays saved; a scheduled reset alone does not unlock spending.'}</p></div><div><span class="big">${data.policy.reservePercent}%</span><br><span class="caption">reserved per allowance</span></div>`;
+$('providers').innerHTML=data.providers.map(p=>{
+const c=data.collectors?.[p.provider];
+return '<article class="card"><div class="cardhead"><h3>'+names[p.provider]+'</h3><span class="status '+esc(p.status)+'">'+esc(p.status.replace('-',' '))+'</span></div><p class="caption" style="margin-top:10px">'+esc(p.message)+'</p>'+
+(c?'<div class="collector caption">'+esc(c.status)+' · '+(c.lastSuccessAt?'checked '+date(c.lastSuccessAt):'awaiting first reading')+(c.error?'<br>'+esc(c.error):'')+(c.nextAttemptAt?'<br>Next check '+date(c.nextAttemptAt):'')+'</div>':'')+
+p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(w.modelFamily||'All models')+' · '+(w.windowMinutes>=1440?'Weekly':'Five-hour')+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day until reset':'Awaiting reset confirmation')+'</p><p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
+(p.provider!=='api' && !p.windows.length?'<div class="window caption">No measured allowance yet.</div>':'')+
+'<div class="binding"><label>Preferred Pi model<select data-bind="'+p.provider+'"><option value="">'+esc(p.binding?.model||'Choose a connected model')+'</option>'+(data.models||[]).filter(m=>m.group===p.provider).map(m=>'<option value="'+esc(m.provider+'|'+m.id)+'">'+esc(m.id)+'</option>').join('')+'</select></label><p class="caption">'+(p.configured?'Configured for Guard':p.provider==='agy'?'Allowance monitoring connected separately from Pi routing.':'Run /login in Pi, then /guard.')+'</p></div></article>';
+}).join('');renderLive(data);
+$('timeline').innerHTML=data.resetTimeline.map(w=>`<li><span><strong>${names[w.provider]}</strong><small>${esc(w.windowId)} · ${w.hoursLeft>0?`${w.hoursLeft.toFixed(1)} hours away`:'reset time passed'}</small></span><time>${date(w.resetAt)}</time></li>`).join('')||'<li class="caption">Add allowance readings to build your reset calendar.</li>';
+$('nextReview').textContent=data.nextReviewAt?`Next conservative availability review: ${date(data.nextReviewAt)}. Both short and weekly constraints must allow work.`:'Refresh missing readings to plan your next available work window.';
+if(!formLoaded){for(const [key,value] of Object.entries(data.policy)){const field=$('policy').elements.namedItem(key);if(field)field.value=Array.isArray(value)?value.join(','):String(value);}formLoaded=true;}
+$('tasks').innerHTML=(data.tasks||[]).length?`<table><thead><tr><th>Task</th><th>Provider</th><th>Requests</th><th>Reported tokens</th><th>Output trimmed</th><th>Status</th><th></th></tr></thead><tbody>${data.tasks.map(t=>`<tr><td>${esc(t.id.slice(0,10))}</td><td>${esc(names[t.provider]||'—')}</td><td>${nf.format(t.requests)}</td><td>${nf.format(t.totalTokens)}</td><td>${nf.format(t.removedChars||0)} chars</td><td>${esc(t.status)}</td><td><button class="secondary" data-renew="${esc(t.id)}">Renew task budget</button></td></tr>`).join('')}</tbody></table>`:'<p class="caption">No guarded requests yet. Run /guard in Pi and select aispend/guard to start.</p>';
+$('activity').innerHTML=(data.events||[]).slice().reverse().map(e=>`<p><span class="caption">${date(e.at)}</span> · ${esc(e.detail)}</p>`).join('')||'<p class="caption">Decisions will appear here. No model calls are made by this dashboard.</p>';
+if(data.syncError){$('error').textContent=data.syncError;$('error').classList.remove('hidden');}}
+
+
+function renderLive(data){
+const a=data.accounting||{},usd=n=>'$'+Number(n||0).toFixed(3);
+$('routingOrder').textContent=data.policy.providerOrder.map(p=>names[p]).join(' → ');
+$('reportedInsights').innerHTML=Object.entries(data.reportedInsights||{}).map(([provider,s])=>'<details class="section"><summary>'+esc(names[provider])+' native snapshot'+(s.recordedAt?' · saved '+date(s.recordedAt):'')+'</summary><p class="caption">'+esc(s.source)+'; retained for reference, not a live quota reading.</p>'+s.metrics.map(m=>'<p>'+pct(m.percent)+' · '+esc(m.label)+'</p>').join('')+(s.contextTokens!==null?'<p>Context: '+nf.format(s.contextTokens)+' tokens</p>':'')+(s.referenceCostUsd!==null?'<p>Session API-price reference: '+usd(s.referenceCostUsd)+'</p>':'')+'</details>').join('');
+$('spend').innerHTML=[['API estimate today',usd(a.apiEstimateUsd)],['Reserved for API requests',usd(a.apiReservedUsd)],['Subscription reference cost',usd(a.subscriptionReferenceUsd)],['Requests in guarded tasks',nf.format((data.tasks||[]).reduce((n,t)=>n+t.requests,0))]].map(([label,value])=>'<div><span class="caption">'+label+'</span><div class="big">'+value+'</div></div>').join('')+'<p class="caption full">API cap: '+usd(data.policy.apiDailyBudgetUsd)+' / day. '+Number(a.unknownCostRequests||0)+' requests have incomplete cost telemetry. Subscription reference cost is an API-price comparison, not a charge.</p>';
+const insight=data.insights;
+$('insights').innerHTML=insight?'<p class="caption">Last 24 hours · analyzed '+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+names[p.provider]+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
+}
+
+async function refresh(){try{render(await api('/api/state'));}catch(e){failure(e);}}
+$('sync').onclick=async()=>{$('sync').disabled=true;try{render(await api('/api/sync',{}));}catch(e){failure(e);}finally{$('sync').disabled=false;}};
+$('observation').onsubmit=async event=>{event.preventDefault();const f=new FormData(event.target),minutes=Number(f.get('window'));try{render(await api('/api/observations',{observations:[{provider:f.get('provider'),windowId:current?.providers.find(p=>p.provider===f.get('provider'))?.windows.find(w=>w.windowMinutes===minutes)?.windowId || (minutes>=1440?'weekly':'session'),windowMinutes:minutes,usedPercent:Number(f.get('used')),resetAt:new Date(f.get('reset')).toISOString(),observedAt:new Date().toISOString(),source:'manual'}]}));}catch(e){failure(e);}};
+$('policy').onsubmit=async event=>{event.preventDefault();const values={};for(const [key,value] of new FormData(event.target))values[key]=key==='providerOrder'?value.split(','):key==='maxThinkingLevel'?value:key==='allowApiSpend'?value==='true':Number(value);try{render(await api('/api/policy',values));}catch(e){failure(e);}};
+$('providers').onchange=async event=>{const group=event.target.dataset.bind;if(!group||!event.target.value)return;const [provider,model]=event.target.value.split('|');try{render(await api('/api/binding',{group,provider,model}));}catch(e){failure(e);}};
+$('tasks').onclick=async event=>{const taskId=event.target.dataset.renew;if(!taskId)return;try{render(await api('/api/reset-task',{taskId}));}catch(e){failure(e);}};
+async function simulate(){try{const plan=await api('/api/simulate',{hours:Number($('simHours').value)});$('simulation').innerHTML=`<p><strong>Simulation at +${Number($('simHours').value)} hours</strong></p>${plan.providers.map(p=>`<p style="margin-top:9px"><span class="status ${esc(p.status)}">${names[p.provider]} · ${esc(p.status)}</span><br><span class="caption">${esc(p.message)}</span></p>`).join('')}<p class="notes">${plan.recommendedProvider?`Suggested: ${names[plan.recommendedProvider]}.`:'Pause and refresh readings. A reset never silently becomes 0% used.'} Your live state has not changed.</p>`;}catch(e){failure(e);}}
+$('simulate').onclick=simulate;$('pastReset').onclick=()=>{$('simHours').value=49;simulate();};refresh();let stream;async function connectStream(){const state=await api('/api/state');if(state.demo){$('liveStatus').textContent='Synthetic preview';return;}stream=new EventSource('/api/events');stream.onmessage=event=>{const data=JSON.parse(event.data);if(!['INPUT','SELECT'].includes(document.activeElement.tagName))render(data);else renderLive(data);$('liveStatus').textContent='Live · connected';};stream.onerror=()=>{$('liveStatus').textContent='Reconnecting · readings may be stale';};}connectStream().catch(failure);setInterval(()=>{if(!document.hidden && !['INPUT','SELECT'].includes(document.activeElement.tagName))refresh();},30000);
+</script></body></html>

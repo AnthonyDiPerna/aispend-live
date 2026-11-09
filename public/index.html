@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-version" content="0.6.0">
   <meta name="description" content="AI Spend Live turns local AI usage logs into model, cache, and pacing guidance without exposing prompts.">
   <title>AI Spend Live — Usage you can act on</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1013'/%3E%3Cpath d='M14 46V32h8v14m6 0V22h8v24m6 0V12h8v34' stroke='%2358d5a4' stroke-width='6'/%3E%3C/svg%3E">
@@ -106,22 +107,23 @@
     @media (max-width:850px) { .hero,.demo-grid,.install,.demo-detail { grid-template-columns:1fr; } .screen { transform:none; } .grid { grid-template-columns:1fr; } .stats { grid-template-columns:repeat(2,1fr); } .workflow { grid-template-columns:1fr; } }
     @media (max-width:600px) { .shell { width:min(100% - 24px,1180px); } main { padding-top:32px; } .stats { grid-template-columns:1fr 1fr; } nav { align-items:flex-start; gap:12px; flex-direction:column; } }
   </style>
+  <link rel="stylesheet" href="design.css">
 </head>
 <body>
   <div class="shell">
     <nav>
       <a class="brand" href="/"><span class="mark">AI</span> AI Spend Live</a>
-      <a class="back" href="https://anthonydiperna.com/projects/">All projects &rarr;</a>
+      <div class="navlinks"><a href="#usage">Usage</a><a href="guard.html">Guard</a><a class="optional" href="https://github.com/AnthonyDiPerna/aispend-live">GitHub &nearr;</a></div>
     </nav>
     <main>
       <section class="hero">
         <div>
-          <div class="eyebrow">Local first &middot; aggregate safe</div>
-          <h1>Usage you can act on.</h1>
-          <p class="lead">See which model patterns are burning tokens, whether cache reuse is helping, and how fast your rolling limits are moving. Then choose a smaller, clearer next step.</p>
+          <div class="eyebrow">AI Spend Live 0.6.0 &middot; Local usage. Measured allowance.</div>
+          <h1>Make your AI week<br>go further.</h1>
+          <p class="lead">Understand where your tokens go. Plan around your resets. Give long-running work a budget before it uses the rest of your week.</p>
           <div class="actions">
-            <a class="button primary" href="ai-spend-live-0.5.1-source.zip">Download source v0.5.1</a>
-            <a class="button" href="ai-spend-live-0.4.1-source.zip">Previous v0.4.1</a>
+            <a class="button primary" href="ai-spend-live-0.6.0-source.zip">Download source v0.6.0</a>
+            <a class="button" href="guard.html">Try the reset planner &nearr;</a>
             <a class="button" href="https://github.com/AnthonyDiPerna/aispend-live">View source</a>
           </div>
           <p class="note">No account or telemetry. The local dashboard never sends your logs to a service.</p>
@@ -136,6 +138,7 @@
         </div>
       </section>
 
+<section class="guard-preview" id="guard"><div class="section-head"><div class="eyebrow">AI Spend Guard &middot; Pi extension preview</div><h2>A plan for the next reset.</h2></div><p>See Claude, Codex, and Antigravity allowances update from your local accounts. Track costs as you work, choose your provider order, and pause long tasks before they consume your reserve. Paid API fallback stays off until you set a budget.</p><div class="reset-preview" aria-label="Synthetic allowance example"><div>Claude <strong class="caution">14% left</strong><small>Reset in 48h &middot; ease off</small></div><div>Codex <strong>73% left</strong><small>Reset in 96h &middot; ready</small></div><div>Antigravity <strong>84% left</strong><small>Reset in 24h &middot; routing connector needed</small></div></div><p class="note" style="margin-top:14px">Synthetic example. Live account data stays local. Plans have finite allowances; no harness can guarantee unlimited work.</p><div class="actions"><a class="button primary" href="guard.html">Explore the planner</a><a class="button" href="ai-spend-live-guard-preview.zip">Source &amp; setup</a></div></section>
       <section class="section">
         <div class="section-head"><h2>A dashboard for decisions.</h2><p>AI Spend keeps model totals, cache/context signals, and local pacing together so you can choose a workflow instead of guessing from an invoice.</p></div>
         <div class="grid">
@@ -145,7 +148,7 @@
         </div>
       </section>
 
-      <section class="section demo" aria-live="polite">
+      <section id="usage" class="section demo" aria-live="polite">
         <div class="demo-head"><div><div class="eyebrow">Example from local usage</div><h2>See what it does.</h2><p>Aggregate-only evidence, with anonymized time buckets. API-equivalent dollars are estimates, not a subscription invoice.</p><p class="coverage" id="demoScope">All observed models</p></div><span class="tag" id="demoPeriod">Loading demo</span></div>
         <div class="demo-controls"><label for="modelFilter">Model</label><select class="demo-select" id="modelFilter"><option value="all">All observed models</option></select></div>
         <div class="primary-stats">
@@ -193,7 +196,7 @@ npm run dashboard
 # open http://127.0.0.1:9020/</code></pre>
       </section>
     </main>
-    <footer>Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
+    <footer>AI Spend Live 0.6.0 &middot; Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
   </div>
   <script>
     const nf = new Intl.NumberFormat();
@@ -332,11 +335,11 @@ npm run dashboard
     document.getElementById("modelFilter").addEventListener("change", (event) => {
       updateModelSelection(event.target.value, window.publicDemoData);
     });
-    fetch("demo-data.json?v=0.5.1", {cache:"no-store"}).then(response => {
+    fetch("demo-data.json?v=0.6.0", {cache:"no-store"}).then(response => {
       if (!response.ok) { throw new Error("Demo data missing"); }
       return response.json();
     }).then(data => {
-      if (!Array.isArray(data.models) || !Array.isArray(data.dailyByModel) || !Array.isArray(data.insights) || !Array.isArray(data.recommendations) || !Array.isArray(data.alertExamples) || data.alertExamples.length === 0 || !data.models.every(model => model.key && Number.isFinite(model.cacheWriteTokens))) {
+      if (data.releaseVersion !== document.querySelector('meta[name="application-version"]').content || !Array.isArray(data.models) || !Array.isArray(data.dailyByModel) || !Array.isArray(data.insights) || !Array.isArray(data.recommendations) || !Array.isArray(data.alertExamples) || data.alertExamples.length === 0 || !data.models.every(model => model.key && Number.isFinite(model.cacheWriteTokens))) {
         throw new Error("Demo data version mismatch");
       }
       window.publicDemoData = data;

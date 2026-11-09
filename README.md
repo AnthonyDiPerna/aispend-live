@@ -1,5 +1,13 @@
 # AI Spend Live
 
+Release 0.6.0 adds live Claude, Codex, and Antigravity allowance/reset readers,
+24-hour protection insights, and Pi Guard 0.2.0. Guard checks subscription
+reserves, pace, context, reasoning, task time, requests, and known subagent
+calls; its API fallback stays off until you set dollar caps. Request counters
+and cost estimates update live, while account allowances refresh about every
+five minutes. One-hour Claude cache writes now count toward large-context
+insights. The public playground uses synthetic readings and cannot spend tokens.
+
 Release 0.5.1 adds measured limit-pressure warnings, focused-check and compact
 handoff recommendations, stale-window guards, and public insight examples.
 The landing page can demonstrate five-hour and weekly alerts without exposing
@@ -16,8 +24,9 @@ AI Spend Live turns supported local usage records into model-level totals,
 cache and context signals, measured 5-hour/weekly pacing, and deterministic
 workflow suggestions. It helps you choose a model tier for the task in front
 of you, preserve useful cache reuse, split a runaway thread, and checkpoint
-before a rolling limit is reached. It never changes models or installs skills
-for you.
+before a rolling limit is reached. The core dashboard does not change models
+or install skills. The optional Pi Guard extension can route explicitly guarded
+requests between your configured subscriptions.
 
 ## What It Shows
 
@@ -178,8 +187,24 @@ thread totals, and pricing tables in `tools/ai-spend-dashboard-server.js`.
 They are not provider invoices, subscription limit counters, or guaranteed
 billing totals. Subscription plans publish message windows and fair-use limits
 rather than a fixed included token balance, so the dashboard keeps those
-signals separate from API dollars and credits. A reset timestamp is only shown
-when you supply it locally.
+signals separate from API dollars and credits. Guard automatically reads provider
+allowances and reset timestamps using local Claude, Codex, and AGY logins.
+
+## AI Spend Guard (Pi preview)
+
+Guard adds subscription reset planning and per-task work budgets to Pi. Run
+`npm run guard` for the local controller at <http://127.0.0.1:9021>, or
+`npm run guard:demo` for a synthetic scenario at <http://127.0.0.1:9022>.
+The public playground is `public/guard.html` and can never authorize model calls.
+The local dashboard also shows live allowance readings from Guard. Choose your
+provider order and models, reserve, reasoning ceiling, task time budget, and
+optional API dollar caps in Guard. API spending stays off until explicitly enabled.
+
+See [Pi setup and limits](integrations/pi/README.md) and
+[the Pi/HerdR analysis](doc/PI-GUARD-ANALYSIS.md). Run `npm run test:guard` for
+policy and HTTP checks, and `npm run test:pi` after installing the pinned local
+Pi runtime. `npm run guard:export` rebuilds the public playground from the same
+policy implementation. `npm run site:preview` serves the public site on port 9023.
 
 ## License
 

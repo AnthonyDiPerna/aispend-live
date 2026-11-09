@@ -15,3 +15,5 @@ Thumbs.db
 *.webp
 tmp/
 dist/
+.guard-runtime/
+.guard-data/

@@ -218,6 +218,7 @@ function buildPublicDemo(summary, sources, days) {
   }));
   return {
     schema: "ai-spend-live-public-demo/v1",
+    releaseVersion: require('../package.json').version,
     generatedOn: new Date().toISOString().slice(0, 10),
     period: `Recent ${days}-day example`,
     privacy: "Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.",

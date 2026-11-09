@@ -2367,6 +2367,7 @@ function buildSummary(parsed, options) {
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
+    protectionInsights: require('./usage-insights').buildUsageInsights(allEvents,allSessions,nowMs),
     range: { days, since: new Date(sinceMs).toISOString(), provider: providerFilter },
     roots: {
       claude: parsed.find((source) => source.provider === "claude"),
@@ -3723,6 +3724,20 @@ function parseQuery(req) {
 function createServer() {
   return http.createServer(async (req, res) => {
     const parsed = parseQuery(req);
+    if(req.method==='GET' && parsed.path==='/api/guard'){
+      try{
+        const target=new URL(process.env.AI_SPEND_GUARD_URL || 'http://127.0.0.1:9021');
+        if(target.protocol!=='http:' || !['127.0.0.1','localhost'].includes(target.hostname))throw Error();
+        const result=await fetch(new URL('/api/state',target),{signal:AbortSignal.timeout(3000)});
+        if(!result.ok)throw Error();respondJson(res,200,await result.json());
+      }catch{respondJson(res,503,{error:'Start AI Spend Guard to connect live allowances.'});}
+      return;
+    }
+    if(req.method==='GET' && parsed.path==='/guard'){
+      const target=new URL(process.env.AI_SPEND_GUARD_URL || 'http://127.0.0.1:9021');
+      if(target.protocol!=='http:' || !['127.0.0.1','localhost'].includes(target.hostname)){respondJson(res,400,{error:'Local controller required'});return;}
+      res.writeHead(302,{Location:target.origin});res.end();return;
+    }
     if (req.method !== "GET") {
       respondJson(res, HTTP_METHOD_NOT_ALLOWED, { ok: false, error: "Method not allowed" });
       return;
