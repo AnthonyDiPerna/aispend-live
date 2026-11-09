@@ -1,0 +1,91 @@
+{
+  "recordedAt": "2026-11-09T12:52:39.585Z",
+  "runtime": "Pi 1.5.0 with real Guard extension; RPC transcript replay",
+  "fixtureProviders": true,
+  "realModelCalls": 0,
+  "checks": {
+    "autoBindings": true,
+    "providerSwitch": true,
+    "contextCheckpoint": true,
+    "reservePause": true,
+    "handoff": true,
+    "newSession": true,
+    "import": true
+  },
+  "frames": [
+    {
+      "title": "Connect once. See limits and protection.",
+      "command": "/guard",
+      "lines": [
+        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 120,000 context · 60 min/task · medium effort\nProtected defaults; learning your usage pattern\nConnected subscriptions are selected automatically. API fallback stays off.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021"
+      ],
+      "fixtureCalls": 0
+    },
+    {
+      "title": "Work normally through Guard.",
+      "command": "Implement the small reset-planner fixture.",
+      "lines": [
+        "Fixture progress: reset planner updated. Next, verify the fresh-reading requirement. No real model was called."
+      ],
+      "fixtureCalls": 1
+    },
+    {
+      "title": "Recent usage leads to tighter work budgets.",
+      "command": "/guard",
+      "lines": [
+        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAdapting to your recent local usage\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021"
+      ],
+      "fixtureCalls": 1
+    },
+    {
+      "title": "Claude reaches reserve. Guard uses Codex.",
+      "command": "Continue the fixture within the available subscription.",
+      "lines": [
+        "Guard switched to codex / walkthrough-balanced: Use codex; its observed allowance fits the reset plan.",
+        "Fixture progress: reset planner updated. Next, verify the fresh-reading requirement. No real model was called."
+      ],
+      "fixtureCalls": 2
+    },
+    {
+      "title": "Growing context triggers a saved checkpoint.",
+      "command": "/fixture-context",
+      "lines": [
+        "Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 7:52:33 AM · codex: 11/12/2026, 7:52:33 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAdapting to your recent local usage\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: http://127.0.0.1:9021",
+        "Guard: Compacting at the context ceiling\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
+        "Guard: Automatic context checkpoint\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept."
+      ],
+      "fixtureCalls": 13
+    },
+    {
+      "title": "Both reserves protected. Work pauses.",
+      "command": "Continue the fixture after checking allowance.",
+      "lines": [
+        "Guard: No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
+        ""
+      ],
+      "fixtureCalls": 13
+    },
+    {
+      "title": "Save portable notes without spending tokens.",
+      "command": "/guard-handoff",
+      "lines": [
+        "Saved ./guard-artifacts/handoff.md\nReview these excerpts before /guard-new. No model call was made."
+      ],
+      "fixtureCalls": 13
+    },
+    {
+      "title": "Start fresh; keep the original session.",
+      "command": "/guard-new",
+      "lines": [],
+      "fixtureCalls": 13
+    },
+    {
+      "title": "Bring Claude or Codex notes into Pi.",
+      "command": "/guard-import claude-handoff.md",
+      "lines": [
+        "Imported bounded handoff into a fresh session. Original session and file preserved. Review it, then send your next instruction through Guard. No model call was made."
+      ],
+      "fixtureCalls": 13
+    }
+  ]
+}

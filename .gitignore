@@ -17,3 +17,6 @@ tmp/
 dist/
 .guard-runtime/
 .guard-data/
+
+# Source downloads are built from the tagged source, not versioned recursively.
+public/*.zip

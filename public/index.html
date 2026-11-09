@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="application-version" content="0.6.0">
+  <meta name="application-version" content="0.6.1">
   <meta name="description" content="AI Spend Live turns local AI usage logs into model, cache, and pacing guidance without exposing prompts.">
   <title>AI Spend Live — Usage you can act on</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1013'/%3E%3Cpath d='M14 46V32h8v14m6 0V22h8v24m6 0V12h8v34' stroke='%2358d5a4' stroke-width='6'/%3E%3C/svg%3E">
@@ -118,11 +118,11 @@
     <main>
       <section class="hero">
         <div>
-          <div class="eyebrow">AI Spend Live 0.6.0 &middot; Local usage. Measured allowance.</div>
+          <div class="eyebrow">AI Spend Live 0.6.1 &middot; Local usage. Measured allowance.</div>
           <h1>Make your AI week<br>go further.</h1>
           <p class="lead">Understand where your tokens go. Plan around your resets. Give long-running work a budget before it uses the rest of your week.</p>
           <div class="actions">
-            <a class="button primary" href="ai-spend-live-0.6.0-source.zip">Download source v0.6.0</a>
+            <a class="button primary" href="ai-spend-live-0.6.1-source.zip">Download source v0.6.1</a>
             <a class="button" href="guard.html">Try the reset planner &nearr;</a>
             <a class="button" href="https://github.com/AnthonyDiPerna/aispend-live">View source</a>
           </div>
@@ -196,7 +196,7 @@ npm run dashboard
 # open http://127.0.0.1:9020/</code></pre>
       </section>
     </main>
-    <footer>AI Spend Live 0.6.0 &middot; Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
+    <footer>AI Spend Live 0.6.1 &middot; Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
   </div>
   <script>
     const nf = new Intl.NumberFormat();
@@ -335,7 +335,7 @@ npm run dashboard
     document.getElementById("modelFilter").addEventListener("change", (event) => {
       updateModelSelection(event.target.value, window.publicDemoData);
     });
-    fetch("demo-data.json?v=0.6.0", {cache:"no-store"}).then(response => {
+    fetch("demo-data.json?v=0.6.1", {cache:"no-store"}).then(response => {
       if (!response.ok) { throw new Error("Demo data missing"); }
       return response.json();
     }).then(data => {

@@ -1,5 +1,15 @@
 # AI Spend Live
 
+Release 0.6.1 makes Guard easier to use: connect Pi and work with protected
+defaults, automatic subscription model selection, and optional usage-based
+tightening. Detailed settings are under Advanced. Public example selectors
+now work. Pi Guard 0.3.0 adds local handoff, fresh-session, and cross-agent
+Markdown import commands without making a model call.
+
+See the [release history](CHANGELOG.md), [Pi setup](integrations/pi/README.md),
+and [recorded Pi walkthrough](public/guard-walkthrough.gif). The GIF replays
+real Pi RPC output with offline fixture providers and scripted allowances.
+
 Release 0.6.0 adds live Claude, Codex, and Antigravity allowance/reset readers,
 24-hour protection insights, and Pi Guard 0.2.0. Guard checks subscription
 reserves, pace, context, reasoning, task time, requests, and known subagent

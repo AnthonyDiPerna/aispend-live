@@ -5,13 +5,14 @@ const HOUR = 3600000;
 const DEFAULT_POLICY = Object.freeze({
   reservePercent: 10,
   freshnessMinutes: 15,
-  maxRequestsPerTask: 80,
+  maxRequestsPerTask: 40,
   maxTokensPerTask: 8000000,
-  maxContextTokens: 160000,
+  maxContextTokens: 120000,
   maxToolOutputChars: 16000,
   repeatedToolLimit: 3,
-  maxConcurrentRequests: 2,
-  maxTaskMinutes: 120,
+  maxConcurrentRequests: 1,
+  maxTaskMinutes: 60,
+  autoTune: true,
   maxThinkingLevel: 'medium',
   maxSubagentCalls: 0,
   allowApiSpend: false,
@@ -42,6 +43,7 @@ function cleanPolicy(input = {}) {
     result.providerOrder = [...input.providerOrder];
   }
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
+  if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
   if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
   return result;
 }

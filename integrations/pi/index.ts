@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module';
 import {mkdirSync, writeFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {join, resolve} from 'node:path';
 import {homedir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import type {ExtensionAPI, ExtensionContext} from '@earendil-works/pi-coding-agent';
@@ -8,6 +8,7 @@ import type {ExtensionAPI, ExtensionContext} from '@earendil-works/pi-coding-age
 const require = createRequire(import.meta.url);
 const {trimToolOutput, signature, DEFAULT_POLICY} = require('../../tools/usage-guard.js');
 const {codexObservations} = require('../../tools/usage-guard-server.js');
+const {buildHandoff,readHandoff} = require('../../tools/guard-handoff.js');
 
 function group(provider: string) {
   if(provider==='claude-code') return 'claude';
@@ -26,6 +27,7 @@ export default function guard(pi: ExtensionAPI) {
   let waitingForAllowance=false, checking=false;
   let disposed=false;
   let localFailure:string|undefined;
+  let lastHandoff:string|undefined;
   let watcher:ReturnType<typeof setInterval>|undefined;
 
   async function api(route:string, data?:unknown) {
@@ -80,14 +82,23 @@ export default function guard(pi: ExtensionAPI) {
     removedChars=0;
     return state;
   }
+  function saveHandoff(ctx:ExtensionContext,reason:string) {
+    const text=buildHandoff(ctx.sessionManager.getBranch(),reason);
+    const file=join(artifacts,`handoff-${taskId}-${Date.now()}.md`);
+    mkdirSync(artifacts,{recursive:true});writeFileSync(file,text,{mode:0o600});lastHandoff=file;
+    return {file,text};
+  }
   function checkpoint(ctx:ExtensionContext,reason:string) {
     pi.appendEntry('aispend.guard-checkpoint',{taskId,reason,at:new Date().toISOString()});
     ctx.ui.setStatus('aispend',`Guard paused: ${reason}`);
+    try{const saved=saveHandoff(ctx,reason);ctx.ui.notify(`Guard: ${reason}\nLocal handoff saved: ${saved.file}\n/guard-new starts fresh from these excerpts; the original session is kept.`,'info');}
+    catch{ctx.ui.notify('Guard paused. Could not write a handoff; the original Pi session is still available.','warning');}
   }
 
   pi.on('session_start',async(_event,ctx)=>{
     disposed=false;
-    waitingForAllowance=false;repeatedTools=0;lastTool='';currentGroup=undefined;
+    waitingForAllowance=false;repeatedTools=0;lastTool='';currentGroup=undefined;lastHandoff=undefined;
+    pendingCompact=false;compactedThisRun=false;localFailure=undefined;
     if(watcher){clearInterval(watcher);watcher=undefined;}
     taskId=signature(ctx.sessionManager.getSessionId());
     watch(ctx);
@@ -134,6 +145,7 @@ export default function guard(pi: ExtensionAPI) {
       const model=models.find(m=>m.provider===decision.binding.provider && m.id===decision.binding.model);
       if(!model) {await complete(0,true);throw new Error('AI Spend Guard billing guard paused: configured model is not authenticated.');}
       currentGroup=decision.provider;
+      if(decision.action==='switch')ctx.ui.notify(`Guard switched to ${decision.provider} / ${model.id}: ${decision.reason || 'This subscription has a fresh usable allowance.'}`,'info');
       ctx.ui.setStatus('aispend',`Guard · ${decision.provider} · ${model.id}`);
       const levels=['off','minimal','low','medium','high','xhigh','max','ultra'];
       const requested=levels.includes(request.thinkingLevel)?request.thinkingLevel:'medium';
@@ -219,7 +231,19 @@ export default function guard(pi: ExtensionAPI) {
   });
   pi.registerCommand('guard',{
     description:'Connect to AI Spend Guard, discover subscription models, and show reset planning',
-    handler:async(_args,ctx)=>{try{const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));const resets=state.resetTimeline.filter((w:any)=>w.windowId.includes('week') || w.provider==='codex').map((w:any)=>`${w.provider}: ${new Date(w.resetAt).toLocaleString()}`).join(' · ');ctx.ui.notify(`${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nConfigure models and budgets: ${endpoint.origin}`,'info');}catch(error:any){ctx.ui.notify(`Start the local guard controller: ${error.message}`,'error');}},
+    handler:async(_args,ctx)=>{try{const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));const resets=state.resetTimeline.filter((w:any)=>w.windowId.includes('week') || w.provider==='codex').map((w:any)=>`${w.provider}: ${new Date(w.resetAt).toLocaleString()}`).join(' · ');ctx.ui.notify(`${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\n${state.advice?.summary || ''}\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves local notes. /guard-new starts fresh from a bounded handoff.\nDetails and optional settings: ${endpoint.origin}`,'info');}catch(error:any){ctx.ui.notify(`Start the local guard controller: ${error.message}`,'error');}},
+  });
+  pi.registerCommand('guard-handoff',{
+    description:'Save bounded goal, progress and checkpoint excerpts locally without a model call',
+    handler:async(_args,ctx)=>{await ctx.waitForIdle();try{const saved=saveHandoff(ctx,'User requested a handoff');ctx.ui.notify(`Saved ${saved.file}\nReview these excerpts before /guard-new. No model call was made.`,'info');}catch{ctx.ui.notify('Could not save a handoff. Check local storage; the session is intact.','error');}},
+  });
+  pi.registerCommand('guard-import',{
+    description:'Start fresh from a local Claude/Codex Markdown or text handoff without a model call',
+    handler:async(args,ctx)=>{await ctx.waitForIdle();try{const file=resolve(ctx.cwd,args.trim().replace(/^"(.*)"$/,'$1'));const text=readHandoff(file);waitingForAllowance=false;await ctx.newSession({setup:async manager=>{manager.appendMessage({role:'user',content:[{type:'text',text}],timestamp:Date.now()});},withSession:async fresh=>{fresh.ui.notify('Imported bounded handoff into a fresh session. Original session and file preserved. Review it, then send your next instruction through Guard. No model call was made.','info');}});}catch(error:any){ctx.ui.notify(error.message || 'Could not import the handoff. The original session is intact.','error');}},
+  });
+  pi.registerCommand('guard-new',{
+    description:'Start a fresh session with a bounded local handoff; preserve the original session',
+    handler:async(_args,ctx)=>{await ctx.waitForIdle();try{const saved=saveHandoff(ctx,'User requested a fresh session');waitingForAllowance=false;const result=await ctx.newSession({setup:async manager=>{manager.appendMessage({role:'user',content:[{type:'text',text:saved.text}],timestamp:Date.now()});}});if(!result.cancelled)ctx.ui.notify(`Fresh session prepared from ${saved.file}. Original session preserved. Review the handoff and send your next instruction; no model request has started.`,'info');}catch{ctx.ui.notify('Could not start a fresh session. The original session is intact.','error');}},
   });
   pi.registerCommand('guard-resume',{
     description:'Resume the saved task after a budget or reset review; keeps existing task counters',

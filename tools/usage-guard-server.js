@@ -6,6 +6,7 @@ const {randomUUID} = require('node:crypto');
 const {initialState, cleanPolicy, mergeObservations, buildPlan, decide, PROVIDERS} = require('./usage-guard');
 const {createCollector,fetchClaudeUsage,fetchCodexUsage,fetchAgyUsage,readStatusFile}=require('./usage-collectors');
 const {accounting,checkApiBudget}=require('./guard-accounting');
+const {buildAdvice,applyAdvice,defaultBindings}=require('./guard-advisor');
 const {Worker}=require('node:worker_threads');
 
 const MAX_BODY = 128 * 1024;
@@ -19,7 +20,15 @@ function demoState(now = Date.now()) {
       resetAt:new Date(now+resetHours*3600000).toISOString(),observedAt:new Date(now-minutesAgo*60000).toISOString(),source:'demo'});
   }
   state.bindings = {claude:{provider:'claude-code',model:'demo-claude'},codex:{provider:'openai',model:'demo-codex'}};
+  state.insights = {generatedAt:new Date(now).toISOString(),providers:[{provider:'claude',requests:45,totalTokens:900000,metrics:[
+    {id:'context',percent:65,label:'Tokens in requests with >150k input context',action:'Checkpoint earlier.'},
+    {id:'long',percent:55,label:'Tokens in sessions spanning 8+ hours',action:'Review a bounded handoff.'}]}]};
   return state;
+}
+
+function demoModels() {
+  return [['claude','claude-code'],['codex','openai'],['agy','google-antigravity'],['api','example-api']].flatMap(([group,provider])=>
+    ['balanced','thorough'].map(tier=>({group,provider,id:`example-${group}-${tier}`,label:`${tier==='balanced'?'Balanced':'Deep reasoning'} example`,auth:group==='api'?'api':'subscription'})));
 }
 
 function readTail(file, size = 1024*1024) {
@@ -78,6 +87,9 @@ function createGuardServer(options={}) {
   let broadcast=()=>{};
   const save=()=>{state.pendingRequests=Object.fromEntries(leases);const temp=`${stateFile}.${process.pid}.tmp`;fs.writeFileSync(temp,JSON.stringify(state,null,2),{mode:0o600});fs.renameSync(temp,stateFile);broadcast();};
   const event=(kind,detail)=>{state.events.push({at:new Date(now()).toISOString(),kind,detail});state.events=state.events.slice(-100);};
+  // Existing installations retain manual settings unless automatic tuning was enabled.
+  if (state.policy.autoTune === undefined) { state.policy.autoTune = false; }
+  const adapt=()=>{const result=applyAdvice(state,now());if(result){event('settings','Usage-based protection: '+result.reasons.join(' '));}return result;};
   const sync=()=>{
     if(options.demo) return;
     try {
@@ -89,7 +101,7 @@ function createGuardServer(options={}) {
   function receive(provider,data) {
     const retired=new Set(data.retiredWindowIds || []);
     state.observations=mergeObservations(state.observations.filter(row=>row.provider!==provider || !retired.has(row.windowId)),data.observations,now());
-    state.providerMeta ||= {};state.providerMeta[provider]={extraUsageEnabled:data.extraUsageEnabled ?? null,nativeSession:data.nativeSession || null};save();
+    state.providerMeta ||= {};state.providerMeta[provider]={extraUsageEnabled:data.extraUsageEnabled ?? null,nativeSession:data.nativeSession || null};adapt();save();
   }
   if(!options.demo && options.sync!==false){
     for(const [provider,fetcher] of [['claude',options.fetchClaude || (()=>fetchClaudeUsage({now:now()}))],['codex',options.fetchCodex || (()=>fetchCodexUsage({now:now()}))],['agy',options.fetchAgy || (()=>fetchAgyUsage({now:now()}))]]){
@@ -98,7 +110,7 @@ function createGuardServer(options={}) {
   }
   const refreshCollectors=()=>Promise.allSettled(Object.values(collectors).map(c=>c.refresh()));
   const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
-    accounting:accounting(state,leases,now()),insights:state.insights || null,reportedInsights:state.reportedInsights || {},
+    accounting:accounting(state,leases,now()),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
     models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
     events:state.events, lastSyncAt,syncError});
   broadcast=()=>{if(!clients.size)return;const data='data: '+JSON.stringify(publicState())+'\n\n';for(const client of clients)if(client.writableLength>1024*1024){clients.delete(client);client.destroy();}else client.write(data);};
@@ -116,6 +128,10 @@ function createGuardServer(options={}) {
       if(!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return reply(res,403,{error:'Loopback host required'});
       if(req.headers.origin && ![`http://${host}`,`http://127.0.0.1:${server.address().port}`,`http://localhost:${server.address().port}`].includes(req.headers.origin)) return reply(res,403,{error:'Cross-origin requests rejected'});
       const url=new URL(req.url,`http://${host}`);
+      if(req.method==='GET' && ['/guard-walkthrough.gif','/guard-walkthrough.json'].includes(url.pathname)){
+        res.writeHead(200,{'Content-Type':url.pathname.endsWith('.gif')?'image/gif':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+        return res.end(fs.readFileSync(path.join(__dirname,'../public',url.pathname.slice(1))));
+      }
       if(req.method==='GET' && url.pathname==='/usage-guard.css') {
         res.writeHead(200,{'Content-Type':'text/css; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
         return res.end(fs.readFileSync(path.join(__dirname,'usage-guard.css')));
@@ -136,7 +152,7 @@ function createGuardServer(options={}) {
       if(url.pathname==='/api/observations') {
         if(!Array.isArray(data.observations) || data.observations.length>50) throw new Error('Expected up to 50 allowance observations');
         const incoming=data.observations.map(o=>({...o,source:options.demo?'demo':o.source==='provider'?'provider':'manual'}));
-        state.observations=mergeObservations(state.observations,incoming,now());event('observation','Allowance readings updated.');save();
+        state.observations=mergeObservations(state.observations,incoming,now());adapt();event('observation','Allowance readings updated.');save();
       } else if(url.pathname==='/api/provider-insights') {
         if(!['claude','codex','agy'].includes(data.provider) || !Number.isFinite(Date.parse(data.observedAt)) || Date.parse(data.observedAt)>now()+60000)throw Error('Invalid insight snapshot');
         const labels={subagentHeavy:'Usage from subagent-heavy sessions',largeContext:'Usage at >150k context',maxEffort:'Usage at max effort',longSessions:'Usage from sessions active 8+ hours',generalPurpose:'Usage from general-purpose subagents'};
@@ -145,7 +161,10 @@ function createGuardServer(options={}) {
           contextTokens:Number.isFinite(data.contextTokens) && data.contextTokens>=0?data.contextTokens:null,
           referenceCostUsd:Number.isFinite(data.referenceCostUsd) && data.referenceCostUsd>=0?data.referenceCostUsd:null};save();
       } else if(url.pathname==='/api/policy') {
-        state.policy=cleanPolicy({...state.policy,...data});event('policy','Work budgets and allowance reserve updated.');save();
+        state.policy=cleanPolicy({...state.policy,...data});adapt();event('policy','Work budgets and allowance reserve updated.');save();
+      } else if(url.pathname==='/api/advice') {
+        const result=applyAdvice(state,now(),true);
+        if(result){event('settings','Applied usage recommendations: '+result.reasons.join(' '));save();}
       } else if(url.pathname==='/api/models') {
         if(!Array.isArray(data.models) || data.models.length>500) throw new Error('Invalid model list');
         for(const model of data.models) {
@@ -154,6 +173,8 @@ function createGuardServer(options={}) {
           const cost=model.cost && Object.fromEntries(['input','output','cacheRead','cacheWrite'].map(k=>[k,Number.isFinite(model.cost[k]) && model.cost[k]>=0?model.cost[k]:null]));
           models.set(`${model.provider}:${model.id}`,{group:model.group,provider:model.provider,id:model.id,auth:model.auth,cost,contextWindow:model.contextWindow,maxTokens:model.maxTokens});
         }
+        const bindings=defaultBindings([...models.values()],state.bindings);
+        if(JSON.stringify(bindings)!==JSON.stringify(state.bindings)){state.bindings=bindings;event('binding','Selected connected subscription models. Existing choices and API spending are unchanged.');save();}
       } else if(url.pathname==='/api/binding') {
         const model=models.get(`${data.provider}:${data.model}`);
         if(!model || model.group!==data.group) throw new Error('Select an authenticated model discovered by the Pi extension');
@@ -216,7 +237,7 @@ function createGuardServer(options={}) {
   let insightWorker,insightTimer;
   if(!options.demo && options.sync!==false && options.insights!==false){
     insightWorker=new Worker(path.join(__dirname,'usage-insights.js'),{workerData:{usageInsights:true}});
-    insightWorker.on('message',data=>{if(data.insights){state.insights=data.insights;save();}});
+    insightWorker.on('message',data=>{if(data.insights){state.insights=data.insights;adapt();save();}});
     insightWorker.on('error',()=>{event('analysis','Local usage analysis unavailable.');});
     insightWorker.postMessage('refresh');insightTimer=setInterval(()=>insightWorker.postMessage('refresh'),5*60000);insightTimer.unref();
   }
@@ -235,4 +256,4 @@ if(require.main===module) {
   const server=createGuardServer({stateDir,demo,sync:!flag('--no-sync')});
   server.listen(port,'127.0.0.1',()=>console.log(`AI Spend Guard${demo?' DEMO':''}: http://127.0.0.1:${port}`));
 }
-module.exports={createGuardServer,scanCodexLimits,codexObservations,demoState};
+module.exports={createGuardServer,scanCodexLimits,codexObservations,demoState,demoModels};

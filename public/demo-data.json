@@ -1,6 +1,6 @@
 {
   "schema": "ai-spend-live-public-demo/v1",
-  "releaseVersion": "0.6.0",
+  "releaseVersion": "0.6.1",
   "generatedOn": "2026-11-08",
   "period": "Recent 7-day example",
   "privacy": "Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.",

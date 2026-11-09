@@ -1,13 +1,13 @@
 {
   "name": "aispend-live",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": false,
   "description": "Local AI usage dashboard with model coverage, pacing, cache reuse, and workflow guidance.",
   "main": "tools/ai-spend-dashboard-server.js",
   "scripts": {
     "guard": "node tools/usage-guard-server.js",
     "guard:demo": "node tools/usage-guard-server.js --demo",
-    "test:guard": "node tools/usage-guard-test.js && node tools/usage-collectors-test.js",
+    "test:guard": "node tools/usage-guard-test.js && node tools/usage-collectors-test.js && node tools/guard-advisor-test.js",
     "dashboard": "node tools/ai-spend-dashboard-server.js",
     "summary": "node tools/ai-spend-dashboard-server.js --summary",
     "demo:export": "node tools/export-public-demo.js",

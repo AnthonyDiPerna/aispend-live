@@ -70,6 +70,8 @@ async function run() {
   assert.equal(scanCodexLimits(path.join(root,'logs'),NOW).length,1);
   assert.ok(!JSON.stringify(scanCodexLimits(path.join(root,'logs'),NOW)).includes('PRIVATE_PROMPT'));
   const live=createGuardServer({stateDir:path.join(root,'live'),sync:false,now:()=>NOW});
+  assert.equal(live.guard.state().policy.maxConcurrentRequests,1,'new users start with one in-flight request');
+  live.guard.state().policy.maxConcurrentRequests=2; // Exercise an explicit concurrency override.
   await new Promise(resolve=>live.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${live.address().port}`;
   async function post(route,data,extra={}) {const response=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json',...extra},body:JSON.stringify(data)});return {status:response.status,data:await response.json()};}

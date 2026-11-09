@@ -1,4 +1,4 @@
-# AI Spend Guard for Pi 0.2.0 (AI Spend Live 0.6.0 preview)
+# AI Spend Guard for Pi 0.3.0 (AI Spend Live 0.6.1 preview)
 
 Guard is a local controller plus a Pi virtual model. It checks measured subscription allowance before each request, preserves a reserve, keeps a task request budget, and pauses when it cannot make a supported decision. HerdR remains the terminal and session manager.
 
@@ -8,8 +8,8 @@ Complete the [portable installation](#portable-installation) below, then run `in
 
 1. After launching Guard, open <http://127.0.0.1:9021> for your local controller. To try the synthetic playground separately, run `npm.cmd run site:preview` from the repository and open <http://127.0.0.1:9023/guard.html>.
 2. Wait for fresh readings from the automatic readers: Claude's account usage endpoint, Codex's native account API, and `agy --print /usage`. They use existing CLI logins and make no inference requests. Both account-wide and model-scoped windows are preserved. Missing readings remain unknown; manual entry is a fallback.
-3. In Pi, `/guard` refreshes the subscription model list. Choose a physical model under each provider in the controller. Start with a capable smaller model for bounded tasks; use a stronger model deliberately when the task requires it.
-4. Keep `aispend/guard` selected in Pi. To add Codex, use Pi's `/login` and select the OpenAI subscription login, then `/guard` and bind that discovered model in the controller. Credentials stay in Pi's local auth store; Guard never receives them.
+3. In Pi, run `/guard`. Authenticated subscription models are selected automatically when no preference exists, favoring a balanced family when available. Existing model choices are preserved. The website shows the active protection; model choices and Advanced settings are optional.
+4. Keep `aispend/guard` selected in Pi. To add Codex, use Pi's `/login` and select the OpenAI subscription login, then run `/guard` to discover and select its model. Credentials stay in Pi's local auth store; Guard never receives them.
 5. Run a small real task first. Review its counters in **Guarded tasks**. `/guard-hold` cancels automatic waiting; `/guard-resume` resumes a saved task after review. Renewing the task budget in the dashboard does not refill your subscription.
 
 Your existing Claude CLI login is used by the official experimental `pi-claude-code` bridge. Claude Code still transports the requests, while Pi manages tools and history. The bridge uses the same subscription allowance. To keep a strict subscription cost ceiling, disable extra usage/overage in the provider account: the bridge can detect overage after a response, but cannot guarantee that the first such request was free.
@@ -31,6 +31,57 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File integrations/pi/Start-Gu
 The launcher pins Pi, starts the loopback controller if needed, and creates a separate profile in `.guard-data/pi-agent`. Cache warming and built-in automatic retries are disabled in that profile. Guard owns context checkpoints. The launcher loads only the official bridge and Guard extensions. On other platforms, use the same extension paths with `pi -e <bridge>/src/index.ts -e <repo>/integrations/pi/index.ts --model aispend/guard` and the equivalent isolated settings.
 
 Resume a saved session with `-Resume`. Run the launcher with `-ListModels` to check available models without generating a response. Real model names come from the provider catalog, rather than a hardcoded marketing tier.
+
+## Protected defaults and usage-based recommendations
+
+New installations start with a 10% reserve, 120k context ceiling, 40 requests
+and 60 minutes per task, one concurrent request, medium reasoning, no known
+subagent calls, and API spending off. Sign in and use `aispend/guard`; you do
+not need to tune every field first.
+
+The local advisor recomputes rules from recent usage; it does not train an AI
+or make extra model calls. With at least 20 recorded requests and analysis
+less than six hours old, substantial large-context usage suggests an 80k
+checkpoint, and substantial long-session usage suggests a 30-minute review.
+Subagent and effort signals can tighten their respective ceilings. A measured
+pace warning can shorten work to 25 requests per task. Reasons are visible.
+
+Automatic tuning only tightens these work bounds. It never buys API access,
+raises dollar caps, relaxes a tighter user setting, or replaces a selected
+model. New installations enable it by default. Existing installations keep
+manual control until you enable it under Advanced settings. Turn it off for
+recommendations-only operation; review and apply suggestions when convenient.
+
+## Portable handoffs between agents
+
+- `/guard-handoff` writes bounded Markdown excerpts of the goal, recent
+  instructions, latest compaction, progress, and files mentioned by edit tools.
+- `/guard-new` saves that handoff, opens a fresh session from it, and keeps
+  the original session. It waits for your next instruction before inference.
+- `/guard-import path/to/handoff.md` opens a fresh session from a Claude,
+  Codex, or other agent's local Markdown/text handoff. Imports are capped at
+  16,000 characters; files over 256 KB and non-text extensions are rejected.
+
+These commands make no model calls. Imported notes are reference context, not
+verified facts or higher-priority instructions. Review unfinished checks before
+continuing. Normal Guard checks apply to the next request. Give the same local
+handoff document to Claude or Codex when moving work back; Guard does not send
+messages to your other agents or upload their transcripts.
+
+Pauses also save a local handoff automatically when storage is available.
+These are bounded excerpts, not a guaranteed semantic summary. Compaction
+uses a model and needs available allowance; starting a fresh session is an
+explicit action. Private notes stay in the local artifact directory.
+
+[Watch the walkthrough](../../public/guard-walkthrough.gif) or inspect its
+[recorded transcript](../../public/guard-walkthrough.json). It runs the real Pi
+runtime with offline fixture providers. Allowances are scripted and no paid
+model calls occur. To reproduce after installing Pi and Pillow:
+
+```powershell
+node tools/record-guard-demo.cjs
+py -3 tools/render-guard-demo.py
+```
 
 ## What is automatic
 
