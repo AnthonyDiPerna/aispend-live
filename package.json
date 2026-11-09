@@ -1,6 +1,6 @@
 {
   "name": "aispend-live",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": false,
   "description": "Local AI usage dashboard with model coverage, pacing, cache reuse, and workflow guidance.",
   "main": "tools/ai-spend-dashboard-server.js",

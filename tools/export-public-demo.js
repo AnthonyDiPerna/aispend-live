@@ -3,6 +3,52 @@ const path = require("path");
 
 const { buildWorkflowGuidance, buildSummary, parseAllUsage } = require("./ai-spend-dashboard-server");
 
+const PUBLIC_INSIGHT_TITLES = new Set([
+  "Claude dominates this range", "Codex dominates this range", "Subagent token share",
+  "24 hour burn pace", "Current hour is spiking", "Claude burn is mostly context",
+  "Codex cache reuse", "No obvious spike",
+]);
+const PUBLIC_ACTION_TITLES = new Set([
+  "Slow the weekly burn", "Pause the current spike", "Trim subagent fan-out",
+  "Route mechanical sweeps to Codex", "Step down from frontier models after planning",
+  "Make Codex tasks more repeatable", "Narrow the time window",
+]);
+const MS_PER_MINUTE = 60000;
+const EXAMPLE_RESET_MINUTES = 240;
+
+function publicGuidance(summary) {
+  // Only fixed aggregate templates can leave the local dashboard. Session cards stay private.
+  const insights = (summary.insights || [])
+    .filter(item => PUBLIC_INSIGHT_TITLES.has(item.title))
+    .map(item => ({severity: item.severity, title: item.title, detail: item.detail}));
+  const recommendations = (summary.recommendations || [])
+    .filter(item => PUBLIC_ACTION_TITLES.has(item.title))
+    .map(item => ({severity: item.severity, title: item.title, target: item.target, detail: item.reason, steps: item.doNow}));
+  return {insights, recommendations};
+}
+
+function buildAlertExamples() {
+  // Exercise the real recommendation engine with labeled examples, never a visitor's quota.
+  const now = Date.now();
+  const resetAt = now + EXAMPLE_RESET_MINUTES * MS_PER_MINUTE;
+  return [
+    {id: "weekly", label: "Weekly allowance at 88%", windowMinutes: 10080, earlier: 82, used: 88},
+    {id: "five-hour", label: "Five-hour allowance at 84%", windowMinutes: 300, earlier: 78, used: 84},
+  ].map(example => {
+    const summary = buildSummary([{
+      provider: "codex", files: 0, sessions: [], events: [], errors: [],
+      rateLimitSnapshots: [
+        {provider: "codex", limitId: example.id, limitName: example.id, windowMinutes: example.windowMinutes, resetAt, usedPercent: example.earlier, timestampMs: now - 30 * MS_PER_MINUTE},
+        {provider: "codex", limitId: example.id, limitName: example.id, windowMinutes: example.windowMinutes, resetAt, usedPercent: example.used, timestampMs: now - 10 * MS_PER_MINUTE},
+      ],
+    }], {days: 1, provider: "all"});
+    const alert = summary.recommendations.find(item => item.title === "Protect the observed limit");
+    if (!alert) { throw new Error("Alert example did not reach its pressure threshold"); }
+    return {id: example.id, label: example.label, synthetic: true, severity: alert.severity,
+      title: alert.title, target: alert.target, detail: alert.reason, steps: alert.doNow};
+  });
+}
+
 function numberValue(value) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -199,8 +245,8 @@ function buildPublicDemo(summary, sources, days) {
       fiveHour: pace(summary.budgetPace.fiveHour),
       weekly: pace(summary.budgetPace.weekly),
     },
-    observedLimits: (summary.observedRateLimits || []).map((row) => ({
-      limitId: row.limitId,
+    observedLimits: (summary.observedRateLimits || []).map((row, index) => ({
+      limitId: `${["claude", "codex"].includes(row.provider) ? row.provider : "local"}:${row.windowMinutes || "window"}:${index + 1}`,
       windowMinutes: row.windowMinutes,
       usedPercent: row.usedPercent,
       projectedPercent: row.projectedPercent,
@@ -213,6 +259,8 @@ function buildPublicDemo(summary, sources, days) {
       sessions: summary.subagentStats.subagentSessionCount,
     },
     workflow,
+    ...publicGuidance(summary),
+    alertExamples: buildAlertExamples(),
   };
 }
 

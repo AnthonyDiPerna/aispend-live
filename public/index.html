@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AI Spend Live turns local AI usage logs into model, cache, and pacing guidance without exposing prompts.">
+  <title>AI Spend Live — Usage you can act on</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1013'/%3E%3Cpath d='M14 46V32h8v14m6 0V22h8v24m6 0V12h8v34' stroke='%2358d5a4' stroke-width='6'/%3E%3C/svg%3E">
+  <style>
+    :root { color-scheme: dark; --bg:#0b1013; --panel:#141c21; --panel2:#1b272d; --line:#2b3c41; --ink:#eef7f3; --muted:#9eb0ae; --mint:#58d5a4; --cyan:#6fc6e6; --amber:#ffd27a; --red:#f17b7b; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 80% -10%,rgba(88,213,164,.16),transparent 34rem),radial-gradient(circle at 0 35%,rgba(111,198,230,.08),transparent 30rem),var(--bg); font:16px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    a { color:inherit; }
+    .shell { width:min(1180px,calc(100% - 40px)); margin:auto; }
+    nav { display:flex; justify-content:space-between; align-items:center; padding:24px 0; }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:850; text-decoration:none; }
+    .mark { width:38px; height:38px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(135deg,var(--mint),var(--cyan)); color:#07110d; font-weight:950; }
+    .back { color:var(--muted); text-decoration:none; }
+    .back:hover { color:var(--ink); }
+    main { padding:62px 0 100px; }
+    .hero { display:grid; grid-template-columns:1fr .9fr; gap:58px; align-items:center; }
+    .eyebrow { color:var(--mint); font-size:.75rem; font-weight:850; letter-spacing:.15em; text-transform:uppercase; }
+    h1 { max-width:720px; margin:13px 0 18px; font-size:clamp(3.2rem,8vw,6.8rem); line-height:.9; letter-spacing:-.07em; }
+    h2 { margin:0; font-size:clamp(2rem,4vw,3rem); line-height:1; letter-spacing:-.045em; }
+    h3 { margin:0 0 7px; }
+    .lead { max-width:680px; color:#c4d1ce; font-size:1.18rem; }
+    .actions { display:flex; flex-wrap:wrap; gap:11px; margin-top:28px; }
+    .button { min-height:47px; display:inline-flex; align-items:center; justify-content:center; padding:0 18px; border:1px solid var(--line); border-radius:10px; background:var(--panel); text-decoration:none; font-weight:800; }
+    .button.primary { border-color:var(--mint); background:var(--mint); color:#07110d; }
+    .button:hover { transform:translateY(-1px); filter:brightness(1.08); }
+    .note { color:var(--muted); font-size:.9rem; }
+    .screen { border:1px solid #35504d; border-radius:17px; overflow:hidden; background:var(--panel); box-shadow:0 28px 80px rgba(0,0,0,.42); transform:rotate(1.1deg); }
+    .screen-bar { display:flex; gap:6px; padding:11px 14px; border-bottom:1px solid var(--line); }
+    .screen-bar i { width:8px; height:8px; border-radius:50%; background:#4d6863; }
+    .screen-body { padding:17px; }
+    .screen-head { display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-size:.75rem; }
+    .screen-metrics { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px; }
+    .screen-metric { padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--panel2); }
+    .screen-metric strong { display:block; color:var(--mint); font-size:1.35rem; }
+    .screen-metric span { color:var(--muted); font-size:.75rem; }
+    .fake-bars { display:grid; gap:8px; margin-top:15px; }
+    .fake-bar { height:9px; border-radius:99px; background:#0c1215; overflow:hidden; }
+    .fake-bar i { display:block; height:100%; background:linear-gradient(90deg,var(--mint),var(--cyan)); }
+    .section { margin-top:105px; }
+    .section-head { max-width:730px; margin-bottom:25px; }
+    .section-head p { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:15px; }
+    .card, .demo, .install { border:1px solid var(--line); border-radius:14px; background:rgba(20,28,33,.88); }
+    .card { padding:23px; }
+    .card p { margin:0; color:var(--muted); }
+    .tag { display:inline-block; margin-bottom:17px; padding:4px 8px; border:1px solid #316550; border-radius:99px; color:var(--mint); font-size:.7rem; font-weight:850; letter-spacing:.08em; }
+    .demo { padding:24px; }
+    .demo-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 15px; }
+    .demo-tab { color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font:inherit; font-weight:750; cursor:pointer; }
+    .demo-tab.active { color:#07110d; background:var(--mint); border-color:var(--mint); }
+    .demo-tab-panel.hidden { display:none; }
+    .demo-select { color:var(--ink); background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; }
+    .demo-head { display:flex; justify-content:space-between; align-items:end; gap:14px; margin-bottom:18px; }
+    .demo-head p { margin:5px 0 0; color:var(--muted); }
+    .demo-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:14px; }
+    .demo-card { padding:17px; border:1px solid var(--line); border-radius:11px; background:rgba(255,255,255,.035); }
+    .stats { display:grid; grid-template-columns:repeat(6,1fr); gap:9px; }
+    .stat strong { display:block; color:var(--mint); font-size:1.35rem; }
+    .stat span { color:var(--muted); font-size:.74rem; }
+    .model-row, .pace-row { display:grid; gap:5px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.07); }
+    .model-row:last-child, .pace-row:last-child { border-bottom:0; }
+    .row-top { display:flex; justify-content:space-between; gap:10px; font-size:.86rem; }
+    .row-top small { color:var(--muted); }
+    .bar { height:7px; overflow:hidden; border-radius:99px; background:#0b1114; }
+    .bar i { display:block; height:100%; min-width:2px; background:linear-gradient(90deg,var(--mint),var(--cyan)); }
+    .trend { display:grid; grid-template-columns:repeat(7,1fr); align-items:end; gap:7px; min-height:115px; padding-top:12px; }
+    .trend-col { display:grid; grid-template-rows:1fr auto; gap:6px; height:100px; text-align:center; color:var(--muted); font-size:.68rem; }
+    .trend-bar { align-self:end; min-height:4px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg,var(--cyan),var(--mint)); }
+    .pace-row strong { color:var(--amber); }
+    .workflow { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+    .workflow-card { padding:12px; border:1px solid rgba(111,198,230,.2); border-radius:9px; background:rgba(111,198,230,.06); }
+    .workflow-card h3 { font-size:.94rem; }
+    .workflow-card p { margin:0; color:var(--muted); font-size:.84rem; }
+    .workflow-card ul { margin:8px 0 0; padding-left:17px; color:#cddbd8; font-size:.8rem; }
+    .coverage { margin-top:14px; color:var(--muted); font-size:.82rem; }
+    .install { display:grid; grid-template-columns:.8fr 1.2fr; gap:28px; align-items:center; padding:29px; }
+    pre { margin:0; padding:19px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:#080d0f; color:#d8eee6; }
+    code { font-family:"Cascadia Code",Consolas,monospace; }
+    footer { padding:0 0 48px; color:var(--muted); font-size:.88rem; }
+    .demo-detail { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:14px; }
+    .metric-list { display:grid; gap:8px; margin-top:12px; }
+    .metric-line { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid rgba(255,255,255,.07); padding-bottom:7px; }
+    .metric-line span { color:var(--muted); }
+    .metric-line strong { color:var(--mint); text-align:right; }
+    .model-row.selected { outline:2px solid var(--mint); outline-offset:2px; background:rgba(88,213,164,.08); border-radius:7px; padding-left:8px; padding-right:8px; }
+    .demo-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 0; }
+    .demo-controls label { font-weight:700; }
+    .demo-select { max-width:100%; min-height:44px; }
+    .scope-facts { display:flex; flex-wrap:wrap; gap:8px 24px; color:var(--muted); font-size:.82rem; margin:14px 0 20px; }
+    .scope-facts strong { color:var(--ink); }
+    .composition { display:flex; overflow:hidden; height:12px; border-radius:5px; margin:12px 0; background:var(--bg); }
+    .composition i { height:100%; }
+    .action-note { padding:12px; border-left:3px solid var(--mint); background:rgba(88,213,164,.07); color:#cddbd8; font-size:.88rem; }
+    .trend-bar { min-height:0; }
+    .trend-col { height:130px; grid-template-rows:auto 1fr auto; }
+    .trend-col strong { font-size:.7rem; font-weight:500; color:var(--ink); }
+    .metric-line { align-items:baseline; font-size:.9rem; }
+    .metric-line strong { overflow-wrap:anywhere; }
+    .primary-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-top:12px; }
+    @media (max-width:850px) { .primary-stats { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:850px) { .hero,.demo-grid,.install,.demo-detail { grid-template-columns:1fr; } .screen { transform:none; } .grid { grid-template-columns:1fr; } .stats { grid-template-columns:repeat(2,1fr); } .workflow { grid-template-columns:1fr; } }
+    @media (max-width:600px) { .shell { width:min(100% - 24px,1180px); } main { padding-top:32px; } .stats { grid-template-columns:1fr 1fr; } nav { align-items:flex-start; gap:12px; flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav>
+      <a class="brand" href="/"><span class="mark">AI</span> AI Spend Live</a>
+      <a class="back" href="https://anthonydiperna.com/projects/">All projects &rarr;</a>
+    </nav>
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Local first &middot; aggregate safe</div>
+          <h1>Usage you can act on.</h1>
+          <p class="lead">See which model patterns are burning tokens, whether cache reuse is helping, and how fast your rolling limits are moving. Then choose a smaller, clearer next step.</p>
+          <div class="actions">
+            <a class="button primary" href="ai-spend-live-0.5.1-source.zip">Download source v0.5.1</a>
+            <a class="button" href="ai-spend-live-0.4.1-source.zip">Previous v0.4.1</a>
+            <a class="button" href="https://github.com/AnthonyDiPerna/aispend-live">View source</a>
+          </div>
+          <p class="note">No account or telemetry. The local dashboard never sends your logs to a service.</p>
+        </div>
+        <div class="screen" aria-label="AI Spend Live dashboard preview">
+          <div class="screen-bar"><i></i><i></i><i></i></div>
+          <div class="screen-body">
+            <div class="screen-head"><strong>LOCAL USAGE</strong><span>rolling range</span></div>
+            <div class="screen-metrics"><div class="screen-metric"><strong id="heroTokens">—</strong><span>tokens observed</span></div><div class="screen-metric"><strong id="heroCache">—</strong><span>cache reuse</span></div><div class="screen-metric"><strong id="heroModels">—</strong><span>model IDs</span></div><div class="screen-metric"><strong id="heroPace">—</strong><span>pace signal</span></div></div>
+            <div class="fake-bars"><div class="fake-bar"><i style="width:89%"></i></div><div class="fake-bar"><i style="width:55%"></i></div><div class="fake-bar"><i style="width:28%"></i></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>A dashboard for decisions.</h2><p>AI Spend keeps model totals, cache/context signals, and local pacing together so you can choose a workflow instead of guessing from an invoice.</p></div>
+        <div class="grid">
+          <article class="card"><span class="tag">SEE</span><h3>Find what burns</h3><p>Keep every observed model ID visible, including new or unpriced IDs, with aggregate turn and token totals.</p></article>
+          <article class="card"><span class="tag">CHOOSE</span><h3>Match model to task</h3><p>Use an efficient tier for bounded edits and repeatable searches; reserve stronger reasoning for ambiguity and review.</p></article>
+          <article class="card"><span class="tag">PACE</span><h3>Catch pressure early</h3><p>Get specific next steps when fresh allowance telemetry or your own five-hour and weekly budgets show pressure: narrow the task, reuse a passing check, or save a compact handoff.</p></article>
+        </div>
+      </section>
+
+      <section class="section demo" aria-live="polite">
+        <div class="demo-head"><div><div class="eyebrow">Example from local usage</div><h2>See what it does.</h2><p>Aggregate-only evidence, with anonymized time buckets. API-equivalent dollars are estimates, not a subscription invoice.</p><p class="coverage" id="demoScope">All observed models</p></div><span class="tag" id="demoPeriod">Loading demo</span></div>
+        <div class="demo-controls"><label for="modelFilter">Model</label><select class="demo-select" id="modelFilter"><option value="all">All observed models</option></select></div>
+        <div class="primary-stats">
+          <div class="demo-card stat"><strong id="totalTokens">—</strong><span>Total observed tokens</span></div>
+          <div class="demo-card stat"><strong id="inputContextTokens">—</strong><span>Known input, including cache</span></div>
+          <div class="demo-card stat"><strong id="outputTokens">—</strong><span>Known output tokens</span></div>
+          <div class="demo-card stat"><strong id="apiCost">—</strong><span>Known API-equivalent estimate</span></div>
+        </div>
+        <div class="scope-facts"><span><strong id="modelCount">—</strong> models</span><span><strong id="turnCount">—</strong> recorded turns</span><span><strong id="cacheReuse">—</strong> of known input reused from cache</span></div>
+        <div class="demo-detail">
+          <div class="demo-card"><h3>Where the tokens go</h3><div id="tokenComposition" class="composition" aria-hidden="true"></div><div class="metric-list">
+            <div class="metric-line"><span>Fresh input</span><strong id="inputTokens">—</strong></div>
+            <div class="metric-line"><span>Cache reads</span><strong id="cachedTokens">—</strong></div>
+            <div class="metric-line"><span>Cache writes</span><strong id="cacheWriteTokens">—</strong></div>
+            <div class="metric-line"><span>Unclassified tokens</span><strong id="unknownTokens">—</strong></div>
+          </div><p class="coverage" id="coverageDetail"></p></div>
+          <div class="demo-card"><h3>What drives estimated cost</h3><div class="metric-list">
+            <div class="metric-line"><span>Input and cache</span><strong id="inputCost">—</strong></div>
+            <div class="metric-line"><span>Output</span><strong id="outputCost">—</strong></div>
+            <div class="metric-line"><span>Input share of known cost</span><strong id="inputCostShare">—</strong></div>
+          </div><p class="action-note" id="costAction"></p><p class="coverage">Estimates use configured API prices. Unclassified usage and unpriced models are not treated as free. Subscription charges and account limits are separate.</p></div>
+        </div>
+        <div class="demo-tabs" style="margin-top:18px" role="tablist" aria-label="Demo views"><button class="demo-tab active" data-view="models" type="button">Model mix (all models)</button><button class="demo-tab" data-view="daily" type="button">Daily burn</button><button class="demo-tab" data-view="limits" type="button">Pacing &amp; limits</button></div>
+        <div class="demo-grid demo-tab-panel" data-panel="models" style="margin-top:0">
+          <div class="demo-card"><h3>Model mix</h3><div id="models"></div></div>
+          <div class="demo-card"><h3>What the mix says</h3><p class="coverage" id="coverage"></p><div id="modelFacts" class="metric-list"></div><div id="modelHint" class="coverage"></div></div>
+        </div>
+        <div class="demo-card demo-tab-panel hidden" data-panel="daily" style="margin-top:14px"><h3>Daily observed burn</h3><p class="coverage">Last seven recorded days in this example. The selected model uses the same time buckets.</p><div class="trend" id="daily"></div></div>
+        <div class="demo-grid demo-tab-panel hidden" data-panel="limits" style="margin-top:14px">
+          <div class="demo-card"><h3>Account-wide pacing</h3><div id="pacing"></div><p class="coverage">Account-wide signals, unaffected by the model filter. Add your own budgets to compare burn with a target; token counts alone do not reveal provider quotas.</p></div>
+          <div class="demo-card"><h3>Observed limit snapshots</h3><div id="limits"></div></div>
+        </div>
+        <div class="demo-card" style="margin-top:14px"><h3>Insights from the full sample</h3><p class="coverage">Account-wide observations stay separate from the model filter. They describe recorded usage, not output quality.</p><div class="workflow" id="insights"></div></div>
+        <div class="demo-card" style="margin-top:14px"><h3>Recommended next actions</h3><div class="workflow" id="recommendations"></div></div>
+        <div class="demo-card" style="margin-top:14px"><h3>Try a limit warning</h3><p class="coverage">Synthetic examples run through the same warning engine as the local dashboard. These percentages are not your allowance.</p><div class="demo-controls"><label for="alertExample">Example</label><select id="alertExample" class="demo-select"></select><span class="tag">SYNTHETIC</span></div><div id="alertPreview"></div></div>
+        <div class="demo-card" style="margin-top:14px"><h3>Workflow ideas from the full sample</h3><div class="workflow" id="workflow"></div></div>
+      </section>
+
+      <section class="section install">
+        <div><div class="eyebrow">Run locally</div><h2>Your logs stay yours.</h2><p class="note">Node.js 22+ recommended. Supported sources are local Claude JSONL, Codex JSONL/state SQLite, and normalized JSON/JSONL imports. This is not an all-cloud tracker.</p></div>
+        <pre><code>npm install
+npm test
+npm run dashboard
+
+# open http://127.0.0.1:9020/</code></pre>
+      </section>
+    </main>
+    <footer>Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
+  </div>
+  <script>
+    const nf = new Intl.NumberFormat();
+    const compact = (value) => { const n = Number(value || 0); if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`; if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`; if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`; return nf.format(Math.round(n)); };
+    const pct = (value) => `${Math.round(Number(value || 0) * 100)}%`;
+    const safe = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+    function renderDaily(data, modelValue) {
+      const rows = modelValue === "all" ? (data.daily || []) : (data.dailyByModel || []).filter((row) => row.key === modelValue);
+      const byPeriod = new Map();
+      rows.forEach((row) => byPeriod.set(row.period, (byPeriod.get(row.period) || 0) + Number(row.tokens || 0)));
+      // Keep inactive days in place so changing models preserves the time axis.
+      const values = (data.daily || []).map(row => ({period: row.period, tokens: byPeriod.get(row.period) || 0}));
+      const maxDaily = Math.max(1, ...values.map((row) => row.tokens));
+      document.getElementById("daily").innerHTML = values.map((row) => `<div class="trend-col" data-tokens="${row.tokens}"><strong>${compact(row.tokens)}</strong><div class="trend-bar" style="height:${row.tokens ? Math.max(2, Math.round(row.tokens / maxDaily * 82)) : 0}px" title="${safe(nf.format(row.tokens))} tokens"></div><span>${safe(row.period)}</span></div>`).join("") || `<p class="coverage">No observed daily data in this example.</p>`;
+    }
+
+    function render(data) {
+      document.getElementById("demoPeriod").textContent = data.period;
+      document.getElementById("heroTokens").textContent = compact(data.totals.tokens);
+      document.getElementById("heroCache").textContent = pct(data.totals.cacheReuse);
+      document.getElementById("heroModels").textContent = nf.format(data.models.length);
+      const freshLimit = data.observedLimits.find((row) => row.status !== "stale" && row.status !== "unknown");
+      document.getElementById("heroPace").textContent = freshLimit ? `${freshLimit.usedPercent.toFixed(0)}%` : "Review";
+      const nameCounts = new Map();
+      data.models.forEach(model => nameCounts.set(model.model, (nameCounts.get(model.model) || 0) + 1));
+      document.getElementById("modelFilter").innerHTML = `<option value="all">All observed models</option>${data.models.map(model => `<option value="${safe(model.key)}">${safe(model.model)}${nameCounts.get(model.model) > 1 ? ` (${safe(model.provider)})` : ""}</option>`).join("")}`;
+      document.getElementById("models").innerHTML = data.models.map((model) => `<div class="model-row" data-key="${safe(model.key)}"><div class="row-top"><span>${safe(model.model)}${model.pricingKnown ? "" : " <small>unpriced</small>"}</span><small>${compact(model.tokens)} · ${pct(model.share)}</small></div><div class="bar"><i style="width:${Math.max(0, model.share * 100)}%"></i></div></div>`).join("");
+      document.getElementById("pacing").innerHTML = ["fiveHour", "weekly"].map((key) => { const row = data.pacing[key]; return `<div class="pace-row"><div class="row-top"><span>${key === "fiveHour" ? "Five-hour local budget" : "Weekly local budget"}</span><strong>${row.hasLocalBudget ? safe(row.status) : "No target set"}</strong></div><small>${compact(row.usedTokens)} used · ${compact(row.projectedTokens)} projected at observed pace${row.hasLocalBudget ? " · local budget set" : " · choose your own token target"}</small></div>`; }).join("");
+      document.getElementById("coverage").textContent = `${data.coverageNote} Sources: ${data.coverage.map((row) => `${row.source} (${nf.format(row.events)} events)`).join("; ")}.`;
+      renderDaily(data, "all");
+      document.getElementById("limits").innerHTML = data.observedLimits.length ? data.observedLimits.map((row) => {
+        const windowLabel = row.windowMinutes === 10080 ? "weekly window" : row.windowMinutes === 300 ? "five-hour window" : row.windowMinutes ? `${nf.format(row.windowMinutes)} min window` : "window unknown";
+        const forecast = row.status === "stale" ? "Older sample — refresh the local dashboard before planning" : row.projectedPercent == null ? "More fresh samples needed for a forecast" : `${row.projectedPercent.toFixed(1)}% projected`;
+        return `<div class="pace-row"><div class="row-top"><span>${safe(row.limitId)} · ${windowLabel}</span><strong>${row.usedPercent.toFixed(1)}% recorded</strong></div><small>${forecast} · ${row.resetKnown ? "reset observed" : "reset unknown"}</small></div>`;
+      }).join("") : `<p class="coverage">No observed limit snapshot is included in this public example. Manual budgets remain available in the local dashboard.</p>`;
+      updateModelSelection("all", data);
+      document.getElementById("insights").innerHTML = (data.insights || []).map(item => '<article class="workflow-card"><h3>' + safe(item.title) + '</h3><p>' + safe(item.detail) + '</p></article>').join("");
+      document.getElementById("recommendations").innerHTML = (data.recommendations || []).map(item => '<article class="workflow-card"><h3>' + safe(item.title) + '</h3><p>' + safe(item.detail) + '</p><ul>' + (item.steps || []).map(step => '<li>' + safe(step) + '</li>').join('') + '</ul></article>').join("") || '<p class="coverage">No additional aggregate warning is triggered in this sample. Session-specific guidance stays in your local dashboard.</p>';
+      document.getElementById("alertExample").innerHTML = data.alertExamples.map(item => '<option value="' + safe(item.id) + '">' + safe(item.label) + '</option>').join("");
+      renderAlertExample(data.alertExamples[0].id, data);
+      document.getElementById("workflow").innerHTML = data.workflow.map((item) => `<article class="workflow-card"><h3>${safe(item.title)}</h3><p>${safe(item.detail)}</p><ul>${(item.steps || []).map((step) => `<li>${safe(step)}</li>`).join("")}</ul></article>`).join("");
+    }
+    function renderAlertExample(value, data) {
+      const item = data.alertExamples.find(example => example.id === value);
+      if (!item || item.synthetic !== true) { throw new Error("Alert preview must be a labeled example"); }
+      document.getElementById("alertPreview").innerHTML = '<article class="workflow-card"><h3>' + safe(item.title) + '</h3><p><strong>' + safe(item.target) + '</strong></p><p>' + safe(item.detail) + '</p><ol>' + item.steps.map(step => '<li>' + safe(step) + '</li>').join('') + '</ol></article>';
+    }
+    document.getElementById("alertExample").addEventListener("change", event => renderAlertExample(event.target.value, window.publicDemoData));
+    function setDemoView(view) {
+      document.querySelectorAll(".demo-tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+      document.querySelectorAll(".demo-tab-panel").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.panel !== view));
+    }
+    document.querySelectorAll(".demo-tab").forEach((button) => button.addEventListener("click", () => setDemoView(button.dataset.view)));
+    const usd = new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"});
+    function money(value) { return value == null || !Number.isFinite(Number(value)) ? "Unknown" : usd.format(Number(value)); }
+    function priced(model) { return model.pricingKnown === true && typeof model.estimatedApiUsd === "number" && Number.isFinite(model.estimatedApiUsd); }
+    function showCount(id, value) {
+      const node = document.getElementById(id);
+      node.textContent = compact(value);
+      node.title = nf.format(Number(value || 0));
+    }
+    function renderModelFacts(selected, data) {
+      const knownModels = data.models.filter(priced);
+      const knownTotal = knownModels.reduce((sum, model) => sum + model.estimatedApiUsd, 0);
+      const scope = selected || data.totals;
+      const input = Number(scope.inputTokens || 0) + Number(scope.cachedInputTokens || 0) + Number(scope.cacheWriteTokens || 0);
+      const output = Number(scope.outputTokens || 0);
+      const common = [
+        ["Known output / recorded turn", scope.turns > 0 ? compact(output / scope.turns) : "No recorded turns"],
+        ["Input tokens / output token", output > 0 ? `${nf.format(Math.round(input / output))}:1` : "No measured output"],
+      ];
+      let rows;
+      if (selected) {
+        rows = [["Share of all tokens", pct(selected.tokens / Math.max(1, data.totals.tokens))], ["Share of known API cost", priced(selected) && knownTotal > 0 ? pct(selected.estimatedApiUsd / knownTotal) : "Unknown"], ...common];
+        document.getElementById("modelHint").textContent = "Token share and cost share describe different things. Compare both when choosing a model for bounded work; output quality is not measured here.";
+      } else {
+        const topTokens = [...data.models].sort((a,b) => b.tokens - a.tokens)[0];
+        const topCost = [...knownModels].sort((a,b) => b.estimatedApiUsd - a.estimatedApiUsd)[0];
+        rows = [["Largest token workload", topTokens ? `${topTokens.model} · ${pct(topTokens.tokens / Math.max(1, data.totals.tokens))}` : "None"], ["Largest known cost", topCost ? `${topCost.model} · ${money(topCost.estimatedApiUsd)}` : "Unpriced"], ...common];
+        document.getElementById("modelHint").textContent = "Choose a model above to compare its token share, estimated cost and output. The chart keeps all models visible for context.";
+      }
+      document.getElementById("modelFacts").innerHTML = rows.map(([label, value]) => `<div class="metric-line"><span>${safe(label)}</span><strong>${safe(value)}</strong></div>`).join("");
+    }
+    function updateModelSelection(value, data) {
+      const selected = data.models.find(model => model.key === value);
+      const scope = selected ? selected.model : "All observed models";
+      document.getElementById("demoScope").textContent = `Showing ${scope}`;
+      const totals = selected ? {
+        tokens: selected.tokens,
+        inputTokens: selected.inputTokens,
+        cachedInputTokens: selected.cachedInputTokens,
+        cacheWriteTokens: selected.cacheWriteTokens,
+        outputTokens: selected.outputTokens,
+        estimatedInputUsd: selected.estimatedInputUsd,
+        estimatedOutputUsd: selected.estimatedOutputUsd,
+        breakdownUnknownTokens: selected.unknownBreakdownTokens,
+      } : data.totals;
+      const hasKnownCost = selected ? priced(selected) : data.models.some(priced);
+      const totalCost = hasKnownCost ? (selected ? selected.estimatedApiUsd : data.totals.estimatedApiUsd) : null;
+      const inputContext = Number(totals.inputTokens || 0) + Number(totals.cachedInputTokens || 0) + Number(totals.cacheWriteTokens || 0);
+      showCount("totalTokens", totals.tokens);
+      showCount("inputContextTokens", inputContext);
+      showCount("inputTokens", totals.inputTokens);
+      showCount("cachedTokens", totals.cachedInputTokens);
+      showCount("cacheWriteTokens", totals.cacheWriteTokens);
+      showCount("outputTokens", totals.outputTokens);
+      document.getElementById("inputCost").textContent = money(hasKnownCost ? totals.estimatedInputUsd : null);
+      document.getElementById("outputCost").textContent = money(hasKnownCost ? totals.estimatedOutputUsd : null);
+      showCount("unknownTokens", totals.breakdownUnknownTokens);
+      document.getElementById("apiCost").textContent = money(totalCost);
+      document.getElementById("cacheReuse").textContent = inputContext > 0 ? pct(Number(totals.cachedInputTokens || 0) / inputContext) : "Unknown";
+      document.getElementById("modelCount").textContent = selected ? "1" : nf.format(data.models.length);
+      showCount("turnCount", selected ? selected.turns : data.totals.turns);
+      const unknown = Number(totals.breakdownUnknownTokens || 0);
+      const classified = Math.max(0, Number(totals.tokens || 0) - unknown);
+      document.getElementById("coverageDetail").textContent = `${pct(classified / Math.max(1, totals.tokens))} of tokens have a known breakdown. ${nf.format(unknown)} unclassified tokens remain in the total; their input/output split is not guessed.`;
+      const segments = [["Fresh input", totals.inputTokens, "#58d5a4"], ["Cache reads", totals.cachedInputTokens, "#6fc6e6"], ["Cache writes", totals.cacheWriteTokens, "#ffd27a"], ["Output", totals.outputTokens, "#d7a7f5"], ["Unclassified", unknown, "#71817e"]];
+      document.getElementById("tokenComposition").innerHTML = segments.map(([label, tokens, color]) => `<i title="${label}: ${nf.format(tokens || 0)}" style="width:${Number(tokens || 0) / Math.max(1, totals.tokens) * 100}%;background:${color}"></i>`).join("");
+      const inputShare = totalCost > 0 && totals.estimatedInputUsd != null ? Number(totals.estimatedInputUsd) / totalCost : null;
+      document.getElementById("inputCostShare").textContent = inputShare == null ? "Not available" : pct(inputShare);
+      document.getElementById("costAction").textContent = !hasKnownCost
+        ? "Configure a verified price before comparing API cost for this model. Its usage still counts in the token totals."
+        : inputShare == null
+          ? "No positive known API cost is recorded for this selection. Use the token breakdown to understand the work."
+          : inputShare >= 0.5
+            ? `${pct(inputShare)} of the known estimate comes from input and cache. For bounded edits, read targeted files, reuse stable context and keep the task focused.`
+            : `${pct(1 - inputShare)} of the known estimate comes from output. For routine tasks, request a concise result or patch when a long explanation is unnecessary.`;
+      renderModelFacts(selected, data);
+      renderDaily(data, selected ? selected.key : "all");
+      document.querySelectorAll("#models .model-row").forEach((row) => {
+        const active = value === "all" || row.dataset.key === value;
+        row.style.opacity = active ? "1" : ".65";
+        row.classList.toggle("selected", active && value !== "all");
+      });
+    }
+    document.getElementById("modelFilter").addEventListener("change", (event) => {
+      updateModelSelection(event.target.value, window.publicDemoData);
+    });
+    fetch("demo-data.json?v=0.5.1", {cache:"no-store"}).then(response => {
+      if (!response.ok) { throw new Error("Demo data missing"); }
+      return response.json();
+    }).then(data => {
+      if (!Array.isArray(data.models) || !Array.isArray(data.dailyByModel) || !Array.isArray(data.insights) || !Array.isArray(data.recommendations) || !Array.isArray(data.alertExamples) || data.alertExamples.length === 0 || !data.models.every(model => model.key && Number.isFinite(model.cacheWriteTokens))) {
+        throw new Error("Demo data version mismatch");
+      }
+      window.publicDemoData = data;
+      render(data);
+    }).catch(() => {
+      document.getElementById("demoPeriod").textContent = "Example unavailable";
+      document.getElementById("demoScope").textContent = "The example data could not load. Refresh, or upload the matching index.html and demo-data.json together.";
+    });
+  </script>
+</body>
+</html>

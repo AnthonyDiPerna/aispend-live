@@ -1,5 +1,10 @@
 # AI Spend Live
 
+Release 0.5.1 adds measured limit-pressure warnings, focused-check and compact
+handoff recommendations, stale-window guards, and public insight examples.
+The landing page can demonstrate five-hour and weekly alerts without exposing
+private sessions or presenting sample pressure as a visitor's live allowance.
+
 Release 0.5.0 adds a merging history export (`npm run history:export`) so usage
 survives transcript cleanup, and corrects Claude content-block double counting
 and Codex fork-replay double counting in the parsers. 0.4.1 added canonical

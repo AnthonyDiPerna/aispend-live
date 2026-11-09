@@ -84,4 +84,19 @@ for (const row of fixtureDemo.daily) {
 assert.equal(fixtureDemo.dailyByModel.reduce((sum, row) => sum + row.tokens, 0), fixtureDemo.daily.reduce((sum, row) => sum + row.tokens, 0));
 assert.equal(publicCostBreakdown({}, { costUsd: 0 }, 100).estimatedApiUsd, null, "missing catalog stays unknown");
 assert.equal(publicCostBreakdown({ pricingKnown: true, outputPer1M: 0 }, { costUsd: 0 }, 100).estimatedApiUsd, 0, "known free-zero pricing stays zero");
-console.log("Public demo token breakdown tests passed");
+// Public guidance must remain aggregate-only while demonstrating the real alerts.
+fixtureSummary.insights.push({title: "One session is carrying the burn", detail: "SECRET_SESSION_TITLE"});
+fixtureSummary.recommendations.push({title: "Summarize and restart", target: "SECRET_LOCAL_PATH", reason: "SECRET_SESSION_ID", doNow: ["SECRET_COMMAND"]});
+fixtureSummary.observedRateLimits = [{provider: "codex", limitId: "SECRET_ACCOUNT_ID", windowMinutes: 300, usedPercent: 84, projectedPercent: null, status: "observed", resetAt: "2026-11-09T00:00:00Z"}];
+const guidedDemo = buildPublicDemo(fixtureSummary, fixtureSources, 3);
+assert(Array.isArray(guidedDemo.insights), "public demo includes aggregate insights");
+assert(Array.isArray(guidedDemo.recommendations), "public demo includes safe next actions");
+assert(guidedDemo.alertExamples.length === 2, "both five-hour and weekly alerts can be previewed");
+for (const example of guidedDemo.alertExamples) {
+  assert.equal(example.synthetic, true, "sample quota pressure is explicitly synthetic");
+  assert.equal(example.title, "Protect the observed limit");
+  assert(example.steps.some(step => /smallest check/.test(step)), "alert recommends focused verification");
+  assert(example.steps.some(step => /compact handoff/.test(step)), "alert recommends a handoff");
+}
+assert(!JSON.stringify(guidedDemo).includes("SECRET_"), "public guidance cannot expose private session or account metadata");
+console.log("Public demo breakdown, insights and privacy tests passed");

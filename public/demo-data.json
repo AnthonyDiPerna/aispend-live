@@ -1,0 +1,566 @@
+{
+  "schema": "ai-spend-live-public-demo/v1",
+  "generatedOn": "2026-11-08",
+  "period": "Recent 30-day example",
+  "privacy": "Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.",
+  "coverageNote": "This example reflects supported local sources only; it is not an all-cloud or all-chat tracker.",
+  "coverage": [
+    {
+      "source": "Claude JSONL",
+      "files": 134,
+      "events": 23114,
+      "sessions": 134
+    },
+    {
+      "source": "Codex JSONL / state SQLite",
+      "files": 3747,
+      "events": 89758,
+      "sessions": 2130
+    }
+  ],
+  "totals": {
+    "tokens": 13875945252,
+    "turns": 72126,
+    "sessions": 1391,
+    "breakdownUnknownTokens": 29180,
+    "cacheReuse": 0.9800230010839404,
+    "cacheReuseScope": "known token breakdown only",
+    "estimatedApiUsd": 4927.520761639994,
+    "inputTokens": 168345485,
+    "cachedInputTokens": 13563988650,
+    "cacheWriteTokens": 108145767,
+    "outputTokens": 35436170,
+    "estimatedInputUsd": 4233.361404439988,
+    "estimatedOutputUsd": 694.1593571999999
+  },
+  "models": [
+    {
+      "key": "claude:claude-opus-5-5",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "tokens": 7149277755,
+      "turns": 21151,
+      "share": 0.5152281610486712,
+      "inputTokens": 42922,
+      "cachedInputTokens": 7035498579,
+      "outputTokens": 16390152,
+      "cacheWriteTokens": 97346102,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 1905.2925337999898,
+      "estimatedOutputUsd": 327.80304,
+      "estimatedApiUsd": 2233.09557379999,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "provider": "codex",
+      "model": "gpt-5.6-luna",
+      "tokens": 2495948911,
+      "turns": 18957,
+      "share": 0.17987595552384067,
+      "inputTokens": 48262378,
+      "cachedInputTokens": 2439197952,
+      "outputTokens": 8488581,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 58.43643464000016,
+      "estimatedOutputUsd": 10.186297199999998,
+      "estimatedApiUsd": 68.62273184000016,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "provider": "codex",
+      "model": "codex-auto-review",
+      "tokens": 1497712308,
+      "turns": 17054,
+      "share": 0.10793587613673586,
+      "inputTokens": 84038116,
+      "cachedInputTokens": 1412203008,
+      "outputTokens": 1442004,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 29180,
+      "estimatedInputUsd": 281.5730209999999,
+      "estimatedOutputUsd": 14.42004,
+      "estimatedApiUsd": 295.9930609999999,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "provider": "codex",
+      "model": "gpt-6-astra",
+      "tokens": 1271590453,
+      "turns": 8790,
+      "share": 0.09163991568911099,
+      "inputTokens": 22646172,
+      "cachedInputTokens": 1245530240,
+      "outputTokens": 3414041,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 1471.9919599999982,
+      "estimatedOutputUsd": 170.70205,
+      "estimatedApiUsd": 1642.6940099999983,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:gpt-6.1-sol",
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "tokens": 798150473,
+      "turns": 3785,
+      "share": 0.05752043976138917,
+      "inputTokens": 12672906,
+      "cachedInputTokens": 782762752,
+      "outputTokens": 2714815,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 141.9156238000004,
+      "estimatedOutputUsd": 27.14815,
+      "estimatedApiUsd": 169.0637738000004,
+      "pricingKnown": true
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "provider": "claude",
+      "model": "claude-fable-5-1",
+      "tokens": 605730447,
+      "turns": 1932,
+      "share": 0.043653274497655825,
+      "inputTokens": 21446,
+      "cachedInputTokens": 592282216,
+      "outputTokens": 2814548,
+      "cacheWriteTokens": 10612237,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 349.13643650000006,
+      "estimatedOutputUsd": 140.7274,
+      "estimatedApiUsd": 489.86383650000005,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:gpt-5.6-sol",
+      "provider": "codex",
+      "model": "gpt-5.6-sol",
+      "tokens": 54971298,
+      "turns": 426,
+      "share": 0.003961625460584514,
+      "inputTokens": 661481,
+      "cachedInputTokens": 54164608,
+      "outputTokens": 145209,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 24.311767200000002,
+      "estimatedOutputUsd": 2.90418,
+      "estimatedApiUsd": 27.215947200000002,
+      "pricingKnown": true
+    },
+    {
+      "key": "claude:claude-sonnet-5-5",
+      "provider": "claude",
+      "model": "claude-sonnet-5-5",
+      "tokens": 2563607,
+      "turns": 31,
+      "share": 0.00018475188201182158,
+      "inputTokens": 64,
+      "cachedInputTokens": 2349295,
+      "outputTokens": 26820,
+      "cacheWriteTokens": 187428,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 0.7036275000000002,
+      "estimatedOutputUsd": 0.2682,
+      "estimatedApiUsd": 0.9718275000000002,
+      "pricingKnown": true
+    }
+  ],
+  "daily": [
+    {
+      "period": "Day 1",
+      "tokens": 338197500,
+      "turns": 1744
+    },
+    {
+      "period": "Day 2",
+      "tokens": 450984668,
+      "turns": 1319
+    },
+    {
+      "period": "Day 3",
+      "tokens": 1104220108,
+      "turns": 3615
+    },
+    {
+      "period": "Day 4",
+      "tokens": 265279435,
+      "turns": 414
+    },
+    {
+      "period": "Day 5",
+      "tokens": 1035628551,
+      "turns": 4219
+    },
+    {
+      "period": "Day 6",
+      "tokens": 4181336624,
+      "turns": 17164
+    },
+    {
+      "period": "Day 7",
+      "tokens": 900863043,
+      "turns": 6337
+    }
+  ],
+  "dailyByModel": [
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-01",
+      "period": "Day 1",
+      "tokens": 77421996
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-01",
+      "period": "Day 1",
+      "tokens": 114004710
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-01",
+      "period": "Day 1",
+      "tokens": 5154119
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-01",
+      "period": "Day 1",
+      "tokens": 141616675
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-02",
+      "period": "Day 2",
+      "tokens": 108327196
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-02",
+      "period": "Day 2",
+      "tokens": 341435221
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-02",
+      "period": "Day 2",
+      "tokens": 1222251
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-04",
+      "period": "Day 3",
+      "tokens": 30500148
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-04",
+      "period": "Day 3",
+      "tokens": 953831454
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-04",
+      "period": "Day 3",
+      "tokens": 5147957
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "date": "2026-11-04",
+      "period": "Day 3",
+      "tokens": 44220479
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-04",
+      "period": "Day 3",
+      "tokens": 70520070
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-05",
+      "period": "Day 4",
+      "tokens": 17377988
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-05",
+      "period": "Day 4",
+      "tokens": 247901447
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 41888050
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 854677114
+    },
+    {
+      "key": "claude:claude-sonnet-5-5",
+      "model": "claude-sonnet-5-5",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 2563607
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 14632822
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 34257731
+    },
+    {
+      "key": "codex:gpt-5.6-sol",
+      "model": "gpt-5.6-sol",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 54971298
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-06",
+      "period": "Day 5",
+      "tokens": 32637929
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-07",
+      "period": "Day 6",
+      "tokens": 186300770
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-07",
+      "period": "Day 6",
+      "tokens": 2923135294
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-07",
+      "period": "Day 6",
+      "tokens": 170055155
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "date": "2026-11-07",
+      "period": "Day 6",
+      "tokens": 566923745
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-07",
+      "period": "Day 6",
+      "tokens": 334921660
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "model": "claude-fable-5-1",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 52119864
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 59819293
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 84453419
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 385420743
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 250147099
+    },
+    {
+      "key": "codex:gpt-6.1-sol",
+      "model": "gpt-6.1-sol",
+      "date": "2026-11-08",
+      "period": "Day 7",
+      "tokens": 68902625
+    }
+  ],
+  "pacing": {
+    "fiveHour": {
+      "status": "unset",
+      "usedTokens": 190495127,
+      "projectedTokens": 324686380,
+      "measuredTokensPerHour": 64937276,
+      "hasLocalBudget": false
+    },
+    "weekly": {
+      "status": "unset",
+      "usedTokens": 8158272995,
+      "projectedTokens": 35419776910,
+      "measuredTokensPerHour": 64937276,
+      "hasLocalBudget": false
+    }
+  },
+  "observedLimits": [
+    {
+      "limitId": "codex:10080:1",
+      "windowMinutes": 10080,
+      "usedPercent": 8,
+      "projectedPercent": 100,
+      "status": "projected",
+      "resetKnown": true
+    }
+  ],
+  "subagents": {
+    "tokens": 11255989602,
+    "share": 0.8111872306773209,
+    "sessions": 1383
+  },
+  "workflow": [
+    {
+      "title": "Explore with one bounded thread",
+      "target": "Workflow / exploration",
+      "detail": "Subagents are a large share of the observed burn. Search locally first, then delegate only independent questions.",
+      "steps": [
+        "Use the smallest available model tier for file discovery and inventory.",
+        "Keep any existing search or code-navigation skill scoped to named paths; AI Spend does not install skills automatically."
+      ]
+    },
+    {
+      "title": "Review from a compact handoff",
+      "target": "Workflow / review",
+      "detail": "Most observed usage is input/context. Preserve decisions and test evidence, not the entire thread.",
+      "steps": [
+        "Summarize changed files, risks, and the failing or passing command before review.",
+        "Choose a stronger model only for the decision or review that needs it; do not assume the dashboard can switch models for you."
+      ]
+    }
+  ],
+  "insights": [
+    {
+      "severity": "high",
+      "title": "Subagent token share",
+      "detail": "1383 subagent sessions used 11.26B tokens (81% of range, ~$3175.65)."
+    },
+    {
+      "severity": "high",
+      "title": "24 hour burn pace",
+      "detail": "5.06B tokens in the last 24 hours, about 210.8M tokens/hour on average."
+    },
+    {
+      "severity": "high",
+      "title": "Claude burn is mostly context",
+      "detail": "Over 90% of Claude tokens are input or cached context. Long conversations and repeated context reads are likely limit drivers."
+    },
+    {
+      "severity": "info",
+      "title": "Codex cache reuse",
+      "detail": "97% of Codex input tokens were cached in this range."
+    }
+  ],
+  "recommendations": [
+    {
+      "severity": "high",
+      "title": "Trim subagent fan-out",
+      "target": "1383 subagent sessions (81% of tokens)",
+      "detail": "Subagents consumed 11.26B tokens in this range. Each spawned subagent builds its own context window.",
+      "steps": [
+        "Keep routine multi-file changes with one implementation owner.",
+        "Pass subagents exact file paths and line ranges instead of letting every worker search the repo.",
+        "Use Claude Sonnet 5.5, Haiku 5.5, or GPT-6 Luna for bounded worker subagents."
+      ]
+    },
+    {
+      "severity": "info",
+      "title": "Step down from frontier models after planning",
+      "target": "9.82B frontier (Astra / Sol / Fable / Opus) tokens",
+      "detail": "GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 are best spent on ambiguity and review. Once scope is clear, execute on Terra, Luna, Sonnet 5.5, or Haiku 5.5.",
+      "steps": [
+        "Ask Sol or Opus 5.5 for the write set, risks, and acceptance criteria.",
+        "Execute with GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5 using low or medium effort.",
+        "Bring the completed diff back for review only if decision quality matters."
+      ]
+    }
+  ],
+  "alertExamples": [
+    {
+      "id": "weekly",
+      "label": "Weekly allowance at 88%",
+      "synthetic": true,
+      "severity": "high",
+      "title": "Protect the observed limit",
+      "target": "Codex CLI weekly: 88.0% observed",
+      "detail": "Observed 88.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.",
+      "steps": [
+        "Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.",
+        "Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.",
+        "Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.",
+        "Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."
+      ]
+    },
+    {
+      "id": "five-hour",
+      "label": "Five-hour allowance at 84%",
+      "synthetic": true,
+      "severity": "high",
+      "title": "Protect the observed limit",
+      "target": "Codex CLI five-hour: 84.0% observed",
+      "detail": "Observed 84.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.",
+      "steps": [
+        "Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.",
+        "Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.",
+        "Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.",
+        "Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."
+      ]
+    }
+  ]
+}
