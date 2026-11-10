@@ -2,10 +2,10 @@ const {buildPlan,decide,recoveryPlan}=require('./usage-guard');
 const {recordImpact}=require('./guard-impact');
 const {randomUUID}=require('node:crypto');
 const COVERAGE={
-  pi:{label:'Pi / Guard',gate:'Every routed model request',automatic:'Routing, effort/output caps, tool trimming, compaction, one loop repair',limits:'Only aispend/guard; in-flight work can overshoot.'},
-  claude:{label:'Claude Code hooks',gate:'Prompts, tools and post-tool batches',automatic:'Reserve checks, tool-loop repair, fan-out blocking',limits:'No model routing or output replacement. Request count is a prompt/batch approximation; internal retries and compaction are outside this gate.'},
-  codex:{label:'Codex hooks',gate:'Prompts and tools',automatic:'Reserve checks, tool-loop repair, fan-out blocking; model usage reporting',limits:'PreModelRequest is diagnostic only. Cannot stop every model call, clamp effort or compact automatically.'},
-  agy:{label:'Antigravity hooks',gate:'Before each invocation and tool',automatic:'Reserve/request/time gates, repeated-failure repair, fan-out blocking',limits:'No routing, automatic compaction, output trimming or exact token/cost telemetry in these hooks.'},
+  pi:{label:'Pi / Guard',gate:'Every routed model request',automatic:'Routing, effort caps, output limit requests, tool trimming, compaction, one loop repair',limits:'Only aispend/guard; in-flight work can overshoot. Codex subscription transport does not enforce the requested output ceiling.'},
+  claude:{label:'Claude Code hooks',gate:'Prompts, tools and post-tool batches',automatic:'Mode-aware allowance checks, tool-loop repair, fan-out blocking',limits:'No model routing or output replacement. Request count is a prompt/batch approximation; internal retries and compaction are outside this gate.'},
+  codex:{label:'Codex hooks',gate:'Prompts and tools',automatic:'Mode-aware allowance checks, tool-loop repair, fan-out blocking; model usage reporting',limits:'PreModelRequest is diagnostic only. Cannot stop every model call, clamp effort or compact automatically.'},
+  agy:{label:'Antigravity hooks',gate:'Before each invocation and tool',automatic:'Allowance/request/time gates, repeated-failure repair, fan-out blocking',limits:'No routing, automatic compaction, output trimming or exact token/cost telemetry in these hooks.'},
 };
 function nativeEvent(state,data,now=Date.now()) {
   if(!['claude','codex','agy'].includes(data.harness) || !['prompt','pre-tool','post-tool','request','usage','batch','stop'].includes(data.event))throw Error('Unsupported harness event');

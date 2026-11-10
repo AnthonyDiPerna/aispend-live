@@ -29,6 +29,11 @@ async function playgroundApi(route,body){
     playgroundState.bindings[body.group]={provider:model.provider,model:model.id};
     playgroundState.events.push({at:new Date().toISOString(),kind:'example',detail:'Example selection changed for '+body.group+'. No account connected or model called.'});
   }
+  else if(route==='/api/reset-credits'){
+    if(!['claude','codex','agy'].includes(body.provider)||!Number.isInteger(body.count)||body.count<0||body.count>100||!['weekly','short','both','unknown'].includes(body.scope))throw Error('Invalid banked reset report');
+    const expiry=body.expiresAt?new Date(body.expiresAt).toISOString():null;
+    playgroundState.resetCreditReports ||= {};playgroundState.resetCreditReports[body.provider]={source:'manual',observedAt:new Date().toISOString(),scope:body.scope,availableCount:body.count,credits:Array.from({length:body.count},()=>({status:'available',expiresAt:expiry,expiryKnown:Boolean(expiry)}))};
+  }
   else if(route==='/api/observations')playgroundState.observations=mergeObservations(playgroundState.observations,body.observations.map(o=>({...o,source:'demo'})));
   else throw Error('Public playground: model connections and requests are available only in the local controller.');
   applyAdvice(playgroundState);

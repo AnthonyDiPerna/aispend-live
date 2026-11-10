@@ -66,7 +66,19 @@ function codexUsage(payload,now=Date.now()) {
     try{rows.push(observation({provider:'codex',windowId:`${snapshot.limitId || 'codex'}:${which}`,windowMinutes:row.windowDurationMins,usedPercent:row.usedPercent,resetAt:isoReset(row.resetsAt),observedAt:new Date(now).toISOString(),source:'codex-rpc'},now));}catch{}
   }
   if(!rows.length)throw Error('Codex did not report a usable subscription allowance.');
-  return {observations:rows};
+  return {observations:rows,resetCredits:codexResetCredits(payload?.rateLimitResetCredits,now)};
+}
+
+function codexResetCredits(raw,now=Date.now()) {
+  const known=Number.isInteger(raw?.availableCount) && raw.availableCount>=0 && raw.availableCount<=10000;
+  // The API can return a count without detail rows, or a capped list. Never count the rows instead.
+  return {source:'codex-rpc',observedAt:new Date(now).toISOString(),availableCount:known?raw.availableCount:null,
+    detailsKnown:known && Array.isArray(raw.credits),credits:known && Array.isArray(raw.credits)?raw.credits.slice(0,100).map(c=>({
+      status:['available','redeeming','redeemed'].includes(c.status)?c.status:'unknown',
+      resetType:c.resetType==='codexRateLimits'?'codexRateLimits':'unknown',
+      expiresAt:c.expiresAt===null?null:isoReset(c.expiresAt),expiryKnown:c.expiresAt===null || Boolean(isoReset(c.expiresAt)),
+      grantedAt:isoReset(c.grantedAt)
+    })):[]}; // Opaque credit IDs, account fields and backend prose never leave the adapter.
 }
 
 function codexCommand() {
@@ -148,4 +160,4 @@ function fetchAgyUsage({spawnImpl=spawn,now=Date.now(),command=process.env.AI_SP
     child.on('close',code=>{if(code!==0)return finish(Error('Antigravity usage check failed. Check agy login and /usage.'));try{finish(null,agyUsage(output,now));}catch(error){finish(error);}});
   });
 }
-module.exports={CLAUDE_USAGE_URL,INTERVAL_MS,isoReset,claudeUsage,fetchClaudeUsage,codexUsage,codexCommand,fetchCodexUsage,createCollector,readStatusFile,agyUsage,fetchAgyUsage};
+module.exports={CLAUDE_USAGE_URL,INTERVAL_MS,isoReset,claudeUsage,fetchClaudeUsage,codexUsage,codexResetCredits,codexCommand,fetchCodexUsage,createCollector,readStatusFile,agyUsage,fetchAgyUsage};

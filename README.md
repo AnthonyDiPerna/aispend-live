@@ -1,10 +1,10 @@
 # AI Spend Live
 
-Release 0.6.2 makes `/guard` activate protection, enforce efficient habits,
+Release 0.6.3 makes `/guard` activate protection, enforce efficient habits,
 and repair repeated-tool loops once within the original budget. Its impact
 report explains net text removed, estimated input tokens/cost avoided on
 completed replays, blocked work, and repair overhead. Detailed settings stay
-under Advanced. Pi Guard 0.3.1 keeps protected routing active across model picks.
+under Advanced. Pi Guard 0.3.2 keeps protected routing active across model picks.
 Optional [native hooks](integrations/native/README.md) cover supported Claude,
 Codex and Antigravity boundaries, with their limitations visible in the report.
 
@@ -39,6 +39,11 @@ of you, preserve useful cache reuse, split a runaway thread, and checkpoint
 before a rolling limit is reached. The core dashboard does not change models
 or install skills. The optional Pi Guard extension can route explicitly guarded
 requests between your configured subscriptions.
+
+Keep working with fresh allowance, stretch toward a preferred provider's reset,
+or use current allowance now. Guard reads Codex banked reset inventory and
+expiry without redeeming it. A credit is never added to the live meter; a new
+provider reading must confirm the refill. See the [Pi setup and work modes](integrations/pi/README.md).
 
 ## What It Shows
 

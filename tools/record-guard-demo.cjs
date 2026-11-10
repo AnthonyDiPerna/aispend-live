@@ -47,7 +47,7 @@ async function main(){
     await command('Recent usage leads to tighter work budgets.','/guard');
     assert.equal(server.guard.state().policy.maxContextTokens,80000);
     seed(95,25);
-    await command('Claude reaches reserve. Guard uses Codex.','Continue the fixture within the available subscription.');
+    await command('Claude is low. Guard uses the steadier Codex allowance.','Continue the fixture within the available subscription.');
     assert(count().includes('openai'));
     const beforeCompact=count().length;
     await command('Growing context triggers a saved checkpoint.','/fixture-context');
@@ -62,8 +62,9 @@ async function main(){
     const loopFrame=frames.at(-1);loopFrame.lines=events.filter(e=>e.type==='extension_ui_request' && e.method==='notify').map(e=>clean(e.message)).filter(line=>/automatic repair|Repeated operation stopped/.test(line)).slice(-2);loopFrame.fixtureCalls=count().length;
     await command('Evidence: shortened input, blocked work, repair cost.','/guard status');
     assert(server.guard.view().impact.estimatedInputTokensAvoided>0);
-    seed(95,95);const beforePause=count().length;
-    await command('Both reserves protected. Work pauses.','Continue the fixture after checking allowance.');
+    await command('Keep working, stretch, or use the allowance now.','/guard preserve');
+    seed(100,100);const beforePause=count().length;
+    await command('Both allowances exhausted. Work pauses.','Continue the fixture after checking allowance.');
     assert.equal(count().length,beforePause,'Paused work must make no provider call');
     await command('Save portable notes without spending tokens.','/guard-handoff');
     assert(fs.readdirSync(artifacts).some(file=>file.endsWith('.md')));
@@ -76,7 +77,7 @@ async function main(){
     const messages=await send('get_messages');assert(JSON.stringify(messages.data).includes('Claude handoff'));
     assert.equal(count().length,beforePause,'Handoff/new/import must make no model calls');
     assert(frames.some(frame=>frame.lines.some(line=>line.includes('Guard switched'))));
-    const result={recordedAt:new Date().toISOString(),runtime:'Pi 1.5.0 with real Guard extension; RPC transcript replay',fixtureProviders:true,realModelCalls:0,checks:{autoBindings:true,providerSwitch:true,contextCheckpoint:true,automaticRepair:true,impactEvidence:true,reservePause:true,handoff:true,newSession:true,import:true},frames};
+    const result={recordedAt:new Date().toISOString(),runtime:'Pi 1.5.0 with real Guard extension; RPC transcript replay',fixtureProviders:true,realModelCalls:0,checks:{autoBindings:true,providerSwitch:true,contextCheckpoint:true,automaticRepair:true,impactEvidence:true,exhaustionPause:true,workModes:true,handoff:true,newSession:true,import:true},frames};
     fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,JSON.stringify(result,null,2)+'\n');
     console.log(JSON.stringify({recording:destination,frames:frames.length,checks:result.checks,realModelCalls:0}));
   }finally{

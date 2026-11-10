@@ -22,6 +22,7 @@ function demoState(now = Date.now()) {
       resetAt:new Date(now+resetHours*3600000).toISOString(),observedAt:new Date(now-minutesAgo*60000).toISOString(),source:'demo'});
   }
   state.bindings = {claude:{provider:'claude-code',model:'demo-claude'},codex:{provider:'openai',model:'demo-codex'}};
+  state.resetCredits={codex:{source:'demo',observedAt:new Date(now).toISOString(),availableCount:1,detailsKnown:true,credits:[{status:'available',resetType:'codexRateLimits',expiresAt:new Date(now+21*86400000).toISOString(),expiryKnown:true}]}};
   state.insights = {generatedAt:new Date(now).toISOString(),providers:[{provider:'claude',requests:45,totalTokens:900000,metrics:[
     {id:'context',percent:65,label:'Tokens in requests with >150k input context',action:'Checkpoint earlier.'},
     {id:'long',percent:55,label:'Tokens in sessions spanning 8+ hours',action:'Review a bounded handoff.'}]}]};
@@ -105,6 +106,7 @@ function createGuardServer(options={}) {
   function receive(provider,data) {
     const retired=new Set(data.retiredWindowIds || []);
     state.observations=mergeObservations(state.observations.filter(row=>row.provider!==provider || !retired.has(row.windowId)),data.observations,now());
+    if(data.resetCredits){state.resetCredits ||= {};state.resetCredits[provider]=data.resetCredits;}
     state.providerMeta ||= {};state.providerMeta[provider]={extraUsageEnabled:data.extraUsageEnabled ?? null,nativeSession:data.nativeSession || null};adapt();save();
   }
   if(!options.demo && options.sync!==false){
@@ -165,7 +167,15 @@ function createGuardServer(options={}) {
           contextTokens:Number.isFinite(data.contextTokens) && data.contextTokens>=0?data.contextTokens:null,
           referenceCostUsd:Number.isFinite(data.referenceCostUsd) && data.referenceCostUsd>=0?data.referenceCostUsd:null};save();
       } else if(url.pathname==='/api/policy') {
-        state.policy=cleanPolicy({...state.policy,...data});adapt();event('policy','Work budgets and allowance reserve updated.');save();
+        state.policy=cleanPolicy({...state.policy,...data});adapt();event('policy',`Work mode: ${state.policy.usageMode}. Existing task counters and API caps remain in force.`);save();
+      } else if(url.pathname==='/api/reset-credits') {
+        if(!['claude','codex','agy'].includes(data.provider) || !Number.isInteger(data.count) || data.count<0 || data.count>100 || !['weekly','short','both','unknown'].includes(data.scope))throw Error('Invalid banked reset report');
+        const expiry=data.expiresAt?Date.parse(data.expiresAt):null;
+        if(data.expiresAt && !Number.isFinite(expiry))throw Error('Invalid reset credit expiry');
+        state.resetCreditReports ||= {};
+        state.resetCreditReports[data.provider]={source:'manual',observedAt:new Date(now()).toISOString(),scope:data.scope,availableCount:data.count,
+          credits:Array.from({length:data.count},()=>({status:'available',resetType:'unknown',expiresAt:expiry?new Date(expiry).toISOString():null,expiryKnown:Boolean(expiry)}))};
+        event('reset-credit','Saved a user-reported banked reset. Provider inventory takes precedence; no allowance was changed.');save();
       } else if(url.pathname==='/api/advice') {
         const result=applyAdvice(state,now(),true);
         if(result){event('settings','Applied usage recommendations: '+result.reasons.join(' '));save();}

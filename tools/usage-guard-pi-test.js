@@ -7,7 +7,7 @@ const {createGuardServer}=require('./usage-guard-server');
 const cli=path.join(process.env.AI_SPEND_PI_RUNTIME || path.resolve(__dirname,'../.guard-runtime'),'node_modules','@earendil-works','pi-coding-agent','dist','bundle','cli.js');
 const extension=path.resolve(__dirname,'../integrations/pi/index.ts');
 const fixture=path.resolve(__dirname,'../integrations/pi/test-fixtures/fake-provider.ts');
-async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,compact=false,resume=false,storageFailure=false,api=false,apiEnabled=false,autoRecover=false,repairSuccess=false,activate=false}={}) {
+async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,compact=false,resume=false,storageFailure=false,api=false,apiEnabled=false,autoRecover=false,repairSuccess=false,activate=false,usageMode='strict',command='/guard'}={}) {
   if(process.env.AI_SPEND_TEST_CASES && !process.env.AI_SPEND_TEST_CASES.split(',').includes(name))return;
   const rpc=compact || resume || autoRecover || activate;
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'guard-pi-'+name+'-'));
@@ -17,6 +17,7 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
   server.guard.state().bindings={claude:{provider:'claude-code',model:'guard-fixture'}};
   server.guard.state().policy.maxRequestsPerTask=maxRequests;
   server.guard.state().policy.autoRecover=autoRecover;
+  server.guard.state().policy.usageMode=usageMode;
   if(api){server.guard.state().bindings={api:{provider:'guard-api-fixture',model:'guard-fixture'}};Object.assign(server.guard.state().policy,{allowApiSpend:apiEnabled,apiDailyBudgetUsd:10,apiTaskBudgetUsd:10});}
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const agentDir=path.join(root,'agent');fs.mkdirSync(agentDir);
@@ -45,7 +46,7 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
           }catch{}
         }
       });child.stderr.on('data',data=>errors+=data);
-      if(rpc)child.stdin.write(JSON.stringify({id:activate?'activate':'run',type:'prompt',message:activate?'/guard':'Complete the offline guard fixture.'})+'\n');
+      if(rpc)child.stdin.write(JSON.stringify({id:activate?'activate':'run',type:'prompt',message:activate?command:'Complete the offline guard fixture.'})+'\n');
       let timeoutError;
       const timer=setTimeout(()=>{timeoutError=new Error(`${name} timed out\n${errors}\n${output.slice(-6500)}`);child.kill();},45000);
       child.on('error',reject);child.on('close',code=>{clearTimeout(timer);if(timeoutError)reject(timeoutError);else resolve({code,output,errors});});
@@ -53,7 +54,9 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
     const count=fs.existsSync(countFile)?fs.readFileSync(countFile,'utf8').trim().split('\n').length:0;
     const diagnostic=JSON.stringify({code:outcome.code,output:outcome.output.slice(-4000),errors:outcome.errors.slice(-2500)});
     if(name==='happy'){assert.equal(count,1,diagnostic);assert.ok(outcome.output.includes('Guard fixture completed.'),diagnostic);}
-    if(name==='reserve' || name==='offline'){assert.equal(count,0,diagnostic);assert.ok(outcome.output.includes('Guard') || outcome.errors.includes('Guard'));}
+    if(name==='reserve' || name==='offline' || name==='exhausted'){assert.equal(count,0,diagnostic);assert.ok(outcome.output.includes('Guard') || outcome.errors.includes('Guard'));}
+    if(name==='continuous-low' || name==='preserve-low'){assert.equal(count,1,diagnostic);assert.ok(outcome.output.includes('Guard fixture completed.'),diagnostic);}
+    if(name==='preserve-low'){const caps=JSON.parse(fs.readFileSync(countFile+'.caps','utf8').trim());assert.equal(caps.maxTokens,2048,'Stretch cap reaches the actual provider model');assert.equal(caps.requestedMaxTokens,2048,'actual provider options carry the ceiling');assert.equal(server.guard.view().policy.maxThinkingLevel,'low');}
     if(name==='loop'){assert.equal(count,3,diagnostic);assert.ok(outcome.output.includes('characters omitted from model context'),diagnostic);}
     if(name==='budget'){assert.equal(count,1,diagnostic);assert.ok(outcome.output.includes('request budget'),diagnostic);}
     if(name==='compact'){assert.equal(count,10,diagnostic);assert.ok(outcome.output.includes('Guard fixture completed.'),diagnostic);}
@@ -68,7 +71,7 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
       assert(server.guard.view().impact.estimatedInputTokensAvoided>0,'show savings only after an observed replay');
       if(repairSuccess)assert(outcome.output.includes('Guard fixture completed.'),diagnostic);
     }
-    if(activate){assert.equal(count,1,diagnostic);assert(server.guard.state().policy.autoTune);assert(server.guard.state().policy.autoRecover);}
+    if(activate){assert.equal(count,1,diagnostic);assert(server.guard.state().policy.autoTune);assert(server.guard.state().policy.autoRecover);if(command==='/guard max')assert.equal(server.guard.state().policy.usageMode,'max');}
     console.log(`Pi runtime ${name}: ${count} fixture requests; passed`);
   } finally {
     if(!offline)await new Promise(resolve=>server.close(resolve));
@@ -76,4 +79,4 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
     if(resolved.startsWith(temp) && path.basename(resolved).startsWith('guard-pi-'))fs.rmSync(resolved,{recursive:true,force:true,maxRetries:10,retryDelay:100});
   }
 }
-(async()=>{await runCase('happy');await runCase('reserve',{used:95});await runCase('offline',{offline:true});await runCase('loop',{loop:true});await runCase('budget',{loop:true,maxRequests:1});await runCase('compact',{compact:true});await runCase('storage',{loop:true,storageFailure:true});await runCase('auto-resume',{resume:true,used:95});await runCase('api-off',{api:true});await runCase('api-on',{api:true,apiEnabled:true});await runCase('repair',{loop:true,autoRecover:true,repairSuccess:true});await runCase('repair-exhausted',{loop:true,autoRecover:true});await runCase('repair-budget',{loop:true,autoRecover:true,maxRequests:3});await runCase('activate',{activate:true});})().catch(error=>{console.error(error);process.exitCode=1;});
+(async()=>{await runCase('happy');await runCase('reserve',{used:95});await runCase('offline',{offline:true});await runCase('loop',{loop:true});await runCase('budget',{loop:true,maxRequests:1});await runCase('compact',{compact:true});await runCase('storage',{loop:true,storageFailure:true});await runCase('auto-resume',{resume:true,used:95});await runCase('api-off',{api:true});await runCase('api-on',{api:true,apiEnabled:true});await runCase('repair',{loop:true,autoRecover:true,repairSuccess:true});await runCase('repair-exhausted',{loop:true,autoRecover:true});await runCase('repair-budget',{loop:true,autoRecover:true,maxRequests:3});await runCase('activate',{activate:true});await runCase('continuous-low',{used:95,usageMode:'continuous'});await runCase('preserve-low',{used:95,usageMode:'preserve'});await runCase('exhausted',{used:100,usageMode:'max'});await runCase('activate-max',{used:95,activate:true,command:'/guard max'});})().catch(error=>{console.error(error);process.exitCode=1;});

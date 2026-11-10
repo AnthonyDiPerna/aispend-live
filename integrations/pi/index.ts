@@ -31,6 +31,8 @@ export default function guard(pi: ExtensionAPI) {
   let watcher:ReturnType<typeof setInterval>|undefined;
   let guardArmed=false,restoringModel=false,pendingRepair=false,lastOperation='';
   const blockedOperations=new Set<string>();
+  const wrappedProviders=new Map<string,any>();
+  const originalProvider=Symbol.for('aispend.guard.original-provider');
 
   async function api(route:string, data?:unknown) {
     const response=await fetch(new URL(route,endpoint), {
@@ -78,6 +80,22 @@ export default function guard(pi: ExtensionAPI) {
     return ctx.modelRegistry.getAvailable().filter(model=>model.provider!=='aispend' && model.api!=='pi-virtual');
   }
   function modelGroup(ctx:ExtensionContext,model:any){return ctx.modelRegistry.isUsingOAuth(model) && group(model.provider)?group(model.provider):'api';}
+  function guardProviderOptions(ctx:ExtensionContext,id:string){
+    if(wrappedProviders.has(id) && ctx.modelRegistry.getRegisteredNativeProvider(id)===wrappedProviders.get(id))return;
+    const registered:any=ctx.modelRegistry.getProvider(id);
+    if(!registered)throw Error('Selected provider disappeared before dispatch');
+    const original=registered[originalProvider] || registered;
+    // Pi 1.5 resolves router models back through its catalog, discarding cloned
+    // maxTokens fields. Apply the ceiling to the provider's actual call options.
+    // Providers may have no server-side output limit (notably Codex subscription).
+    const wrap=(method:'stream'|'streamSimple')=>(model:any,context:any,options:any={})=>{
+      if(disposed || !activeLease)return original[method](model,context,options);
+      const ceiling=Math.min(model.maxTokens>0?model.maxTokens:Infinity,policy.maxOutputTokens,options.maxTokens>0?options.maxTokens:Infinity);
+      return original[method]({...model,maxTokens:ceiling},context,{...options,maxTokens:ceiling});
+    };
+    const wrapped={...original,[originalProvider]:original,stream:wrap('stream'),streamSimple:wrap('streamSimple')};
+    pi.registerProvider(wrapped);wrappedProviders.set(id,wrapped);
+  }
   async function discover(ctx:ExtensionContext) {
     return api('/api/models',{models:available(ctx).map(model=>({group:modelGroup(ctx,model),provider:model.provider,id:model.id,auth:modelGroup(ctx,model)==='api'?'api':'subscription',cost:model.cost,contextWindow:model.contextWindow,maxTokens:model.maxTokens}))});
   }
@@ -180,7 +198,8 @@ export default function guard(pi: ExtensionAPI) {
       const requested=levels.includes(request.thinkingLevel)?request.thinkingLevel:'medium';
       const thinkingLevel=levels[Math.min(levels.indexOf(requested),levels.indexOf(policy.maxThinkingLevel))] as any;
       if(thinkingLevel!==requested)await impact('effort-cap');
-      return {model:{...model,maxTokens:Math.min(model.maxTokens,policy.maxOutputTokens)},thinkingLevel};
+      guardProviderOptions(ctx,model.provider);
+      return {model,thinkingLevel};
     },
   });
 
@@ -286,18 +305,22 @@ export default function guard(pi: ExtensionAPI) {
     });
   });
   pi.registerCommand('guard',{
-    description:'Activate automatic protection and show limits, reset planning and measured impact',
+    description:'Activate Guard; continuous, preserve, max, strict, or status. Shows limits, banked resets and impact',
     handler:async(args,ctx)=>{try{
+      const choice=args.trim().toLowerCase();
+      if(!['','status','continuous','preserve','max','strict'].includes(choice))throw Error('Use /guard, /guard continuous, /guard preserve, /guard max, /guard strict, or /guard status');
       let state=await discover(ctx);
-      if(args.trim()!=='status'){
-        state=await api('/api/policy',{autoTune:true,autoRecover:true});
+      if(choice!=='status'){
+        state=await api('/api/policy',{autoTune:true,autoRecover:true,...(choice?{usageMode:choice}:{})});
         const model=ctx.modelRegistry.find('aispend','guard');if(!model || !await pi.setModel(model))throw Error('Guard model could not be activated');
         guardArmed=true;pi.appendEntry('aispend.guard-armed',{armed:true});
       }
       policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
       const resets=state.resetTimeline.filter((w:any)=>w.windowId.includes('week') || w.provider==='codex').map((w:any)=>`${w.provider}: ${new Date(w.resetAt).toLocaleString()}`).join(' · ');
       const impact=state.impact||{};
-      ctx.ui.notify(`${isGuard(ctx)?'Guard active':'Guard status only'} · ${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\nAutomatic repair: ${policy.autoRecover?'on':'off'}, at most ${policy.maxAutoRepairs}/task. Hard budgets never renew automatically.\nImpact: ${impact.removedChars||0} characters trimmed; ~${impact.estimatedInputTokensAvoided||0} input tokens avoided on completed replays; ${impact.loopBlocks||0} repeated tools blocked.\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: ${endpoint.origin}`,'info');
+      const credits=(state.resetCredits||[]).filter((c:any)=>c.availableCount!==null).map((c:any)=>`${c.provider}: ${c.usableCount} banked (${c.status})${c.nextExpiryAt?', expires '+new Date(c.nextExpiryAt).toLocaleString():''}`).join(' · ');
+      ctx.ui.notify(`Mode: ${policy.usageMode}. ${policy.usageMode==='strict'?'Reserve and pace are hard gates.':'Fresh positive allowance stays usable; pace is a warning.'}\n${state.bridge?'Plan toward '+state.bridge.provider+' returning '+new Date(state.bridge.targetAt).toLocaleString()+'. Refill must be confirmed.':'Use connected subscriptions in your preferred order.'}\n${credits || 'Banked resets: inventory not reported.'}\nRedeem a credit in the provider (Codex /usage); Guard confirms the new allowance. /guard preserve stretches use; /guard max prioritizes available allowance.`, 'info');
+      ctx.ui.notify(`${isGuard(ctx)?'Guard active':'Guard status only'} · ${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve ${policy.usageMode==='strict'?'gate':'target'} · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\nAutomatic repair: ${policy.autoRecover?'on':'off'}, at most ${policy.maxAutoRepairs}/task. Hard budgets never renew automatically.\nImpact: ${impact.removedChars||0} characters trimmed; ~${impact.estimatedInputTokensAvoided||0} input tokens avoided on completed replays; ${impact.loopBlocks||0} repeated tools blocked.\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: ${endpoint.origin}`,'info');
     }catch(error:any){ctx.ui.notify(`Guard could not activate: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-unlock',{

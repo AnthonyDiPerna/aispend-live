@@ -3,6 +3,8 @@ const crypto = require('node:crypto');
 
 const HOUR = 3600000;
 const DEFAULT_POLICY = Object.freeze({
+  usageMode: 'continuous',
+  bridgeProvider: 'claude',
   reservePercent: 10,
   freshnessMinutes: 15,
   maxRequestsPerTask: 40,
@@ -36,6 +38,8 @@ const LIMITS = {
 
 function cleanPolicy(input = {}) {
   const result = {...DEFAULT_POLICY};
+  if(input.usageMode!==undefined){if(!['continuous','preserve','max','strict'].includes(input.usageMode))throw Error('Invalid usage mode');result.usageMode=input.usageMode;}
+  if(input.bridgeProvider!==undefined){if(!['claude','codex','agy'].includes(input.bridgeProvider))throw Error('Invalid bridge provider');result.bridgeProvider=input.bridgeProvider;}
   for (const [key, [min, max]] of Object.entries(LIMITS)) {
     if (input[key] === undefined) continue;
     if (!Number.isFinite(input[key]) || input[key] < min || input[key] > max) throw new Error(`Invalid ${key}: expected ${min} to ${max}`);
@@ -82,34 +86,89 @@ function mergeObservations(previous, incoming, now = Date.now()) {
   return [...map.values()].sort((a,b)=>Date.parse(a.observedAt)-Date.parse(b.observedAt)).slice(-2000);
 }
 
-function windowPlan(samples, policy, now) {
+function windowPlan(samples, policy, now, targetAt = null) {
   const latest = samples[samples.length-1];
   const resetMs = Date.parse(latest.resetAt);
   const ageMinutes = (now-Date.parse(latest.observedAt))/60000;
   const hoursLeft = Math.max(0, (resetMs-now)/HOUR);
   const remainingPercent = 100-latest.usedPercent;
   const usablePercent = Math.max(0, remainingPercent-policy.reservePercent);
+  const planningHours = Math.max(0,(Math.min(resetMs,targetAt || resetMs)-now)/HOUR);
   const expired = resetMs <= now;
   const stale = ageMinutes > policy.freshnessMinutes;
+  // A redeemed reset can lower usage without changing the scheduled reset timestamp.
+  // Forecast only the monotonic segment after the most recent counter decrease.
+  let segmentStart=0;
+  for(let i=1;i<samples.length;i++)if(samples[i].usedPercent<samples[i-1].usedPercent)segmentStart=i;
+  const refillObservedAt=segmentStart?samples[segmentStart].observedAt:null;
   // Use a sample at least five minutes apart, from this reset and at most 24h ago.
-  const prior = samples.find(s=>s.resetAt === latest.resetAt &&
+  const prior = samples.slice(segmentStart).find(s=>s.resetAt === latest.resetAt &&
     Date.parse(s.observedAt) >= now-24*HOUR &&
     Date.parse(latest.observedAt)-Date.parse(s.observedAt) >= 5*60000);
   const slope = prior && latest.usedPercent >= prior.usedPercent
     ? (latest.usedPercent-prior.usedPercent)/((Date.parse(latest.observedAt)-Date.parse(prior.observedAt))/HOUR) : null;
-  const safePercentPerDay = hoursLeft ? usablePercent/Math.max(1, hoursLeft/24) : null;
-  const projectedUsedPercent = slope !== null && !stale && !expired ? latest.usedPercent+slope*hoursLeft : null;
+  const safePercentPerDay = planningHours ? usablePercent/(planningHours/24) : null;
+  const projectedUsedPercent = slope !== null && !stale && !expired ? latest.usedPercent+slope*planningHours : null;
   const runwayHours = slope > 0 && !stale && !expired ? usablePercent/slope : null;
-  let status = expired ? 'verify-reset' : stale ? 'stale' : usablePercent <= 0 ? 'reserve' : projectedUsedPercent !== null && projectedUsedPercent > 100-policy.reservePercent ? 'pace' : 'ready';
+  const depletionHours = slope > 0 && !stale && !expired ? remainingPercent/slope : null;
+  let status = expired ? 'verify-reset' : stale ? 'stale' : remainingPercent<=0 ? 'depleted' : usablePercent <= 0 ? 'reserve' : projectedUsedPercent !== null && projectedUsedPercent > 100-policy.reservePercent ? 'pace' : 'ready';
   const message = {
     'verify-reset': 'Scheduled reset has passed. Obtain a new reading before spending; a timer is not proof of a refill.',
     stale: 'Refresh the allowance reading before using automatic routing.',
-    reserve: 'The emergency reserve is protected. Continue with another ready subscription or wait.',
-    pace: 'Recent consumption would reach the reserve before reset. Move routine work to another ready subscription.',
-    ready: slope === null ? 'Allowance available. More observations are needed to forecast consumption.' : 'Recent measured pace fits before reset.',
+    depleted: 'This allowance is exhausted. Use another subscription, redeem a banked reset in the provider, or wait for a confirmed refill.',
+    reserve: policy.usageMode==='strict'?'The reserve is protected in strict mode. Use another ready subscription or wait.':'Allowance is below the reserve target. Work can continue with shorter context and bounded output.',
+    pace: policy.usageMode==='strict'?'Recent consumption would reach the reserve before reset. Strict mode waits or changes provider.':'Recent consumption would reach the reserve target before the planned handoff. Work can continue; use a steadier subscription when available.',
+    ready: slope === null ? 'Allowance available. More observations are needed to forecast consumption.' : 'Recent measured pace fits the reset plan.',
   }[status];
   return {...latest, remainingPercent, usablePercent, hoursLeft, ageMinutes,
-    safePercentPerDay, slopePercentPerHour: slope, projectedUsedPercent, runwayHours, status, message};
+    refillObservedAt,planningUntil:new Date(now+planningHours*HOUR).toISOString(),safePercentPerDay, slopePercentPerHour: slope, projectedUsedPercent, runwayHours, depletionHours, status, message};
+}
+
+// A credit is an option, never an allowance. No plan function redeems or adds it to a meter.
+function resetCreditPlan(state, provider, windows, policy, now) {
+  const native=state.resetCredits?.[provider],report=state.resetCreditReports?.[provider];
+  const inventory=native?.availableCount!==null && Number.isInteger(native?.availableCount)?native:report;
+  if(!inventory)return {provider,status:'unknown',availableCount:null,usableCount:null,credits:[],source:null,message:'Banked reset inventory is not reported by this connection.'};
+  const source=inventory.source || 'manual',isManual=source==='manual';
+  const stale=!Number.isFinite(Date.parse(inventory.observedAt)) || now-Date.parse(inventory.observedAt)>policy.freshnessMinutes*60000;
+  const credits=(inventory.credits || []).map(c=>({...c,expired:Boolean(c.expiresAt && Date.parse(c.expiresAt)<=now)}));
+  const expired=credits.filter(c=>c.status==='available' && c.expired).length;
+  const usableCount=Math.max(0,inventory.availableCount-expired);
+  const expiries=credits.filter(c=>c.status==='available'&&!c.expired&&c.expiresAt).map(c=>c.expiresAt).sort();
+  const nextExpiryAt=expiries[0] || null;
+  const reportedExpiryAt=report?.credits?.map(c=>c.expiresAt).filter(Boolean).sort()[0] || null;
+  const planningExpiryAt=[nextExpiryAt,reportedExpiryAt].filter(Boolean).sort()[0] || null;
+  const constrained=windows.filter(w=>w.applies);
+  const depleted=constrained.some(w=>w.status==='depleted');
+  const depletion=constrained.map(w=>w.depletionHours).filter(n=>Number.isFinite(n));
+  const depletionHours=depletion.length?Math.min(...depletion):null;
+  const expirySoon=planningExpiryAt && Date.parse(planningExpiryAt)-now<=24*HOUR;
+  const projectedGap=constrained.some(w=>w.depletionHours!==null && w.depletionHours<(Date.parse(w.planningUntil)-now)/HOUR);
+  const trusted=!stale&&!isManual;
+  let action='hold',message=usableCount?'Keep this reset banked while the current allowance lasts.':'No unexpired reset credits are recorded.';
+  if(usableCount && (depleted || expirySoon || projectedGap)){
+    action=trusted?'consider-reset':'verify-credit';
+    message=depleted?'Allowance is exhausted. A reset may let you continue after you redeem it and a fresh reading confirms the refill.':expirySoon?'A reset expires within 24 hours. Check its value before it expires.':'At the recent pace, allowance may run out before the next handoff. Keep the reset ready or choose Stretch mode.';
+  }
+  if(stale&&!isManual){action='refresh';message='Refresh the credit inventory before relying on it. The last reading is retained.';}
+  return {provider,status:isManual?'reported':stale?'stale':'connected',availableCount:inventory.availableCount,usableCount,credits,source,observedAt:inventory.observedAt,
+    nextExpiryAt,reportedExpiryAt,planningExpiryAt,depletionHours,action,message,reportedScope:report?.scope || null,
+    note:'Redeem in the provider. Guard reads the resulting allowance; it never redeems a credit or assumes 100% from an inventory change.'};
+}
+
+function effectivePolicy(configured, pressure) {
+  const policy={...configured};
+  if(policy.usageMode==='preserve'){
+    policy.maxContextTokens=Math.min(policy.maxContextTokens,60000);
+    policy.maxOutputTokens=Math.min(policy.maxOutputTokens,2048);
+    policy.maxToolOutputChars=Math.min(policy.maxToolOutputChars,8000);
+    if(['medium','high'].includes(policy.maxThinkingLevel))policy.maxThinkingLevel='low';
+  }else if(policy.usageMode==='continuous' && pressure){
+    policy.maxContextTokens=Math.min(policy.maxContextTokens,80000);
+    policy.maxOutputTokens=Math.min(policy.maxOutputTokens,3072);
+  }
+  // Mode overlays do not rewrite configured caps or renew any task budget.
+  return policy;
 }
 
 function buildPlan(state, now = Date.now()) {
@@ -120,13 +179,13 @@ function buildPlan(state, now = Date.now()) {
     const list = windows.get(key) || [];
     list.push(sample); windows.set(key, list);
   }
-  const plans = [...windows.values()].map(list => {
+  const lists = [...windows.values()].map(list => {
     list.sort((a,b)=>Date.parse(a.observedAt)-Date.parse(b.observedAt));
     const newest = list[list.length-1];
-    return windowPlan(list.filter(s=>s.resetAt === newest.resetAt), policy, now);
+    return list.filter(s=>s.resetAt === newest.resetAt);
   });
-  const severity = ['ready','pace','reserve','stale','verify-reset'];
-  const providers = policy.providerOrder.map(provider=>{
+  const severity = ['ready','pace','reserve','depleted','stale','verify-reset'];
+  const makeProviders = plans=>policy.providerOrder.map(provider=>{
     const bindings = state.bindings?.[provider];
     const model=String(bindings?.model || '').toLowerCase();
     const family=provider==='agy'?(model.includes('gemini')?'gemini':model?'claude-gpt':undefined):['opus','sonnet','haiku','fable'].find(f=>model.includes(f));
@@ -136,16 +195,35 @@ function buildPlan(state, now = Date.now()) {
     return {provider, status, windows, configured: Boolean(bindings?.provider && bindings?.model),
       binding: bindings || null, message:rows.length ? rows.find(r=>r.status===status).message : 'No allowance reading. Add the percentage and reset from the provider usage page.'};
   });
+  let plans=lists.map(list=>windowPlan(list,policy,now));
+  let providers=makeProviders(plans);
+  const target=providers.find(p=>p.provider===policy.bridgeProvider);
+  const targetWindows=target?.windows.filter(w=>w.applies) || [];
+  const targetMs=targetWindows.length?Math.max(...targetWindows.map(w=>Date.parse(w.resetAt))):null;
+  const bridge=policy.usageMode!=='strict' && target?.configured && target.status!=='ready' && targetMs>now
+    ?{provider:target.provider,targetAt:new Date(targetMs).toISOString(),confirmed:false,message:'Plan toward this scheduled return; a fresh provider reading must confirm the refill.'}:null;
+  if(bridge){plans=lists.map(list=>windowPlan(list,policy,now,targetMs));providers=makeProviders(plans);}
   const apiBinding=state.bindings?.api;
   providers.push({provider:'api',status:policy.allowApiSpend && policy.apiDailyBudgetUsd>0 && policy.apiTaskBudgetUsd>0?'ready':'disabled',windows:[],configured:Boolean(apiBinding),binding:apiBinding || null,message:policy.allowApiSpend?'Paid fallback. Every request reserves an estimated cost against daily and task caps.':'Paid fallback is off. Enable it explicitly and set both dollar caps.'});
-  const ready = providers.filter(p=>p.status==='ready');
+  for(const p of providers){
+    p.allowanceEligible=p.status==='ready' || (policy.usageMode!=='strict' && ['pace','reserve'].includes(p.status));
+    p.routable=p.allowanceEligible&&p.configured;
+  }
+  const ready = providers.filter(p=>p.routable).sort((a,b)=>routeRank(a,policy)-routeRank(b,policy));
+  const pressure=ready.length>0 && ready[0].provider!=='api' && ready[0].status!=='ready';
   // A provider is available only after ALL its constrained windows can reset.
   const resetCandidates = providers.map(p=>({provider:p.provider, resetAt:p.windows.some(w=>w.applies) ? new Date(Math.max(...p.windows.filter(w=>w.applies).map(w=>Date.parse(w.resetAt)))).toISOString() : null}));
-  return {generatedAt:new Date(now).toISOString(), policy, providers,
+  return {generatedAt:new Date(now).toISOString(), configuredPolicy:policy,policy:effectivePolicy(policy,pressure), providers,bridge,
+    resetCredits:providers.filter(p=>p.provider!=='api').map(p=>resetCreditPlan(state,p.provider,p.windows,policy,now)),
     recommendedProvider:ready[0]?.provider || null,
     resetTimeline:plans.map(w=>({provider:w.provider, windowId:w.windowId, resetAt:w.resetAt, status:w.status, hoursLeft:w.hoursLeft})).sort((a,b)=>Date.parse(a.resetAt)-Date.parse(b.resetAt)),
     nextReviewAt: resetCandidates.filter(p=>p.resetAt && Date.parse(p.resetAt)>now).sort((a,b)=>Date.parse(a.resetAt)-Date.parse(b.resetAt))[0]?.resetAt || null,
     note:'Allowances belong to each subscription. They cannot be added together or converted from raw tokens. Reset events require fresh confirmation.'};
+}
+
+function routeRank(provider,policy){
+  if(provider.provider==='api')return 100;
+  return policy.usageMode==='max'?0:['ready','pace','reserve'].indexOf(provider.status);
 }
 
 function decide(plan, task = {}, now = Date.now()) {
@@ -157,14 +235,15 @@ function decide(plan, task = {}, now = Date.now()) {
   if ((task.repeatedTools || 0) >= policy.repeatedToolLimit) return pause('repeated-tools','Repeated identical tool results detected. Inspect the checkpoint before continuing.');
   if ((task.contextTokens || 0) > policy.maxContextTokens) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
   const available = new Set(task.availableProviders || []);
-  const eligible = plan.providers.filter(p=>p.status==='ready' && p.configured && available.has(p.provider) &&
-    (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)));
+  const eligible = plan.providers.filter(p=>p.allowanceEligible && p.configured && available.has(p.provider) &&
+    (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)))
+    .sort((a,b)=>routeRank(a,policy)-routeRank(b,policy));
   // Stay on the current provider through tool continuations to retain its cache.
   const selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || eligible[0] : eligible[0];
-  if (!selected) return pause('allowance','No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.');
+  if (!selected) return pause('allowance',policy.usageMode==='strict'?'No configured subscription has a fresh, on-pace allowance in strict mode.':'No configured route has fresh, positive allowance. Refresh readings, redeem an available reset in the provider, or wait for a confirmed refill.');
   return {action:task.currentProvider && task.currentProvider!==selected.provider?'switch':'continue', code:'ready',
-    provider:selected.provider, binding:selected.binding,
-    reason:task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; its observed allowance fits the reset plan.`,
+    provider:selected.provider, binding:selected.binding,warning:['pace','reserve'].includes(selected.status)?selected.message:null,
+    reason:(task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
     decidedAt:new Date(now).toISOString()};
 }
 

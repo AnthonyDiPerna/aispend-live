@@ -9,7 +9,7 @@ state.insights={generatedAt:new Date(now).toISOString(),providers:[{requests:30,
 state.policy.maxThinkingLevel='high';state.policy.maxSubagentCalls=5;
 const proposal=buildAdvice(state,now);
 assert.equal(proposal.learned,true);assert.equal(proposal.changes.maxContextTokens,80000);
-assert.equal(proposal.changes.maxTaskMinutes,30);assert.equal(proposal.changes.maxSubagentCalls,0);
+assert.equal(proposal.changes.maxTaskMinutes,undefined,'wall-clock span including idle time must not trigger a shorter hard stop');assert.equal(proposal.changes.maxSubagentCalls,0);
 state.policy.autoTune=false;const before=JSON.stringify(state.policy);
 assert.equal(applyAdvice(state,now),null);assert.equal(JSON.stringify(state.policy),before);
 assert(applyAdvice(state,now,true));assert.equal(state.policy.allowApiSpend,false);

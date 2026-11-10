@@ -2,11 +2,12 @@
 function requestReserve(model,policy){
   const rates=model?.cost;
   if(!rates || !['input','output','cacheRead','cacheWrite'].every(k=>Number.isFinite(rates[k]) && rates[k]>=0) || !Object.values(rates).some(n=>n>0))return null;
-  if(!Number.isFinite(model.contextWindow) || model.contextWindow<=0)return null;
+  if(!Number.isFinite(model.contextWindow) || model.contextWindow<=0 || !Number.isFinite(model.maxTokens) || model.maxTokens<=0)return null;
   const inputRate=Math.max(rates.input,rates.cacheRead,rates.cacheWrite);
-  // Reserve the full model context, plus bounded output, with pricing headroom.
+  // Some subscription/custom transports ignore requested output limits. Reserve
+  // full catalog output capacity rather than relying on a requested lower ceiling.
   // Tools, provider surcharges, and changing prices can still differ from this estimate.
-  return Math.ceil(2*(model.contextWindow*inputRate+Math.min(model.maxTokens || policy.maxOutputTokens,policy.maxOutputTokens)*rates.output)/1e6*1e6)/1e6;
+  return Math.ceil(2*(model.contextWindow*inputRate+model.maxTokens*rates.output)/1e6*1e6)/1e6;
 }
 function accounting(state,leases,now=Date.now()){
   const day=new Date(now).toISOString().slice(0,10),rows=state.costLedger || [];
@@ -20,7 +21,7 @@ function accounting(state,leases,now=Date.now()){
 }
 function checkApiBudget(state,leases,taskId,model,policy,now){
   const reserveUsd=requestReserve(model,policy);
-  if(reserveUsd===null)return {action:'pause',code:'api-pricing',reason:'API prices or context size are unknown. Select a model with known catalog prices before enabling paid fallback.'};
+  if(reserveUsd===null)return {action:'pause',code:'api-pricing',reason:'API prices, context size or output capacity are unknown. Select a model with known catalog limits before enabling paid fallback.'};
   const totals=accounting(state,leases,now);
   const taskSpent=(state.costLedger || []).filter(r=>r.taskId===taskId && r.billing==='api').reduce((n,r)=>n+r.usd,0);
   const taskPending=[...leases.values()].filter(l=>l.taskId===taskId && l.billing==='api').reduce((n,l)=>n+l.reserveUsd,0);

@@ -1,4 +1,4 @@
-# AI Spend Guard for Pi 0.3.1 (AI Spend Live 0.6.2 preview)
+# AI Spend Guard for Pi 0.3.2 (AI Spend Live 0.6.3 preview)
 
 Run `/guard` to activate the guarded model, automatic tuning and bounded loop
 recovery. `/guard status` only inspects. Once activated, selecting a subscription
@@ -24,7 +24,49 @@ The JSON report contains counters and hashed task IDs, not your work text.
 [Native hook setup and coverage](../native/README.md) covers supported Claude,
 Codex and Antigravity boundaries. Full request routing/compaction remains in Pi.
 
-Guard is a local controller plus a Pi virtual model. It checks measured subscription allowance before each request, preserves a reserve, keeps a task request budget, and pauses when it cannot make a supported decision. HerdR remains the terminal and session manager.
+Guard is a local controller plus a Pi virtual model. It checks measured subscription allowance before each request, tracks a reserve target, keeps a task request budget, and pauses when it cannot make a supported decision. HerdR remains the terminal and session manager.
+
+## Choose a work mode
+
+The default **Keep working** mode uses fresh positive allowance even when the
+burn-rate forecast is poor or the reserve target has been reached. It prefers
+a steadier connected subscription when starting new work, and retains useful
+cache through tool continuations. Pacing is advisory; actual exhaustion,
+staleness and unconfirmed resets still stop requests.
+
+- `/guard continuous`: keep working, with automatic efficiency protections.
+- `/guard preserve`: stretch toward the preferred provider's return. Use at
+  most 60k context, 8k tool characters, low effort, and request 2,048 output tokens.
+  Tighter configured limits still apply. This overlay reverts on mode change.
+- `/guard max`: use the preferred subscription's available allowance now.
+  This does not enable maximum reasoning or increase configured work caps.
+- `/guard strict`: opt into hard reserve and pace gates.
+
+The planner defaults to Claude returning, then Codex, then other connected
+subscriptions. Change the preference or bridge target under Advanced.
+An unsupported routing connector cannot promise a Pi handoff. Allowances are
+never added together, and a scheduled return needs fresh confirmation.
+
+### Banked resets
+
+Codex 0.167's native `account/rateLimits/read` response can include
+`rateLimitResetCredits`: an available count and optional credit details.
+Guard polls that with the weekly/short-window limits without calling a model.
+Missing inventory stays unknown; a provider-reported zero overrides an older
+manual report. Expired credits cannot extend the plan. IDs are discarded.
+The API's reset type is provider-defined; a user-reported weekly scope is
+labeled separately. Guard does not infer how much of each window a credit resets.
+
+Redeem in Codex `/usage` when you choose. Guard has no consume action, and a
+credit never appears as current allowance. It waits for a fresh lower usage
+reading, restarts the trend after that decrease, and interactive Pi can resume
+an allowance wait. Other work caps still apply. Claude and Antigravity readers
+do not currently expose banked inventory; use the optional reported-reset form.
+If reported and provider expiry dates differ, both remain visible and planning
+uses the earlier date. Counts, forecasts and recommendations are not a promise
+of uninterrupted work.
+
+Protocol reference: [Codex app-server account methods](https://learn.chatgpt.com/docs/app-server).
 
 ## First run
 
@@ -58,7 +100,7 @@ Resume a saved session with `-Resume`. Run the launcher with `-ListModels` to ch
 
 ## Protected defaults and usage-based recommendations
 
-New installations start with a 10% reserve, 120k context ceiling, 40 requests
+New installations start in Keep working mode with a 10% reserve target, 120k context ceiling, 40 requests
 and 60 minutes per task, one concurrent request, medium reasoning, no known
 subagent calls, and API spending off. Sign in and use `aispend/guard`; you do
 not need to tune every field first.
@@ -66,15 +108,30 @@ not need to tune every field first.
 The local advisor recomputes rules from recent usage; it does not train an AI
 or make extra model calls. With at least 20 recorded requests and analysis
 less than six hours old, substantial large-context usage suggests an 80k
-checkpoint, and substantial long-session usage suggests a 30-minute review.
-Subagent and effort signals can tighten their respective ceilings. A measured
-pace warning can shorten work to 25 requests per task. Reasons are visible.
+checkpoint. Subagent and effort signals can tighten their respective ceilings.
+Long session spans include idle time and no longer shorten the hard time budget.
+Recorded cache reuse is measured separately; retain useful prefixes. Only strict
+mode uses pace to shorten work to 25 requests. Reasons are visible.
 
 Automatic tuning only tightens these work bounds. It never buys API access,
 raises dollar caps, relaxes a tighter user setting, or replaces a selected
 model. New installations enable it by default. Running `/guard` enables automatic tuning and recovery on existing installations too.
 Use `/guard status` for inspection without changing those settings. Turn it off for
 recommendations-only operation; review and apply suggestions when convenient.
+
+### Output limits and provider support
+
+Guard passes the response ceiling in the actual provider options. Pi 1.5's
+router resolves models from its catalog, so a modified model returned by the
+router alone cannot enforce that limit. The Claude bridge forwards the option;
+the installed Codex subscription transport does not serialize a maximum-output
+field. For Codex this is a request preference, not an enforced output bound.
+Context, effort, request and allowance checks still apply. Native clients have
+the narrower coverage documented in the harness table.
+
+API reservations use full catalog context and output capacity with headroom,
+even when the requested output is shorter. A provider-side billing ceiling is
+still needed for a strict monetary guarantee.
 
 ## Portable handoffs between agents
 
@@ -122,7 +179,7 @@ py -3 tools/render-guard-demo.py
 
 This is a preview, not a provider-enforced billing cap. Only requests routed through `aispend/guard` are controlled. Other Claude/Codex/AGY sessions can consume the same allowance between readings. A request already in flight can exceed a token budget. Compaction's exact token total is not exposed by Pi's callback; its request counts, while its reported-token entry is zero. Concurrent leases expire after 15 minutes to recover from a crashed client. Terminal `-p` mode saves a context checkpoint, but automatic compaction/resumption requires a long-lived interactive or RPC session.
 
-Pace forecasts extend the recent observed percentage-per-hour to reset. They are deliberately conservative, can overestimate bursty or intermittent work, and are not predicted invoices. A provider remains paused while a known allowance window is stale, in reserve, past reset without confirmation, or consuming too quickly. Supply fresh readings to correct old observations.
+Pace forecasts extend the recent observed percentage-per-hour to the earlier of its own reset and the connected preferred provider's return. They are deliberately conservative, can overestimate bursty or intermittent work, and are not predicted invoices. A provider remains paused while an applicable window is exhausted, stale, or past reset without confirmation. Reserve and pace are hard gates only in strict mode. Supply fresh readings to correct old observations.
 
 The controller binds to `127.0.0.1`, rejects foreign browser origins, and accepts authenticated models discovered by Pi. Its browser payload contains percentages, reset times, model IDs, hashed task IDs, counters, aggregate insights, and decisions. Credentials and prompts are never sent to the website. Native credentials are read only for official provider endpoints or by their own CLI. Local Pi session files and archived tool output can contain private work; keep the state and artifact directories private. The public playground has no controller connection and cannot authorize requests.
 

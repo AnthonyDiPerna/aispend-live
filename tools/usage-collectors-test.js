@@ -12,7 +12,7 @@ async function main(){
   const data=claudeUsage({five_hour:null,seven_day:{utilization:100,resets_at:RESET},limits:[{kind:'weekly_scoped',percent:41,resets_at:RESET,scope:{model:{display_name:'Fable'}}}],extra_usage:{is_enabled:false}},NOW);
   assert.equal(data.observations[0].resetAt,'2026-11-10T22:59:59.000Z');assert.deepEqual(data.retiredWindowIds,['session']);assert.equal(data.extraUsageEnabled,false);
   const state={...initialState(),observations:data.observations,bindings:{claude:{provider:'claude-code',model:'claude-fable-5-1'}}};
-  assert.equal(buildPlan(state,NOW).providers[0].status,'reserve','unused scoped quota cannot override exhausted account quota');
+  assert.equal(buildPlan(state,NOW).providers[0].status,'depleted','unused scoped quota cannot override exhausted account quota');
   assert.throws(()=>claudeUsage({seven_day:null},NOW));
   assert.equal(codexUsage({rateLimits:{limitId:'codex',primary:{usedPercent:45,windowDurationMins:10080,resetsAt:Date.parse('2026-11-15T13:38:43Z')/1000}}},NOW).observations[0].windowMinutes,10080);
   const agy=agyUsage('Gemini Models\tWeekly Limit Remaining\t100%\t2026-11-15T20:00:00Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t87%\t2026-11-15T06:17:03Z',NOW);
@@ -45,6 +45,8 @@ async function main(){
   assert.equal(checkApiBudget(state,leases,'test-task',model,policy,NOW).code,'api-budget','expired unknown requests still reserve dollars');
   const insight=buildUsageInsights([{provider:'codex',sessionId:'one',timestampMs:NOW,totalTokens:200000,tokens:{inputTokens:200000,cachedInputTokens:180000},isSubagent:true,reasoningEffort:'ultra',costKnown:false}],[],NOW);
   assert.equal(insight.providers[1].metrics[1].percent,100);assert.equal(insight.providers[0].metrics[0].percent,null);
+  assert.equal(insight.providers[1].metrics.find(m=>m.id==='cache').percent,90,'Codex cached input is a subset of input, not another added token count');
+  assert.equal(insight.providers[1].inputTokens,200000);
   const cachedContext=buildUsageInsights([{provider:'claude',sessionId:'cache-window',timestampMs:NOW,totalTokens:160010,tokens:{inputTokens:10000,cacheCreationInputTokens:20000,cacheCreation1hInputTokens:130000,outputTokens:10}}],[],NOW);
   assert.equal(cachedContext.providers[0].metrics[1].percent,100,'one-hour cache writes contribute to Claude input context');
   console.log('Collectors: native quota formats, auth privacy, RPC, backoff, scoped limits, cost reservations and insights passed');

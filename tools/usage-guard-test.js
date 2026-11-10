@@ -9,7 +9,7 @@ const NOW=Date.parse('2026-11-08T17:00:00Z'), HOUR=3600000;
 function row(provider='claude',usedPercent=30,resetHours=72,ageMinutes=1,windowId='weekly') {
   return {provider,usedPercent,windowId,windowMinutes:windowId==='weekly'?10080:300,resetAt:new Date(NOW+resetHours*HOUR).toISOString(),observedAt:new Date(NOW-ageMinutes*60000).toISOString(),source:'manual'};
 }
-function state(rows) {return {...initialState(),observations:rows,bindings:{claude:{provider:'claude-code',model:'claude-test'},codex:{provider:'openai',model:'gpt-test'}}};}
+function state(rows) {const base=initialState();base.policy.usageMode='strict';return {...base,observations:rows,bindings:{claude:{provider:'claude-code',model:'claude-test'},codex:{provider:'openai',model:'gpt-test'}}};}
 async function run() {
   assert.throws(()=>observation({...row(),usedPercent:NaN},NOW));
   assert.throws(()=>observation({...row(),observedAt:new Date(NOW+HOUR).toISOString()},NOW));

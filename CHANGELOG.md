@@ -3,6 +3,37 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.6.3 — 2026-11-09
+
+- Default to Keep working: fresh positive allowance remains usable when a
+  pace forecast or reserve target is exceeded. Actual exhaustion, stale
+  readings and unconfirmed resets still block requests. Strict reserve/pace
+  gates remain an explicit Advanced option.
+- Add /guard continuous, /guard preserve and /guard max. Stretch mode lowers
+  context, tool-output, response and effort ceilings as a reversible overlay.
+  Use it now follows provider preference without enabling API spending,
+  raising quality settings or renewing task budgets.
+- Bridge toward a connected preferred subscription's scheduled return.
+  Keep each quota independent; require a fresh reading after every reset.
+- Read Codex banked reset inventory through account/rateLimits/read. Preserve
+  unknown vs zero, status, expiry and count-only/capped detail responses.
+  Strip opaque credit IDs and account fields. Manual reports cover missing
+  inventory, while provider readings take precedence. Keep an earlier
+  user-reported deadline visible. There is no credit-redemption endpoint.
+- Restart burn-rate forecasts after a usage-counter decrease, including
+  redemptions that retain the weekly reset timestamp. Never add a credit to
+  the live allowance or infer a refill from the passage of time.
+- Fix output ceilings discarded by Pi's router: pass them in the actual
+  provider options. Document Codex subscription transport's unsupported
+  maximum-output field. Reserve full catalog output for paid API estimates
+  rather than assuming that a requested shorter response is enforced.
+- Learn from native Codex cache reuse alongside context, effort and fan-out.
+  Do not shorten hard time budgets based on wall-clock session spans that
+  include idle time. Show why protections change; native hook coverage stays
+  explicit and does not claim every-request protection in native Codex.
+- Add policy/RPC/persistence/native mode regressions and four real-Pi offline
+  mode cases. Update the public controls, setup and fixture walkthrough.
+
 ## 0.6.2 — 2026-11-09
 
 - Make `/guard` activate protected Pi routing and automatic tuning/recovery.

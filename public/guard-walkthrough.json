@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-11-09T14:23:07.836Z",
+  "recordedAt": "2026-11-09T15:28:31.173Z",
   "runtime": "Pi 1.5.0 with real Guard extension; RPC transcript replay",
   "fixtureProviders": true,
   "realModelCalls": 0,
@@ -9,7 +9,8 @@
     "contextCheckpoint": true,
     "automaticRepair": true,
     "impactEvidence": true,
-    "reservePause": true,
+    "exhaustionPause": true,
+    "workModes": true,
     "handoff": true,
     "newSession": true,
     "import": true
@@ -19,7 +20,8 @@
       "title": "Connect once. See limits and protection.",
       "command": "/guard",
       "lines": [
-        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 120,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nConnected subscriptions are selected automatically. API fallback stays off.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
+        "Mode: continuous. Fresh positive allowance stays usable; pace is a warning.\nUse connected subscriptions in your preferred order.\nBanked resets: inventory not reported.\nRedeem a credit in the provider (Codex /usage); Guard confirms the new allowance. /guard preserve stretches use; /guard max prioritizes available allowance.",
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 10:28:22 AM · codex: 11/12/2026, 10:28:22 AM\nProtection: 10% reserve target · 120,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nConnected subscriptions are selected automatically. API fallback stays off.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
       ],
       "fixtureCalls": 0
     },
@@ -35,15 +37,16 @@
       "title": "Recent usage leads to tighter work budgets.",
       "command": "/guard",
       "lines": [
-        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
+        "Mode: continuous. Fresh positive allowance stays usable; pace is a warning.\nUse connected subscriptions in your preferred order.\nBanked resets: inventory not reported.\nRedeem a credit in the provider (Codex /usage); Guard confirms the new allowance. /guard preserve stretches use; /guard max prioritizes available allowance.",
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 10:28:22 AM · codex: 11/12/2026, 10:28:22 AM\nProtection: 10% reserve target · 80,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
       ],
       "fixtureCalls": 1
     },
     {
-      "title": "Claude reaches reserve. Guard uses Codex.",
+      "title": "Claude is low. Guard uses the steadier Codex allowance.",
       "command": "Continue the fixture within the available subscription.",
       "lines": [
-        "Guard switched to codex / walkthrough-balanced: Use codex; its observed allowance fits the reset plan.",
+        "Guard switched to codex / walkthrough-balanced: Use codex; fresh allowance is available.",
         "Fixture progress: reset planner updated. Next, verify the fresh-reading requirement. No real model was called."
       ],
       "fixtureCalls": 2
@@ -52,7 +55,7 @@
       "title": "Growing context triggers a saved checkpoint.",
       "command": "/fixture-context",
       "lines": [
-        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:00 AM · codex: 11/12/2026, 9:23:00 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021",
+        "Guard active · Guard · Claude 80% | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 10:28:22 AM · codex: 11/12/2026, 10:28:22 AM\nProtection: 10% reserve target · 80,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 0 characters trimmed; ~0 input tokens avoided on completed replays; 0 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021",
         "Guard: Compacting at the context ceiling\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
         "Guard: Automatic context checkpoint\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept."
       ],
@@ -71,15 +74,25 @@
       "title": "Evidence: shortened input, blocked work, repair cost.",
       "command": "/guard status",
       "lines": [
-        "Guard active · Guard · Claude 5% (reserve) | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 9:23:02 AM · codex: 11/12/2026, 9:23:02 AM\nProtection: 10% reserve · 80,000 context · 30 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 238740 characters trimmed; ~53712 input tokens avoided on completed replays; 1 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long sessions dominate recent usage. Review a saved handoff after 30 minutes of task time.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
+        "Mode: continuous. Fresh positive allowance stays usable; pace is a warning.\nPlan toward claude returning 11/12/2026, 10:28:24 AM. Refill must be confirmed.\nBanked resets: inventory not reported.\nRedeem a credit in the provider (Codex /usage); Guard confirms the new allowance. /guard preserve stretches use; /guard max prioritizes available allowance.",
+        "Guard active · Guard · Claude 5% (reserve) | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 10:28:24 AM · codex: 11/12/2026, 10:28:24 AM\nProtection: 10% reserve target · 80,000 context · 60 min/task · medium effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 238740 characters trimmed; ~53712 input tokens avoided on completed replays; 1 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
       ],
       "fixtureCalls": 17
     },
     {
-      "title": "Both reserves protected. Work pauses.",
+      "title": "Keep working, stretch, or use the allowance now.",
+      "command": "/guard preserve",
+      "lines": [
+        "Mode: preserve. Fresh positive allowance stays usable; pace is a warning.\nPlan toward claude returning 11/12/2026, 10:28:24 AM. Refill must be confirmed.\nBanked resets: inventory not reported.\nRedeem a credit in the provider (Codex /usage); Guard confirms the new allowance. /guard preserve stretches use; /guard max prioritizes available allowance.",
+        "Guard active · Guard · Claude 5% (reserve) | Codex 75% | AGY ? (unknown) · API ~$0.000\nResets: claude: 11/12/2026, 10:28:24 AM · codex: 11/12/2026, 10:28:24 AM\nProtection: 10% reserve target · 60,000 context · 60 min/task · low effort\nAutomatic repair: on, at most 1/task. Hard budgets never renew automatically.\nImpact: 238740 characters trimmed; ~53712 input tokens avoided on completed replays; 1 repeated tools blocked.\nLarge contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: http://127.0.0.1:9021"
+      ],
+      "fixtureCalls": 17
+    },
+    {
+      "title": "Both allowances exhausted. Work pauses.",
       "command": "Continue the fixture after checking allowance.",
       "lines": [
-        "Guard: No configured subscription has a fresh, on-pace allowance. Refresh readings or wait for a reset.\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
+        "Guard: No configured route has fresh, positive allowance. Refresh readings, redeem an available reset in the provider, or wait for a confirmed refill.\nLocal handoff saved: ./guard-artifacts/handoff.md\n/guard-new starts fresh from these excerpts; the original session is kept.",
         ""
       ],
       "fixtureCalls": 17
