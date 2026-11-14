@@ -22,6 +22,9 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
   use `auto` (usable allowances first, soonest reset in front).
   Short typed requests like "use agy then codex then claude" set the order
   locally without a model call.
+- Add blockedProviders: /guard-block (or "dont touch claude") keeps Guard off a
+  subscription; it pauses instead of routing there. The footer marks it.
+- Fix word-boundary escapes in the plain-text priority parser.
 
 ## 0.6.3 — 2026-11-09
 

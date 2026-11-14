@@ -63,6 +63,7 @@ export default function guard(pi: ExtensionAPI) {
       const active=p.provider===currentGroup;
       let cell=(active?"▸":"")+labels[p.provider]+" "+(w?Math.max(0,w.remainingPercent).toFixed(0)+"%":"?");
       if(p.status==="depleted")cell+="∅";
+      if(p.status==="blocked")cell+="⛔";
       if(active && w && Number.isFinite(w.slopePercentPerHour) && w.slopePercentPerHour>=0.1)cell+=" −"+(w.slopePercentPerHour<1?w.slopePercentPerHour.toFixed(1):Math.round(w.slopePercentPerHour))+"%/h";
       return cell;
     });
@@ -353,17 +354,17 @@ export default function guard(pi: ExtensionAPI) {
   }
   // Plain-text priority requests ("use agy then codex then claude", "codex first", "prefer claude over codex")
   // are applied locally and never sent to a model. Only short, idle, typed messages qualify.
-  const ALIASES:[RegExp,string][]=[[/(claude|anthropic|fable|opus|sonnet)/g,'claude'],[/(codex|openai|gpt|chatgpt)/g,'codex'],[/(agy|antigravity|gemini|argon|google)/g,'agy']];
+  const ALIASES:[RegExp,string][]=[[/\b(claude|anthropic|fable|opus|sonnet)\b/g,'claude'],[/\b(codex|openai|gpt|chatgpt)\b/g,'codex'],[/\b(agy|antigravity|gemini|argon|google)\b/g,'agy']];
   function parseOrderRequest(text:string):string[]|null{
     const t=text.trim().toLowerCase();
     if(t.length>140 || t.split(String.fromCharCode(10)).length>1 || t.startsWith('/'))return null;
-    if(!/(use|prefer|priority|prioriti[sz]e|order|first|then|before|over|switch to|route)/.test(t))return null;
+    if(!/\b(use|prefer|priority|prioriti[sz]e|order|first|then|before|over|switch to|route)\b/.test(t))return null;
     // Reject sentences that look like real work rather than a routing preference.
-    if(/(fix|write|edit|build|run|test|implement|refactor|add|remove|create|explain|why|how)/.test(t))return null;
+    if(/\b(fix|write|edit|build|run|test|implement|refactor|add|remove|create|explain|why|how|what|which|where|\?)\b/.test(t))return null;
     const hits:{at:number,id:string}[]=[];
     for(const [re,id] of ALIASES){let m;re.lastIndex=0;while((m=re.exec(t)))hits.push({at:m.index,id});}
     const seen=[...new Set(hits.sort((a,b)=>a.at-b.at).map(h=>h.id))];
-    if(seen.length<2 && !/first/.test(t))return null;
+    if(seen.length<2 && !/\bfirst\b/.test(t))return null;
     if(seen.length<1)return null;
     // "prefer X over Y" / "X before Y" keep X first; "then" keeps appearance order.
     const rest=(policy.providerOrder||['claude','codex','agy']).filter((id:string)=>!seen.includes(id));
@@ -371,6 +372,15 @@ export default function guard(pi: ExtensionAPI) {
   }
   pi.on('input',async(event:any,ctx:ExtensionContext)=>{
     if(event.source!=='interactive' || event.streamingBehavior || event.images?.length)return {action:'continue'};
+    const t=event.text.trim().toLowerCase();
+    const block=t.length<=80 && !t.startsWith('/') && /^(block|don'?t (touch|use)|do not (touch|use)|no|stop using|unblock)\b/.test(t)?t:null;
+    if(block){
+      const ids=[...new Set([...block.matchAll(/\b(claude|codex|agy|antigravity|gemini|argon)\b/g)].map(m=>/^(agy|antigravity|gemini|argon)$/.test(m[1])?'agy':m[1]))];
+      if(ids.length){const clear=block.startsWith('unblock');const next=clear?(policy.blockedProviders||[]).filter((b:string)=>!ids.includes(b)):[...new Set([...(policy.blockedProviders||[]),...ids])].slice(0,2);
+        try{const state=await api('/api/policy',{blockedProviders:next});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));ctx.ui.notify((next.length?'Blocked: '+next.map((b:string)=>ORDER_LABELS[b]).join(', '):'No subscription is blocked.')+' Set from your message without a model call.','info');}
+        catch(error:any){ctx.ui.notify(`Guard block not changed: ${error.message}`,'error');}
+        return {action:'handled'};}
+    }
     const order=parseOrderRequest(event.text);
     if(!order)return {action:'continue'};
     try{await setOrder(order,'Set from your message without a model call. ',ctx);}
@@ -407,6 +417,16 @@ export default function guard(pi: ExtensionAPI) {
       }
       await setOrder(order,why,ctx);
     }catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}},
+  });
+  pi.registerCommand('guard-block',{
+    description:'Block a subscription from routing (/guard-block claude); /guard-block none clears',
+    handler:async(args,ctx)=>{try{
+      const words=args.trim().toLowerCase().split(/[s,]+/).filter(Boolean).map(w=>w.startsWith('ag')||w.startsWith('ant')||w.startsWith('gem')?'agy':w);
+      const blocked=words.includes('none')?[]:words;
+      if(blocked.some(b=>!['claude','codex','agy'].includes(b)))throw Error('Use /guard-block claude, /guard-block codex agy, or /guard-block none');
+      const state=await api('/api/policy',{blockedProviders:blocked});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+      ctx.ui.notify(blocked.length?`Blocked: ${blocked.map(b=>ORDER_LABELS[b]).join(', ')}. Guard pauses instead of routing there. /guard-block none clears.`:'No subscription is blocked.','info');
+    }catch(error:any){ctx.ui.notify(`Guard block not changed: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-unlock',{
     description:'Allow direct model selection; direct models bypass Guard request protection',

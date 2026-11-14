@@ -47,6 +47,9 @@ staleness and unconfirmed resets still stop requests.
   The footer shows the order left to right.
   A short typed request such as "use agy then codex then claude" or "codex
   first" is applied the same way, locally, without reaching a model.
+- `/guard-block claude` keeps Guard off a subscription entirely; it pauses rather
+  than route there. `/guard-block none` clears. Typing "dont touch claude" or
+  "block codex" does the same locally.
 
 The planner defaults to Claude returning, then Codex, then other connected
 subscriptions. Change the preference or bridge target under Advanced.

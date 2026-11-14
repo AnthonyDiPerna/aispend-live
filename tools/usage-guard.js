@@ -24,6 +24,7 @@ const DEFAULT_POLICY = Object.freeze({
   apiTaskBudgetUsd: 0,
   maxOutputTokens: 4096,
   providerOrder: ['claude', 'codex', 'agy'],
+  blockedProviders: [],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
 const LIMITS = {
@@ -48,6 +49,10 @@ function cleanPolicy(input = {}) {
   if (input.providerOrder !== undefined) {
     if (!Array.isArray(input.providerOrder) || input.providerOrder.length !== 3 || new Set(input.providerOrder).size !== 3 || input.providerOrder.some(p=>!['claude','codex','agy'].includes(p))) throw new Error('providerOrder must contain claude, codex, and agy once each');
     result.providerOrder = [...input.providerOrder];
+  }
+  if (input.blockedProviders !== undefined) {
+    if (!Array.isArray(input.blockedProviders) || input.blockedProviders.some(p=>!['claude','codex','agy'].includes(p)) || input.blockedProviders.length>2) throw new Error('blockedProviders may list up to two of claude, codex, agy');
+    result.blockedProviders = [...new Set(input.blockedProviders)];
   }
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
@@ -206,6 +211,7 @@ function buildPlan(state, now = Date.now()) {
   const apiBinding=state.bindings?.api;
   providers.push({provider:'api',status:policy.allowApiSpend && policy.apiDailyBudgetUsd>0 && policy.apiTaskBudgetUsd>0?'ready':'disabled',windows:[],configured:Boolean(apiBinding),binding:apiBinding || null,message:policy.allowApiSpend?'Paid fallback. Every request reserves an estimated cost against daily and task caps.':'Paid fallback is off. Enable it explicitly and set both dollar caps.'});
   for(const p of providers){
+    if((policy.blockedProviders||[]).includes(p.provider)){p.status='blocked';p.message='Blocked by you. Guard will not route here until you unblock it.';}
     p.allowanceEligible=p.status==='ready' || (policy.usageMode!=='strict' && ['pace','reserve'].includes(p.status));
     p.routable=p.allowanceEligible&&p.configured;
   }
