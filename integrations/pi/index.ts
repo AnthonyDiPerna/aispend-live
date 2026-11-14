@@ -51,13 +51,30 @@ export default function guard(pi: ExtensionAPI) {
   const persistBlocks=()=>pi.appendEntry('aispend.guard-blocks',{operations:[...blockedOperations]});
   const impact=(kind:string,extra:any={})=>api('/api/intervention',{id:randomUUID(),taskId,kind,...extra});
   const routing=(ctx:ExtensionContext)=>({currentProvider:currentGroup,availableProviders:[...new Set(available(ctx).map(m=>modelGroup(ctx,m)))],availableModels:available(ctx).map(m=>m.provider+'/'+m.id),contextTokens:ctx.getContextUsage()?.tokens||0});
+  // Footer: subscriptions left to right in priority order. Per provider: route marker, remaining %,
+  // status flag, measured burn, time to run-out when it precedes the reset, time to reset.
+  const span=(h:number)=>!Number.isFinite(h)||h<0?"?":h<1?Math.max(1,Math.round(h*60))+"m":h<48?Math.round(h)+"h":Math.round(h/24)+"d";
+  const FLAG:any={reserve:"⚑",pace:"⚑",depleted:"∅",stale:"?",unknown:"?","verify-reset":"↻?"};
   function statusLine(state:any){
-    const labels:any={claude:'Claude',codex:'Codex',agy:'AGY'};
-    const quotas=state.providers.filter((p:any)=>p.provider!=='api').map((p:any)=>{
-      const rows=p.windows.filter((w:any)=>w.applies);
-      return `${labels[p.provider]} ${rows.length?Math.min(...rows.map((w:any)=>w.remainingPercent)).toFixed(0)+'%':'?'}${['ready'].includes(p.status)?'':' ('+p.status+')'}`;
+    const labels:any={claude:"Claude",codex:"Codex",agy:"AGY"};
+    const order:string[]=state.policy?.providerOrder||["claude","codex","agy"];
+    const cells=order.map(id=>state.providers.find((p:any)=>p.provider===id)).filter(Boolean).map((p:any)=>{
+      const rows=p.windows.filter((w:any)=>w.applies).sort((a:any,b:any)=>a.remainingPercent-b.remainingPercent);
+      const w=rows[0];
+      let cell=(p.provider===currentGroup?"▸":"")+labels[p.provider];
+      if(!w)return cell+" ?";
+      cell+=" "+Math.max(0,w.remainingPercent).toFixed(0)+"%";
+      const other=rows.find((r:any)=>r.windowId!==w.windowId && r.remainingPercent-w.remainingPercent>=5);
+      if(other)cell+="·"+String(other.windowId).split(":").pop()+" "+Math.max(0,other.remainingPercent).toFixed(0)+"%";
+      if(FLAG[p.status])cell+=" "+FLAG[p.status];
+      const slope=w.slopePercentPerHour;
+      if(Number.isFinite(slope) && slope>=0.1)cell+=" −"+(slope<1?slope.toFixed(1):Math.round(slope))+"%/h";
+      if(Number.isFinite(w.depletionHours) && w.depletionHours<w.hoursLeft)cell+=" ⌛"+span(w.depletionHours)+"!";
+      cell+=" ↻"+span(w.hoursLeft);
+      return cell;
     });
-    return `Guard · ${quotas.join(' | ')} · API ~$${Number(state.accounting?.apiEstimateUsd||0).toFixed(3)}`;
+    const api=Number(state.accounting?.apiEstimateUsd||0);
+    return "Guard "+(state.policy?.usageMode||"")+" · "+cells.join(" · ")+(api>0?" · API $"+api.toFixed(2):"");
   }
   function watch(ctx:ExtensionContext) {
     if(watcher || !ctx.hasUI) return;
