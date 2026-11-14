@@ -346,6 +346,37 @@ export default function guard(pi: ExtensionAPI) {
   });
   // Priority order: pick in a list (mouse-clickable in fullscreen Pi, arrows otherwise), name it, or let
   // "auto" apply use-it-or-lose-it: usable allowances first, soonest reset first; unusable ones last.
+  const ORDER_LABELS:any={claude:'Claude',codex:'Codex',agy:'AGY (Antigravity)'};
+  async function setOrder(order:string[],why:string,ctx:ExtensionContext){
+    const state=await api('/api/policy',{providerOrder:order});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+    ctx.ui.notify(`Priority: ${order.map(id=>ORDER_LABELS[id]).join(' > ')}. ${why}Routing follows this order from the next request; the footer shows it left to right.`,'info');
+  }
+  // Plain-text priority requests ("use agy then codex then claude", "codex first", "prefer claude over codex")
+  // are applied locally and never sent to a model. Only short, idle, typed messages qualify.
+  const ALIASES:[RegExp,string][]=[[/(claude|anthropic|fable|opus|sonnet)/g,'claude'],[/(codex|openai|gpt|chatgpt)/g,'codex'],[/(agy|antigravity|gemini|argon|google)/g,'agy']];
+  function parseOrderRequest(text:string):string[]|null{
+    const t=text.trim().toLowerCase();
+    if(t.length>140 || t.split(String.fromCharCode(10)).length>1 || t.startsWith('/'))return null;
+    if(!/(use|prefer|priority|prioriti[sz]e|order|first|then|before|over|switch to|route)/.test(t))return null;
+    // Reject sentences that look like real work rather than a routing preference.
+    if(/(fix|write|edit|build|run|test|implement|refactor|add|remove|create|explain|why|how)/.test(t))return null;
+    const hits:{at:number,id:string}[]=[];
+    for(const [re,id] of ALIASES){let m;re.lastIndex=0;while((m=re.exec(t)))hits.push({at:m.index,id});}
+    const seen=[...new Set(hits.sort((a,b)=>a.at-b.at).map(h=>h.id))];
+    if(seen.length<2 && !/first/.test(t))return null;
+    if(seen.length<1)return null;
+    // "prefer X over Y" / "X before Y" keep X first; "then" keeps appearance order.
+    const rest=(policy.providerOrder||['claude','codex','agy']).filter((id:string)=>!seen.includes(id));
+    return [...seen,...rest];
+  }
+  pi.on('input',async(event:any,ctx:ExtensionContext)=>{
+    if(event.source!=='interactive' || event.streamingBehavior || event.images?.length)return {action:'continue'};
+    const order=parseOrderRequest(event.text);
+    if(!order)return {action:'continue'};
+    try{await setOrder(order,'Set from your message without a model call. ',ctx);}
+    catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}
+    return {action:'handled'};
+  });
   pi.registerCommand('guard-order',{
     description:'Set subscription priority: pick from a list, /guard-order auto (soonest reset with usable allowance first), or /guard-order codex claude agy',
     handler:async(args,ctx)=>{try{
@@ -374,8 +405,7 @@ export default function guard(pi: ExtensionAPI) {
         }
         order.push(remaining[0]);
       }
-      state=await api('/api/policy',{providerOrder:order});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
-      ctx.ui.notify(`Priority: ${order.map(id=>labels[id]).join(' > ')}. ${why}Routing follows this order from the next request; the footer shows it left to right.`,'info');
+      await setOrder(order,why,ctx);
     }catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-unlock',{

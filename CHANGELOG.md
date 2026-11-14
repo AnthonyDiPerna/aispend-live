@@ -20,6 +20,8 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
   appear only when nonzero.
 - Add /guard-order: pick the subscription priority from a list, name it, or
   use `auto` (usable allowances first, soonest reset in front).
+  Short typed requests like "use agy then codex then claude" set the order
+  locally without a model call.
 
 ## 0.6.3 — 2026-11-09
 

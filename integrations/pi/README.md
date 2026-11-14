@@ -45,6 +45,8 @@ staleness and unconfirmed resets still stop requests.
   fullscreen Pi), or `/guard-order auto` for use-it-or-lose-it ordering (usable
   allowances first, soonest reset in front), or `/guard-order codex claude agy`.
   The footer shows the order left to right.
+  A short typed request such as "use agy then codex then claude" or "codex
+  first" is applied the same way, locally, without reaching a model.
 
 The planner defaults to Claude returning, then Codex, then other connected
 subscriptions. Change the preference or bridge target under Advanced.
