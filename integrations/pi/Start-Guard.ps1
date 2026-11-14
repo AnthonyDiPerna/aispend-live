@@ -39,7 +39,14 @@ if (!$guardHealth) {
   }
   if (!$guardHealth) { throw 'The controller did not start. Inspect server-error.log in the state directory.' }
 }
-$guardArgs = @($guardCli, '--no-extensions', '-e', $guardBridge, '-e', (Join-Path $PSScriptRoot 'index.ts'), '--model', 'aispend/guard')
+$guardArgs = @($guardCli, '--no-extensions', '-e', $guardBridge)
+# Optional Antigravity bridge: routes antigravity/* models through the official agy acp server on the login agy already holds.
+$agyBridge = Join-Path $RuntimeDirectory 'node_modules/@estebanforge/pi-antigravity-bridge/extensions/index.ts'
+if (Test-Path -LiteralPath $agyBridge) {
+  if (!$env:AGY_ENGINE) { $env:AGY_ENGINE = 'acp' }
+  $guardArgs += @('-e', $agyBridge)
+}
+$guardArgs += @('-e', (Join-Path $PSScriptRoot 'index.ts'), '--model', 'aispend/guard')
 if ($ListModels) { $guardArgs += '--list-models' }
 elseif ($Resume) { $guardArgs += '--continue' }
 Write-Host 'AI Spend Guard: http://127.0.0.1:9021 · /guard to connect · /guard-hold to stop automatic resumption'

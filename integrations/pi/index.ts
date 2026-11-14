@@ -10,8 +10,11 @@ const {trimToolOutput, signature, DEFAULT_POLICY} = require('../../tools/usage-g
 const {codexObservations} = require('../../tools/usage-guard-server.js');
 const {buildHandoff,readHandoff} = require('../../tools/guard-handoff.js');
 
+// Local CLI bridges (official Claude bridge, agy acp bridge) run on the login the
+// CLI already holds; Pi has no OAuth token for them, so group them by provider id.
+const BRIDGE_PROVIDERS: Record<string,string> = {'claude-code':'claude','antigravity':'agy','antigravity-acp':'agy'};
 function group(provider: string) {
-  if(provider==='claude-code') return 'claude';
+  if(BRIDGE_PROVIDERS[provider]) return BRIDGE_PROVIDERS[provider];
   if(['openai','openai-codex'].includes(provider)) return 'codex';
   if(provider==='google-antigravity') return 'agy';
   return undefined;
@@ -79,7 +82,7 @@ export default function guard(pi: ExtensionAPI) {
   function available(ctx:ExtensionContext) {
     return ctx.modelRegistry.getAvailable().filter(model=>model.provider!=='aispend' && model.api!=='pi-virtual');
   }
-  function modelGroup(ctx:ExtensionContext,model:any){return ctx.modelRegistry.isUsingOAuth(model) && group(model.provider)?group(model.provider):'api';}
+  function modelGroup(ctx:ExtensionContext,model:any){const g=group(model.provider);return g && (BRIDGE_PROVIDERS[model.provider] || ctx.modelRegistry.isUsingOAuth(model))?g:'api';}
   function guardProviderOptions(ctx:ExtensionContext,id:string){
     if(wrappedProviders.has(id) && ctx.modelRegistry.getRegisteredNativeProvider(id)===wrappedProviders.get(id))return;
     const registered:any=ctx.modelRegistry.getProvider(id);

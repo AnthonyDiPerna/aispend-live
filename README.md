@@ -1,10 +1,12 @@
 # AI Spend Live
 
-Release 0.6.3 makes `/guard` activate protection, enforce efficient habits,
+Release 0.6.4 routes Antigravity (Gemini 4 Argon, Hydrogen, Flash) through the
+official `agy acp` server, so an idle Antigravity allowance can carry work while
+Claude and Codex recover. Release 0.6.3 makes `/guard` activate protection, enforce efficient habits,
 and repair repeated-tool loops once within the original budget. Its impact
 report explains net text removed, estimated input tokens/cost avoided on
 completed replays, blocked work, and repair overhead. Detailed settings stay
-under Advanced. Pi Guard 0.3.2 keeps protected routing active across model picks.
+under Advanced. Pi Guard 0.3.3 keeps protected routing active across model picks.
 Optional [native hooks](integrations/native/README.md) cover supported Claude,
 Codex and Antigravity boundaries, with their limitations visible in the report.
 

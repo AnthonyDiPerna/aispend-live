@@ -1,4 +1,4 @@
-# AI Spend Guard for Pi 0.3.2 (AI Spend Live 0.6.3 preview)
+# AI Spend Guard for Pi 0.3.3 (AI Spend Live 0.6.4 preview)
 
 Run `/guard` to activate the guarded model, automatic tuning and bounded loop
 recovery. `/guard status` only inspects. Once activated, selecting a subscription
@@ -80,7 +80,7 @@ Complete the [portable installation](#portable-installation) below, then run `in
 
 Your existing Claude CLI login is used by the official experimental `pi-claude-code` bridge. Claude Code still transports the requests, while Pi manages tools and history. The bridge uses the same subscription allowance. To keep a strict subscription cost ceiling, disable extra usage/overage in the provider account: the bridge can detect overage after a response, but cannot guarantee that the first such request was free.
 
-AGY quota monitoring uses the native CLI. Its Gemini, Claude/GPT, and Argon scopes are tracked separately. Monitoring does not make AGY routable in Pi. Guard only routes it when a compatible authenticated `google-antigravity` connector is available; this setup does not install one. Radius is Pi's separate gateway service, not an import of existing subscription entitlements.
+AGY quota monitoring uses the native CLI. Its Gemini, Claude/GPT, and Argon scopes are tracked separately. Routing uses the optional [pi-antigravity-bridge](https://github.com/EstebanForge/pi-extensions) (MIT), which drives Google's own `agy acp` server on the login `agy` already holds and registers `antigravity/*` models (`gemini-4-argon`, `gemini-4-hydrogen`, `gemini-3-8-flash`, plus the Claude models Antigravity resells). The launcher loads it when it is installed in the runtime folder and defaults the engine to `acp`. Guard groups those models as the `agy` subscription; the Argon allowance window applies when the selected model name contains `argon`. Antigravity runs its own tool loop, so its edits land on disk without Pi's diff review, and the bridge reports tokens but no dollar cost. Driving `agy` from another agent is not covered by a published Google policy; the bridge author calls it a grey area. Radius is Pi's separate gateway service, not an import of existing subscription entitlements.
 
 ## Portable installation
 
@@ -91,6 +91,8 @@ Requires Node 22.19+ (tested on Node 24.13), Git, and a logged-in Claude CLI if 
 npm.cmd install --prefix .guard-runtime --ignore-scripts @earendil-works/pi-coding-agent@1.5.0
 git clone https://github.com/earendil-works/pi-claude-code .guard-runtime/pi-claude-code
 git -C .guard-runtime/pi-claude-code checkout d5b5e04c314d3452d357174d16d10dda34daa2d2
+# Optional: Antigravity routing through the official agy acp server (needs a logged-in agy CLI).
+npm.cmd install --prefix .guard-runtime --ignore-scripts @estebanforge/pi-antigravity-bridge@1.10.6
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File integrations/pi/Start-Guard.ps1 -ProjectPath C:\your\project
 ```
 

@@ -3,6 +3,18 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.6.4 — 2026-11-14
+
+- Route Antigravity through the optional pi-antigravity-bridge, which uses the
+  CLI's official `agy acp` server. The launcher loads the bridge when it is
+  installed in the runtime folder and defaults its engine to acp.
+- Group local CLI bridges (`claude-code`, `antigravity`, `antigravity-acp`) as
+  subscription routes by provider id. Pi holds no OAuth token for a bridge, so
+  the previous OAuth-only test filed their models under paid API and left them
+  unroutable.
+- Document Argon window matching, the bridge's tool-loop and cost limits, and
+  the unpublished policy position on driving `agy` from another agent.
+
 ## 0.6.3 — 2026-11-09
 
 - Default to Keep working: fresh positive allowance remains usable when a
