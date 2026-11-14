@@ -231,6 +231,8 @@ function createGuardServer(options={}) {
           contextTokens:Number(data.contextTokens)||0,repeatedTools:Number(data.repeatedTools)||0,
           availableProviders:Array.isArray(data.availableProviders)?data.availableProviders:[],
           availableModels:Array.isArray(data.availableModels)?data.availableModels:undefined,
+          preferredProvider:['claude','codex','agy'].includes(data.preferredProvider)?data.preferredProvider:undefined,
+          preferredModel:typeof data.preferredModel==='string' && data.preferredModel.length<=80?data.preferredModel:undefined,
         }},now());
         if(['continue','switch'].includes(decision.action) && decision.provider==='api'){
           const budget=checkApiBudget(state,leases,id,models.get(decision.binding.provider+':'+decision.binding.model),plan.policy,now());

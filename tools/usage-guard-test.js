@@ -110,3 +110,26 @@ async function run() {
   console.log('AI Spend Guard policy, reset, privacy, and HTTP integration tests passed');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
+
+// Task routing rules: preferred provider wins when eligible; model alias resolves against available models.
+{
+  const {cleanPolicy,decide,buildPlan,initialState}=require('./usage-guard');
+  const policy=cleanPolicy({routingRules:[{match:'Translations',provider:'agy',model:'argon'}]});
+  assert.deepEqual(policy.routingRules,[{match:'translations',provider:'agy',model:'argon'}]);
+  assert.throws(()=>cleanPolicy({routingRules:[{match:'x',provider:'agy'}]}));
+  assert.throws(()=>cleanPolicy({blockedProviders:['claude','codex','agy']}));
+  const s=initialState();s.policy.usageMode='max';s.policy.providerOrder=['claude','codex','agy'];
+  s.bindings={claude:{provider:'claude-code',model:'claude-sonnet-5'},agy:{provider:'antigravity',model:'gemini-3-8-flash'}};
+  const t0=Date.now();
+  s.observations=[{provider:'claude',windowId:'weekly',windowMinutes:10080,usedPercent:10,resetAt:new Date(t0+72*3600000).toISOString(),observedAt:new Date(t0).toISOString(),source:'manual'},
+    {provider:'agy',windowId:'gemini:weekly',windowMinutes:10080,usedPercent:0,resetAt:new Date(t0+100*3600000).toISOString(),observedAt:new Date(t0).toISOString(),source:'manual'}];
+  const plan=buildPlan(s,t0);
+  const task={availableProviders:['claude','agy'],availableModels:['claude-code/claude-sonnet-5','antigravity/gemini-3-8-flash','antigravity/gemini-4-argon']};
+  assert.equal(decide(plan,task,t0).provider,'claude','order wins without a rule');
+  const ruled=decide(plan,{...task,preferredProvider:'agy',preferredModel:'argon'},t0);
+  assert.equal(ruled.provider,'agy');assert.equal(ruled.binding.model,'gemini-4-argon');
+  assert.equal(decide(plan,{...task,preferredProvider:'agy',currentProvider:'claude',continuation:true},t0).provider,'claude','continuations keep their provider');
+  s.policy.blockedProviders=['agy'];
+  assert.equal(decide(buildPlan(s,t0),{...task,preferredProvider:'agy'},t0).provider,'claude','a rule cannot reach a blocked provider');
+  console.log('Routing rules and blocked providers passed');
+}

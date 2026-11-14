@@ -25,6 +25,20 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add blockedProviders: /guard-block (or "dont touch claude") keeps Guard off a
   subscription; it pauses instead of routing there. The footer marks it.
 - Fix word-boundary escapes in the plain-text priority parser.
+- Add task routing rules: /guard-rule or a sentence like "all translations
+  use argon" maps a phrase to a subscription and optional model alias. Rules
+  match locally against your own message; the controller honors the
+  preference only when that provider is eligible, and continuations keep
+  their provider for cache reuse.
+- Add tools/export-guard-snapshot.js: a sanitized controller snapshot
+  (percentages, hashed task prefixes, counters, model IDs) for the public
+  site's live example. Paths and prompts are refused at export time.
+- Add /guard-start: continue from the newest saved checkpoint per task, with a
+  start-of-session notice when a recent one exists. Deduplicate repeated pause
+  handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Landing page: replace the synthetic Guard preview with the sanitized live
+  snapshot, the Pi footer as rendered, a dated walkthrough of a real morning
+  across three subscriptions, and the typed-command summary.
 
 ## 0.6.3 — 2026-11-09
 

@@ -1,5 +1,5 @@
 import {createRequire} from 'node:module';
-import {mkdirSync, writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,existsSync,readdirSync,readFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {homedir} from 'node:os';
 import {randomUUID} from 'node:crypto';
@@ -27,10 +27,12 @@ export default function guard(pi: ExtensionAPI) {
   let taskId='', activeLease:string|undefined, removedChars=0, repeatedTools=0, lastTool='', pendingCompact=false, compactedThisRun=false;
   let policy={...DEFAULT_POLICY};
   let currentGroup:string|undefined;
+  let taskRule:{provider:string,model:string|null,match:string}|undefined;
   let waitingForAllowance=false, checking=false;
   let disposed=false;
   let localFailure:string|undefined;
   let lastHandoff:string|undefined;
+  let lastPauseKey='',lastPauseAt=0;
   let watcher:ReturnType<typeof setInterval>|undefined;
   let guardArmed=false,restoringModel=false,pendingRepair=false,lastOperation='';
   const blockedOperations=new Set<string>();
@@ -137,6 +139,8 @@ export default function guard(pi: ExtensionAPI) {
   function checkpoint(ctx:ExtensionContext,reason:string) {
     pi.appendEntry('aispend.guard-checkpoint',{taskId,reason,at:new Date().toISOString()});
     ctx.ui.setStatus('aispend',`Guard paused: ${reason}`);
+    if(reason===lastPauseKey && Date.now()-lastPauseAt<60000)return true; // same pause repeating: keep the first handoff
+    lastPauseKey=reason;lastPauseAt=Date.now();
     try{const saved=saveHandoff(ctx,reason);void impact('handoff').catch(()=>{});ctx.ui.notify(`Guard: ${reason}\nLocal handoff saved: ${saved.file}\n/guard-new starts fresh from these excerpts; the original session is kept.`,'info');return true;}
     catch{ctx.ui.notify('Guard paused. Could not write a handoff; the original Pi session is still available.','warning');return false;}
   }
@@ -151,11 +155,13 @@ export default function guard(pi: ExtensionAPI) {
       if(entry.type==='custom' && entry.customType==='aispend.guard-armed')guardArmed=entry.data?.armed===true;
     }
     if(watcher){clearInterval(watcher);watcher=undefined;}
-    taskId=signature(ctx.sessionManager.getSessionId());
+    taskId=signature(ctx.sessionManager.getSessionId());taskRule=undefined;
     watch(ctx);
     try {const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));}
     catch {ctx.ui.setStatus('aispend','Start AI Spend Guard on port 9021 · /guard');}
     if(guardArmed && !isGuard(ctx)){const model=ctx.modelRegistry.find('aispend','guard');if(model)await pi.setModel(model);}
+    try{const recent=blastOffPoints(1)[0];const fresh=!ctx.sessionManager.getEntries().some((e:any)=>e.type==='message');
+      if(recent && fresh && ctx.hasUI && Date.now()-recent.savedAt<48*3600000)ctx.ui.notify(`Checkpoint available (${age(recent.savedAt)}): "${recent.goal}". /guard-start continues from it instead of starting cold.`,'info');}catch{}
   });
   pi.on('model_select',async(event,ctx)=>{
     if(restoringModel || !guardArmed || event.model.provider==='aispend')return;
@@ -197,6 +203,7 @@ export default function guard(pi: ExtensionAPI) {
         contextTokens:request.reason==='direct'?0:ctx.getContextUsage()?.tokens || 0,
         repeatedTools:request.reason==='direct'?0:repeatedTools,
         phase:request.reason==='direct'?'compact':'work',
+        preferredProvider:taskRule?.provider,preferredModel:taskRule?.model||undefined,
       }).catch(error=>{throw new Error(`AI Spend Guard billing guard paused: controller unavailable (${error.message}). Start the local controller; no provider request was authorized.`);});
       policy=decision.policy || policy;
       if(decision.action==='compact') {
@@ -347,6 +354,32 @@ export default function guard(pi: ExtensionAPI) {
   });
   // Priority order: pick in a list (mouse-clickable in fullscreen Pi, arrows otherwise), name it, or let
   // "auto" apply use-it-or-lose-it: usable allowances first, soonest reset first; unusable ones last.
+  // Model aliases a person would type. Resolved against the models Pi actually has at request time.
+  const MODEL_ALIASES:Record<string,[string,string|null]>={argon:['agy','argon'],hydrogen:['agy','hydrogen'],flash:['agy','flash'],gemini:['agy',null],antigravity:['agy',null],agy:['agy',null],
+    opus:['claude','opus'],fable:['claude','fable'],sonnet:['claude','sonnet'],haiku:['claude','haiku'],claude:['claude',null],
+    sol:['codex','sol'],luna:['codex','luna'],astra:['codex','astra'],codex:['codex',null],gpt:['codex',null],openai:['codex',null]};
+  function matchRule(text:string){
+    const t=text.toLowerCase();
+    const hit=(policy.routingRules||[]).filter((r:any)=>t.includes(r.match)).sort((a:any,b:any)=>b.match.length-a.match.length)[0];
+    return hit?{provider:hit.provider,model:hit.model,match:hit.match}:undefined;
+  }
+  // "all translations use argon", "website updates -> argon", "code changes on opus"
+  function parseRuleRequest(text:string):{match:string,provider:string,model:string|null}|null{
+    const t=text.trim().toLowerCase();
+    if(t.length>120 || t.startsWith('/'))return null;
+    const m=/^(?:all |every |any )?(.{2,60}?)\s+(?:should |always |must )?(?:use|uses|go to|goes to|run on|runs on|on|with|->|=>|→)\s+(?:the )?([a-z0-9. -]{2,40})$/.exec(t);
+    if(!m)return null;
+    const alias=m[2].replace(/\b(model|models|please)\b/g,'').trim().split(/\s+/)[0];
+    const target=MODEL_ALIASES[alias];if(!target)return null;
+    const match=m[1].replace(/^(my|the|our)\s+/,'').replace(/\s+(tasks?|work|requests?|changes?|updates?)$/,(s)=>s).trim();
+    if(match.length<2)return null;
+    return {match,provider:target[0],model:target[1]};
+  }
+  async function saveRule(rule:{match:string,provider:string,model:string|null},ctx:ExtensionContext){
+    const rules=[...(policy.routingRules||[]).filter((r:any)=>r.match!==rule.match),rule].slice(-20);
+    const state=await api('/api/policy',{routingRules:rules});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+    ctx.ui.notify(`Rule saved: "${rule.match}" → ${ORDER_LABELS[rule.provider]}${rule.model?' ('+rule.model+')':''}. Applies to new tasks whose first message mentions it; matched locally, never sent to a model. /guard-rule list shows all.`,'info');
+  }
   const ORDER_LABELS:any={claude:'Claude',codex:'Codex',agy:'AGY (Antigravity)'};
   async function setOrder(order:string[],why:string,ctx:ExtensionContext){
     const state=await api('/api/policy',{providerOrder:order});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
@@ -381,8 +414,15 @@ export default function guard(pi: ExtensionAPI) {
         catch(error:any){ctx.ui.notify(`Guard block not changed: ${error.message}`,'error');}
         return {action:'handled'};}
     }
+    const ruleRequest=parseRuleRequest(event.text);
+    if(ruleRequest){try{await saveRule(ruleRequest,ctx);}catch(error:any){ctx.ui.notify(`Guard rule not saved: ${error.message}`,'error');}return {action:'handled'};}
     const order=parseOrderRequest(event.text);
-    if(!order)return {action:'continue'};
+    if(!order){
+      // Ordinary work: a matching rule steers this task from its next request on.
+      const rule=matchRule(event.text);
+      if(rule && (taskRule?.provider!==rule.provider || taskRule?.model!==rule.model)){taskRule=rule;ctx.ui.notify(`Rule "${rule.match}": routing this task to ${ORDER_LABELS[rule.provider]}${rule.model?' ('+rule.model+')':''}.`,'info');}
+      return {action:'continue'};
+    }
     try{await setOrder(order,'Set from your message without a model call. ',ctx);}
     catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}
     return {action:'handled'};
@@ -417,6 +457,48 @@ export default function guard(pi: ExtensionAPI) {
       }
       await setOrder(order,why,ctx);
     }catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}},
+  });
+  // Saved handoffs are the durable memory between sessions. List the newest per task with its goal
+  // so work continues from a checkpoint instead of restarting with no context.
+  function blastOffPoints(limit=8){
+    if(!existsSync(artifacts))return [];
+    const byTask=new Map<string,{file:string,task:string,savedAt:number,goal:string,reason:string}>();
+    for(const name of readdirSync(artifacts)){
+      const m=/^handoff-([0-9a-f]+)-(\d+)\.md$/.exec(name);if(!m)continue;
+      const savedAt=Number(m[2]);const prev=byTask.get(m[1]);if(prev && prev.savedAt>=savedAt)continue;
+      let text='';try{text=readFileSync(join(artifacts,name),'utf8').slice(0,6000);}catch{continue;}
+      const goal=(/## Original goal\s+([\s\S]*?)(?:\n## |$)/.exec(text)?.[1]||'').replace(/\s+/g,' ').trim().slice(0,140);
+      const reason=(/Reason: ([^\n]*)/.exec(text)?.[1]||'').replace(/\.+$/,'').slice(0,80);
+      byTask.set(m[1],{file:join(artifacts,name),task:m[1].slice(0,8),savedAt,goal:goal||'(no goal excerpt)',reason});
+    }
+    return [...byTask.values()].sort((a,b)=>b.savedAt-a.savedAt).slice(0,limit);
+  }
+  const age=(ms:number)=>{const h=(Date.now()-ms)/3600000;return h<1?Math.max(1,Math.round(h*60))+'m ago':h<48?Math.round(h)+'h ago':Math.round(h/24)+'d ago';};
+  pi.registerCommand('guard-start',{
+    description:'Continue from a saved checkpoint: lists recent handoffs (newest per task) and opens a fresh session from the one you pick',
+    handler:async(_args,ctx)=>{await ctx.waitForIdle();try{
+      const points=blastOffPoints();
+      if(!points.length){ctx.ui.notify('No saved handoffs yet. Guard writes one at every pause, and /guard-handoff saves one on demand.','info');return;}
+      if(!ctx.hasUI)throw Error('Pick interactively, or /guard-import <file>');
+      const labels=points.map(p=>`${age(p.savedAt)} · ${p.goal}${p.reason?' · paused: '+p.reason:''}`);
+      const choice=await ctx.ui.select('Continue from which checkpoint?',labels);
+      if(!choice)return;
+      const point=points[labels.indexOf(choice)];
+      const text=readHandoff(point.file);waitingForAllowance=false;
+      await ctx.newSession({setup:async manager=>{manager.appendMessage({role:'user',content:[{type:'text',text}],timestamp:Date.now()});},withSession:async fresh=>{fresh.ui.notify(`Blast-off from a checkpoint saved ${age(point.savedAt)}. Review the excerpts, then send your next instruction through Guard. No model call was made.`,'info');}});
+    }catch(error:any){ctx.ui.notify(error.message||'Could not open the checkpoint. The current session is intact.','error');}},
+  });
+  pi.registerCommand('guard-rule',{
+    description:'Task routing rules: /guard-rule translations -> argon, /guard-rule list, /guard-rule remove translations',
+    handler:async(args,ctx)=>{try{
+      const text=args.trim();
+      if(!text || /^list$/i.test(text)){const rules=policy.routingRules||[];ctx.ui.notify(rules.length?rules.map((r:any)=>`"${r.match}" → ${ORDER_LABELS[r.provider]}${r.model?' ('+r.model+')':''}`).join('\n'):'No routing rules. Try: /guard-rule translations -> argon','info');return;}
+      const rm=/^(?:remove|delete|clear)\s+(.+)$/i.exec(text);
+      if(rm){const key=rm[1].trim().toLowerCase();const rules=(policy.routingRules||[]).filter((r:any)=>r.match!==key);const state=await api('/api/policy',{routingRules:rules});policy=state.policy;ctx.ui.notify(`Removed rule "${key}".`,'info');return;}
+      const rule=parseRuleRequest(text.includes('->')||text.includes('→')?text:text.replace(/\s+(use|on|with)\s+/,' -> '));
+      if(!rule)throw Error('Use: /guard-rule <what> -> <argon|opus|fable|sonnet|sol|luna|claude|codex|agy>');
+      await saveRule(rule,ctx);
+    }catch(error:any){ctx.ui.notify(`Guard rule not saved: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-block',{
     description:'Block a subscription from routing (/guard-block claude); /guard-block none clears',

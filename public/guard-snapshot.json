@@ -1,0 +1,412 @@
+{
+ "generatedAt": "2026-11-14T16:48:33.689Z",
+ "source": "controller",
+ "version": "0.6.5",
+ "policy": {
+  "usageMode": "max",
+  "providerOrder": [
+   "agy",
+   "codex",
+   "claude"
+  ],
+  "blockedProviders": [
+   "claude"
+  ],
+  "reservePercent": 10,
+  "maxRequestsPerTask": 200,
+  "maxTaskMinutes": 480,
+  "maxContextTokens": 80000,
+  "maxThinkingLevel": "medium",
+  "maxSubagentCalls": 0,
+  "allowApiSpend": false
+ },
+ "recommendedProvider": "agy",
+ "footer": "Guard · ▸AGY 100% · Codex 10% · Claude 90%⛔ · next: Codex resets in 21h",
+ "providers": [
+  {
+   "provider": "agy",
+   "status": "ready",
+   "blocked": false,
+   "configured": true,
+   "model": "gemini-4-argon",
+   "remainingPercent": 100,
+   "resetIn": "7d",
+   "resetAt": "2026-11-21T16:43:51.000Z",
+   "burnPercentPerHour": null,
+   "runOutIn": null,
+   "windows": [
+    {
+     "id": "gemini:weekly",
+     "remainingPercent": 100,
+     "resetIn": "7d",
+     "applies": true
+    },
+    {
+     "id": "gemini:session",
+     "remainingPercent": 100,
+     "resetIn": "5h",
+     "applies": true
+    },
+    {
+     "id": "claude-gpt:weekly",
+     "remainingPercent": 100,
+     "resetIn": "7d",
+     "applies": false
+    },
+    {
+     "id": "claude-gpt:session",
+     "remainingPercent": 100,
+     "resetIn": "5h",
+     "applies": false
+    },
+    {
+     "id": "gemini-argon:weekly",
+     "remainingPercent": 100,
+     "resetIn": "7d",
+     "applies": true
+    }
+   ]
+  },
+  {
+   "provider": "codex",
+   "status": "reserve",
+   "blocked": false,
+   "configured": true,
+   "model": "gpt-5.6-sol",
+   "remainingPercent": 10,
+   "resetIn": "21h",
+   "resetAt": "2026-11-15T13:38:43.000Z",
+   "burnPercentPerHour": 0.1,
+   "runOutIn": null,
+   "windows": [
+    {
+     "id": "codex:primary",
+     "remainingPercent": 10,
+     "resetIn": "21h",
+     "applies": true
+    }
+   ]
+  },
+  {
+   "provider": "claude",
+   "status": "blocked",
+   "blocked": true,
+   "configured": true,
+   "model": "claude-sonnet-5",
+   "remainingPercent": 90,
+   "resetIn": "3d",
+   "resetAt": "2026-11-17T23:00:00.000Z",
+   "burnPercentPerHour": 12.7,
+   "runOutIn": "7h",
+   "windows": [
+    {
+     "id": "weekly",
+     "remainingPercent": 90,
+     "resetIn": "3d",
+     "applies": true
+    },
+    {
+     "id": "weekly:fable",
+     "remainingPercent": 91,
+     "resetIn": "3d",
+     "applies": false
+    }
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "deb1f665",
+   "requests": 1,
+   "tokens": 0,
+   "status": "running",
+   "provider": "agy",
+   "startedAt": "2026-11-14T16:43:15.3192652Z",
+   "minutes": 2,
+   "contextTokens": 31285,
+   "trimmedChars": 6732
+  }
+ ],
+ "interventions": {
+  "switches": 1
+ },
+ "impact": {
+  "removedChars": 6732,
+  "estimatedInputTokensAvoided": 1682,
+  "loopBlocks": 0
+ },
+ "insights": {
+  "since": "2026-11-13T16:44:08.107Z",
+  "providers": [
+   {
+    "provider": "claude",
+    "requests": 8658,
+    "totalTokens": 3849825407,
+    "cachePercent": 99,
+    "metrics": [
+     {
+      "id": "subagents",
+      "label": "Tokens in subagent requests",
+      "percent": 91.9
+     },
+     {
+      "id": "context",
+      "label": "Tokens in requests with >150k input context",
+      "percent": 97.4
+     },
+     {
+      "id": "effort",
+      "label": "Max / ultra / xhigh effort, where recorded",
+      "percent": null
+     },
+     {
+      "id": "long",
+      "label": "Tokens in sessions spanning 8+ hours",
+      "percent": 32.7
+     },
+     {
+      "id": "cache",
+      "label": "Recorded input tokens read from cache",
+      "percent": 98.7
+     }
+    ]
+   },
+   {
+    "provider": "codex",
+    "requests": 38,
+    "totalTokens": 4460785,
+    "cachePercent": 89,
+    "metrics": [
+     {
+      "id": "subagents",
+      "label": "Tokens in subagent requests",
+      "percent": 22.3
+     },
+     {
+      "id": "context",
+      "label": "Tokens in requests with >150k input context",
+      "percent": 77.7
+     },
+     {
+      "id": "effort",
+      "label": "Max / ultra / xhigh effort, where recorded",
+      "percent": 67.2
+     },
+     {
+      "id": "long",
+      "label": "Tokens in sessions spanning 8+ hours",
+      "percent": 77.7
+     },
+     {
+      "id": "cache",
+      "label": "Recorded input tokens read from cache",
+      "percent": 89.1
+     }
+    ]
+   }
+  ]
+ },
+ "events": [
+  {
+   "at": "2026-11-14T16:38:04.128Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:05.423Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:06.754Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:07.899Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:09.116Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:10.441Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:16.689Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:25.882Z",
+   "kind": "protection",
+   "detail": "effort-cap: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.873Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.885Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.887Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.893Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.895Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.900Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.907Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.913Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.915Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.919Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.921Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.931Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.935Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.948Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.950Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.955Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.957Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.961Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.963Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.967Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.969Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.974Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.977Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.982Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.984Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.989Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:38:31.991Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:38:31.995Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:39:16.179Z",
+   "kind": "pause",
+   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
+  },
+  {
+   "at": "2026-11-14T16:39:16.183Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T16:41:01.524Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
+  },
+  {
+   "at": "2026-11-14T16:44:28.647Z",
+   "kind": "binding",
+   "detail": "Selected connected subscription models. Existing choices and API spending are unchanged."
+  }
+ ],
+ "note": "Sanitized local snapshot: percentages, hashed task prefixes, counters and model IDs. No prompts, files or account identity."
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="application-version" content="0.6.3">
+  <meta name="application-version" content="0.6.5">
   <meta name="description" content="AI Spend Live turns local AI usage logs into model, cache, and pacing guidance without exposing prompts.">
   <title>AI Spend Live — Usage you can act on</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1013'/%3E%3Cpath d='M14 46V32h8v14m6 0V22h8v24m6 0V12h8v34' stroke='%2358d5a4' stroke-width='6'/%3E%3C/svg%3E">
@@ -118,11 +118,11 @@
     <main>
       <section class="hero">
         <div>
-          <div class="eyebrow">AI Spend Live 0.6.3 &middot; Local usage. Measured allowance.</div>
+          <div class="eyebrow">AI Spend Live 0.6.5 &middot; Local usage. Measured allowance.</div>
           <h1>Make your AI week<br>go further.</h1>
           <p class="lead">Understand where your tokens go. Plan around your resets. Give long-running work a budget before it uses the rest of your week.</p>
           <div class="actions">
-            <a class="button primary" href="ai-spend-live-0.6.3-source.zip">Download source v0.6.3</a>
+            <a class="button primary" href="ai-spend-live-0.6.5-source.zip">Download source v0.6.5</a>
             <a class="button" href="guard.html">Try the reset planner &nearr;</a>
             <a class="button" href="https://github.com/AnthonyDiPerna/aispend-live">View source</a>
           </div>
@@ -138,7 +138,24 @@
         </div>
       </section>
 
-<section class="guard-preview" id="guard"><div class="section-head"><div class="eyebrow">AI Spend Guard &middot; Pi extension preview</div><h2>Keep working. Waste less.</h2></div><p>Run /guard and work normally. Keep working, stretch to the next reset, or use your current allowance now. Guard reads Codex banked resets, bounds context, blocks repeated work and shows the input it kept out of later requests. Credits stay separate from your live balance. API spending requires explicit budgets.</p><div class="reset-preview" aria-label="Synthetic allowance example"><div>Claude <strong class="caution">14% left</strong><small>Reset in 48h &middot; ease off</small></div><div>Codex <strong>73% left</strong><small>Reset in 96h &middot; ready</small></div><div>Antigravity <strong>84% left</strong><small>Reset in 24h &middot; routing connector needed</small></div></div><p class="note" style="margin-top:14px">Synthetic example. Live account data stays local. Plans have finite allowances; no harness can guarantee unlimited work.</p><div class="actions"><a class="button primary" href="guard.html">Explore the planner</a><a class="button" href="ai-spend-live-guard-preview.zip">Source &amp; setup</a></div></section>
+<section class="guard-preview" id="guard"><div class="section-head"><div class="eyebrow">AI Spend Guard &middot; one controller, three subscriptions</div><h2>Keep working. Waste less.</h2></div>
+<p>You are paying for more than one subscription. Guard gets the most out of whatever combination you hold: it reads your Claude, Codex and Antigravity allowances from the logins you already have, routes each request to the subscription you rank first, learns from your own usage which habits waste tokens and tightens its bounds, pauses before a runaway task burns a week, and shows one line at the bottom of Pi that says what happens next. Run <code>pi-guard</code>, then <code>/guard</code>.</p>
+<div class="reset-preview" id="guardLive" aria-label="Live allowance snapshot from the author's machine"><div>Claude <strong class="caution">&mdash;</strong><small>loading snapshot</small></div><div>Codex <strong>&mdash;</strong><small>&nbsp;</small></div><div>Antigravity <strong>&mdash;</strong><small>&nbsp;</small></div></div>
+<pre class="guard-footer" id="guardFooter" aria-label="Pi footer as rendered">Guard · ▸AGY 100% · Codex 10% · Claude 90%⛔ · next: Codex resets in 21h</pre>
+<p class="note" id="guardSnapshotNote">Snapshot exported from the author's controller with <code>npm run guard:snapshot</code>: percentages, counters and model IDs only. Live account data stays local. Plans have finite allowances; no harness can guarantee unlimited work.</p>
+<div class="guard-story" id="guardStory">
+<h3>A real morning, 14 November</h3>
+<ol>
+<li><strong>09:32</strong> Readers connect on their own: Claude weekly 12% left (resets Monday), Codex 10% (resets tomorrow 08:38), Antigravity untouched at 100%. Mode set to <em>preserve</em>: 60k context, low effort, 2,048 output tokens, no subagents.</li>
+<li><strong>11:21</strong> A Pi task starts. Codex is not logged in to Pi and the Antigravity bridge is not loaded yet, so every request lands on Claude.</li>
+<li><strong>11:38</strong> Request 40 of 40. Guard pauses the task, saves a local handoff, and refuses to spend request 41. Nothing was lost; the session is intact.</li>
+<li><strong>11:41</strong> One typed instruction: use all of Codex and AGY, don't touch Claude. Order becomes AGY &rarr; Codex &rarr; Claude, Claude is blocked, Gemini 4 Argon is bound, the task budget is renewed to 200 requests.</li>
+<li><strong>11:43</strong> Pi restarts with <code>-Resume</code>, Codex logs in, and the same task continues on Antigravity. Claude's weekly meter stops moving.</li>
+</ol>
+<p class="note">Across the previous 24 hours the same machine's native Claude Code sessions ran <span id="guardNativeRequests">8,658</span> requests and <span id="guardNativeTokens">3.8 billion</span> tokens, <span id="guardNativeSub">92%</span> of them inside subagents and <span id="guardNativeCache">99%</span> served from cache. That is the pattern Guard exists to interrupt: not the model thinking, the model re-reading.</p>
+</div>
+<div class="guard-commands"><div><strong>Learns from your usage</strong><p>Every five minutes Guard rescores the last 24 hours: large contexts, subagent fan-out, reasoning effort, cache reuse, long sessions. It tightens its own checkpoints and ceilings from that evidence, shows the reason, and never loosens a limit you set. The scoring is local arithmetic over counters; no model is called.</p></div><div><strong>Type it, don't configure it</strong><p>"use agy then codex then claude" reorders. "dont touch claude" blocks. "all translations use argon" or "code changes use opus" saves a routing rule. Each is matched locally and never reaches a model.</p></div><div><strong>Budgets that pause, not punish</strong><p>Requests, minutes, context and repeated tools per task. A pause writes a handoff you can resume, import into Claude or Codex, or ignore.</p></div><div><strong>Honest about coverage</strong><p>Only requests routed through <code>aispend/guard</code> are controlled. Other sessions can spend the same allowance between readings, and a provider's reset is confirmed by a fresh reading, never by a timer.</p></div></div>
+<div class="actions"><a class="button primary" href="guard.html">Explore the planner</a><a class="button" href="ai-spend-live-0.6.5-source.zip">Source &amp; setup</a></div></section>
       <section class="section">
         <div class="section-head"><h2>A dashboard for decisions.</h2><p>AI Spend keeps model totals, cache/context signals, and local pacing together so you can choose a workflow instead of guessing from an invoice.</p></div>
         <div class="grid">
@@ -196,7 +213,7 @@ npm run dashboard
 # open http://127.0.0.1:9020/</code></pre>
       </section>
     </main>
-    <footer>AI Spend Live 0.6.3 &middot; Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
+    <footer>AI Spend Live 0.6.5 &middot; Built by Anthony DiPerna. Public example contains aggregate counts and model names only. Pricing and plan notes are estimates, not provider invoices.</footer>
   </div>
   <script>
     const nf = new Intl.NumberFormat();
@@ -335,7 +352,7 @@ npm run dashboard
     document.getElementById("modelFilter").addEventListener("change", (event) => {
       updateModelSelection(event.target.value, window.publicDemoData);
     });
-    fetch("demo-data.json?v=0.6.3", {cache:"no-store"}).then(response => {
+    fetch("demo-data.json?v=0.6.5", {cache:"no-store"}).then(response => {
       if (!response.ok) { throw new Error("Demo data missing"); }
       return response.json();
     }).then(data => {
@@ -348,6 +365,40 @@ npm run dashboard
       document.getElementById("demoPeriod").textContent = "Example unavailable";
       document.getElementById("demoScope").textContent = "The example data could not load. Refresh, or upload the matching index.html and demo-data.json together.";
     });
+  </script>
+  <script>
+    (function(){
+      var labels={claude:"Claude",codex:"Codex",agy:"Antigravity"};
+      fetch("guard-snapshot.json?v=0.6.5",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("missing");return r.json();}).then(function(snap){
+        var box=document.getElementById("guardLive");if(!box||!snap.providers)return;
+        box.innerHTML="";
+        var order=(snap.policy&&snap.policy.providerOrder)||["claude","codex","agy"];
+        order.forEach(function(id){
+          var p=snap.providers.filter(function(x){return x.provider===id;})[0];if(!p)return;
+          var cell=document.createElement("div");
+          var pct=p.remainingPercent===null?"?":p.remainingPercent+"% left";
+          var cls=p.blocked?"blocked":(p.remainingPercent!==null&&p.remainingPercent<=(snap.policy.reservePercent||10)+5?"caution":"");
+          var line=[];
+          if(p.blocked)line.push("blocked by the user");else if(p.status==="reserve")line.push("below reserve");else if(p.status==="ready")line.push("ready");else line.push(p.status);
+          if(p.resetIn)line.push("reset in "+p.resetIn);
+          if(p.burnPercentPerHour&&p.burnPercentPerHour>=0.1)line.push("burning "+p.burnPercentPerHour+"%/h");
+          if(p.runOutIn)line.push("out in "+p.runOutIn);
+          if(p.model)line.push(p.model);
+          cell.innerHTML=labels[id]+(snap.recommendedProvider===id?" <span class=\"route\">&#9656; route</span>":"")+"<strong class=\""+cls+"\">"+pct+"</strong><small>"+line.join(" &middot; ")+"</small>";
+          box.appendChild(cell);
+        });
+        if(snap.footer)document.getElementById("guardFooter").textContent=snap.footer;
+        var when=new Date(snap.generatedAt);
+        document.getElementById("guardSnapshotNote").innerHTML="Snapshot exported "+when.toLocaleString()+" from the author's controller with <code>npm run guard:snapshot</code> (AI Spend Live "+(snap.version||"")+"): percentages, counters and model IDs only. Live account data stays local. Plans have finite allowances; no harness can guarantee unlimited work.";
+        var claude=(snap.insights&&snap.insights.providers||[]).filter(function(p){return p.provider==="claude";})[0];
+        if(claude){
+          document.getElementById("guardNativeRequests").textContent=claude.requests.toLocaleString();
+          document.getElementById("guardNativeTokens").textContent=(claude.totalTokens/1e9).toFixed(1)+" billion";
+          var sub=(claude.metrics||[]).filter(function(m){return m.id==="subagents";})[0];if(sub)document.getElementById("guardNativeSub").textContent=Math.round(sub.percent)+"%";
+          if(claude.cachePercent!==null)document.getElementById("guardNativeCache").textContent=claude.cachePercent+"%";
+        }
+      }).catch(function(){var n=document.getElementById("guardSnapshotNote");if(n)n.textContent="Snapshot unavailable; the figures above are from 14 November 2026. Live account data stays local.";});
+    })();
   </script>
 </body>
 </html>

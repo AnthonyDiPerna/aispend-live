@@ -50,6 +50,28 @@ staleness and unconfirmed resets still stop requests.
 - `/guard-block claude` keeps Guard off a subscription entirely; it pauses rather
   than route there. `/guard-block none` clears. Typing "dont touch claude" or
   "block codex" does the same locally.
+- `/guard-rule translations -> argon` (or typing "all translations use argon",
+  "website updates use argon", "code changes use opus") saves a task routing
+  rule. A new task whose message mentions the phrase is routed to that
+  subscription, and to the named model when Pi has it. Matching is a local
+  substring test on your own text; nothing is sent anywhere. `/guard-rule list`
+  and `/guard-rule remove <phrase>` manage rules. Allowance, blocks and work
+  budgets still apply; a rule cannot route to a blocked or exhausted provider.
+- `/guard-start` lists saved checkpoints (newest handoff per task, with its goal
+  and why it paused) and opens a fresh session from the one you pick. A new
+  session with a checkpoint under 48 hours old is told so at start, so work
+  continues instead of restarting with no context. Repeated pauses for the
+  same reason now keep the first handoff instead of writing one per retry.
+
+## Next
+
+Planned, not built: a feedback loop that scores each finished task on tokens,
+cache reuse, retries and time per accepted change, flags the inefficient
+pattern (fan-out, re-reading, high effort on routine edits) while it is
+happening, proposes the cheaper model or option for that task shape, and
+records the before/after so a bad adjustment can be rolled back. Rules and
+blocks are the manual version of that loop today; the snapshot exporter is
+its evidence trail.
 
 The planner defaults to Claude returning, then Codex, then other connected
 subscriptions. Change the preference or bridge target under Advanced.

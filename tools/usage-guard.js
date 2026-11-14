@@ -25,6 +25,7 @@ const DEFAULT_POLICY = Object.freeze({
   maxOutputTokens: 4096,
   providerOrder: ['claude', 'codex', 'agy'],
   blockedProviders: [],
+  routingRules: [],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
 const LIMITS = {
@@ -53,6 +54,16 @@ function cleanPolicy(input = {}) {
   if (input.blockedProviders !== undefined) {
     if (!Array.isArray(input.blockedProviders) || input.blockedProviders.some(p=>!['claude','codex','agy'].includes(p)) || input.blockedProviders.length>2) throw new Error('blockedProviders may list up to two of claude, codex, agy');
     result.blockedProviders = [...new Set(input.blockedProviders)];
+  }
+  if (input.routingRules !== undefined) {
+    if (!Array.isArray(input.routingRules) || input.routingRules.length > 20) throw new Error('routingRules may hold up to 20 rules');
+    result.routingRules = input.routingRules.map(rule => {
+      const match = String(rule?.match || '').trim().toLowerCase();
+      if (match.length < 2 || match.length > 60 || !['claude','codex','agy'].includes(rule?.provider)) throw new Error('Each rule needs match text (2-60 chars) and a provider: claude, codex, agy');
+      const model = rule.model === undefined || rule.model === null || rule.model === '' ? null : String(rule.model).trim().toLowerCase();
+      if (model !== null && !/^[a-z0-9._:\/-]{2,80}$/.test(model)) throw new Error('Rule model must be a model id or alias');
+      return {match, provider: rule.provider, model};
+    });
   }
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
@@ -244,12 +255,21 @@ function decide(plan, task = {}, now = Date.now()) {
   const eligible = plan.providers.filter(p=>p.allowanceEligible && p.configured && available.has(p.provider) &&
     (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)))
     .sort((a,b)=>routeRank(a,policy)-routeRank(b,policy));
-  // Stay on the current provider through tool continuations to retain its cache.
-  const selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || eligible[0] : eligible[0];
+  // A task rule names the provider (and optionally a model) for this task. It wins when that
+  // provider is eligible; tool continuations still stay on the current provider to keep its cache.
+  const preferred = task.preferredProvider ? eligible.find(p=>p.provider===task.preferredProvider) : null;
+  let selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || preferred || eligible[0] : preferred || eligible[0];
+  if (selected && preferred === selected && task.preferredModel && selected.binding) {
+    const wanted = String(task.preferredModel).toLowerCase();
+    const candidates = (task.availableModels || []).filter(m => m.startsWith(selected.binding.provider + '/')).map(m => m.slice(selected.binding.provider.length + 1));
+    const exact = candidates.find(m => m.toLowerCase() === wanted);
+    const alias = exact || candidates.filter(m => m.toLowerCase().includes(wanted)).sort().reverse()[0];
+    if (alias) selected = {...selected, binding: {...selected.binding, model: alias}};
+  }
   if (!selected) return pause('allowance',policy.usageMode==='strict'?'No configured subscription has a fresh, on-pace allowance in strict mode.':'No configured route has fresh, positive allowance. Refresh readings, redeem an available reset in the provider, or wait for a confirmed refill.');
   return {action:task.currentProvider && task.currentProvider!==selected.provider?'switch':'continue', code:'ready',
     provider:selected.provider, binding:selected.binding,warning:['pace','reserve'].includes(selected.status)?selected.message:null,
-    reason:(task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
+    reason:(preferred===selected?`Task rule: use ${selected.provider}${task.preferredModel?' ('+selected.binding.model+')':''}.`:task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
     decidedAt:new Date(now).toISOString()};
 }
 
