@@ -210,6 +210,7 @@ export default function guard(pi: ExtensionAPI) {
         preferredProvider:taskRule?.provider,preferredModel:taskRule?.model||undefined,
       }).catch(error=>{throw new Error(`AI Spend Guard billing guard paused: controller unavailable (${error.message}). Start the local controller; no provider request was authorized.`);});
       policy=decision.policy || policy;
+      if(decision.autoFixNote)ctx.ui.notify(decision.autoFixNote,'info');
       if(decision.contextAdvisory && !contextWarned){contextWarned=true;ctx.ui.notify(decision.contextAdvisory,'warning');}
       if(decision.action==='compact') {
         pendingCompact=!compactedThisRun;

@@ -77,6 +77,19 @@ A window is counted while it has polled or requested within two minutes.
 Launching `pi-guard` again reuses the running controller instead of starting
 a second one.
 
+## Auto-fix
+
+Work budgets are pacing devices, not quotas. By default Guard fixes what it
+can and keeps going: a tripped request, time or token budget renews itself
+(the renewal is recorded, so the budget learns upward), a bridge that cannot
+compact gets a warning instead of a dead end, and when more Pi windows are
+open than concurrency slots the slots grow to match, up to eight. A handoff
+is still saved at each of these points so you can go back. What still stops a
+task: an allowance that is exhausted, stale or past an unconfirmed reset, a
+provider you blocked, a repeated-tool loop after its one repair, and a
+controller that is unreachable. Turn it off with `autoFix: false` under
+Advanced if you want the old review-first pauses.
+
 ## Feedback loop
 
 Guard records what it did and what you did next: pauses with their cause and

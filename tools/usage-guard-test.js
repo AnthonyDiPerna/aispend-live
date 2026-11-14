@@ -72,6 +72,7 @@ async function run() {
   const live=createGuardServer({stateDir:path.join(root,'live'),sync:false,now:()=>NOW});
   assert.equal(live.guard.state().policy.maxConcurrentRequests,1,'new users start with one in-flight request');
   live.guard.state().policy.maxConcurrentRequests=2; // Exercise an explicit concurrency override.
+  live.guard.state().policy.autoFix=false; // This fixture checks the review-first pause; auto-fix would grow the slots instead.
   await new Promise(resolve=>live.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${live.address().port}`;
   async function post(route,data,extra={}) {const response=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json',...extra},body:JSON.stringify(data)});return {status:response.status,data:await response.json()};}
@@ -183,3 +184,30 @@ run().catch(error=>{console.error(error);process.exitCode=1;});
   assert.equal(buildAdvice(n,t0).changes.maxContextTokens,80000,'Pi evidence of large contexts still tightens');
   console.log('Feedback loop, advisory ceiling and harness-scoped tuning passed');
 }
+
+// Auto-fix: a tripped work budget renews itself and the request continues; with autoFix off it pauses.
+(async()=>{
+  const {createGuardServer}=require('./usage-guard-server');
+  const os=require('node:os');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guard-autofix-'));
+  const server=createGuardServer({stateDir:dir,sync:false});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port;
+  const post=async(route,body)=>{const r=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json();};
+  const t0=Date.now();
+  await post('/api/observations',{observations:[{provider:'claude',windowId:'weekly',windowMinutes:10080,usedPercent:10,resetAt:new Date(t0+72*3600000).toISOString(),observedAt:new Date(t0).toISOString(),source:'manual'}]});
+  await post('/api/models',{models:[{group:'claude',provider:'claude-code',id:'claude-test',auth:'subscription'}]});
+  await post('/api/policy',{maxRequestsPerTask:2,usageMode:'max'});
+  const q={taskId:'autofix-task-0001',availableProviders:['claude'],availableModels:['claude-code/claude-test'],contextTokens:1000};
+  for(let i=0;i<2;i++){const d=await post('/api/preflight',q);assert.equal(d.action,'continue');await post('/api/complete',{taskId:q.taskId,leaseId:d.leaseId,totalTokens:10,removedChars:0});}
+  const third=await post('/api/preflight',q);
+  assert.equal(third.action,'continue','budget renewed automatically');assert.equal(third.autoFixed,'request-budget');
+  await post('/api/complete',{taskId:q.taskId,leaseId:third.leaseId,totalTokens:10,removedChars:0});
+  const learned=(await (await fetch(base+'/api/state')).json()).learning;
+  assert.ok(learned.lessons.some(l=>l.kind==='renew' && l.auto),'the auto renewal is recorded for learning');
+  await post('/api/policy',{autoFix:false,maxRequestsPerTask:1});
+  const fourth=await post('/api/preflight',q);
+  assert.equal(fourth.action,'pause','with autoFix off the budget still pauses');
+  await new Promise(r=>server.close(r));
+  console.log('Auto-fix passed');
+})().catch(e=>{console.error(e);process.exit(1);});

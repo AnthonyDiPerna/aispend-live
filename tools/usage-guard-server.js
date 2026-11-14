@@ -235,7 +235,8 @@ function createGuardServer(options={}) {
         const id=safeTaskId(data.taskId);touchWindow(id);
         const task=state.tasks[id] || {id,requests:0,totalTokens:0,removedChars:0};
         const plan=buildPlan(state,now());
-        let decision=decide(plan,{...task,...{
+        const SOFT=['request-budget','time-budget','token-budget'];
+        const judge=()=>decide(plan,{...task,...{
           currentProvider:data.currentProvider,continuation:Boolean(data.continuation),
           contextTokens:Number(data.contextTokens)||0,repeatedTools:Number(data.repeatedTools)||0,
           availableProviders:Array.isArray(data.availableProviders)?data.availableProviders:[],
@@ -243,6 +244,17 @@ function createGuardServer(options={}) {
           preferredProvider:['claude','codex','agy'].includes(data.preferredProvider)?data.preferredProvider:undefined,
           preferredModel:typeof data.preferredModel==='string' && data.preferredModel.length<=80?data.preferredModel:undefined,
         }},now());
+        let decision=judge();
+        // Auto-fix: a work budget is a pacing device, not a quota. When it trips, renew it, say so, learn from it, and continue.
+        if(decision.action==='pause' && SOFT.includes(decision.code) && plan.policy.autoFix){
+          const b=state.bindings?.[task.provider];
+          recordLesson(state,{kind:'pause',code:decision.code,taskId:id,provider:task.provider||null,model:b?.model||null,providerId:b?.provider||null,requests:task.requests||0,autoFixed:true},now());
+          recordLesson(state,{kind:'renew',taskId:id,provider:task.provider||null,requests:task.requests||0,auto:true},now());
+          task.requests=0;task.totalTokens=0;task.autoRepairs=0;task.startedAt=new Date(now()).toISOString();
+          event('auto-fix',`${decision.code} reached on task ${id.slice(0,8)}; budget renewed automatically and work continued.`);
+          study();
+          decision={...judge(),autoFixed:decision.code,autoFixNote:`Guard renewed the ${decision.code.replace('-budget','')} budget for this task and kept going.`};
+        }
         if(['continue','switch'].includes(decision.action) && decision.provider==='api'){
           const budget=checkApiBudget(state,leases,id,models.get(decision.binding.provider+':'+decision.binding.model),plan.policy,now());
           decision={...decision,...budget};
@@ -253,7 +265,13 @@ function createGuardServer(options={}) {
         }
         if(['continue','switch'].includes(decision.action)) {
           // Expired leases still reserve dollars until reported; a crashed client cannot erase spend.
-          if([...leases.values()].filter(l=>l.expiresAt>now()).length>=plan.policy.maxConcurrentRequests) return reply(res,200,{action:'pause',code:'concurrency',reason:'Other guarded requests are using the configured slots. Resume when a slot is free.',policy:plan.policy});
+          if([...leases.values()].filter(l=>l.expiresAt>now()).length>=plan.policy.maxConcurrentRequests){
+            const open=windowsView().active;
+            if(plan.policy.autoFix && open>plan.policy.maxConcurrentRequests && plan.policy.maxConcurrentRequests<8){
+              const slots=Math.min(8,open);state.policy=cleanPolicy({...state.policy,maxConcurrentRequests:slots});
+              event('auto-fix',`${open} windows open; concurrency raised to ${slots} so none of them waits.`);save();
+            } else return reply(res,200,{action:'pause',code:'concurrency',reason:'Other guarded requests are using the configured slots. Resume when a slot is free.',policy:plan.policy});
+          }
           const lease=randomUUID();leases.set(lease,{taskId:id,expiresAt:now()+LEASE_MS,billing:decision.provider==='api'?'api':'subscription',reserveUsd:decision.reserveUsd || 0,day:new Date(now()).toISOString().slice(0,10),
             model:models.get(decision.binding.provider+':'+decision.binding.model),phase:data.phase==='compact'?'compact':task.nextPhase||'work',
             trimIds:data.phase==='compact'?[]:(state.impact?.rows||[]).filter(r=>r.taskId===id&&r.kind==='tool-trim'&&!r.replayed&&!r.discarded).map(r=>r.id)});

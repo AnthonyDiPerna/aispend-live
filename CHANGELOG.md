@@ -36,6 +36,11 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Auto-fix by default: tripped request/time/token budgets renew themselves
+  and continue (recorded as lessons), concurrency grows to the number of open
+  windows, and the bridge context ceiling is advisory. Only exhausted or
+  blocked allowances, an unrepaired loop, or a lost controller still stop a
+  task. `autoFix: false` restores review-first pauses.
 - Add a feedback loop (tools/guard-learning.js): record pauses, renewals,
   compactions, completions and loop blocks per route; raise the request budget
   one step after repeated renewed pauses; make the context ceiling advisory
