@@ -153,3 +153,33 @@ run().catch(error=>{console.error(error);process.exitCode=1;});
   await new Promise(r=>server.close(r));
   console.log('Window counting passed');
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// Feedback loop: renewals after request-budget pauses raise the budget one step; undo restores it;
+// a bridge that cannot compact gets an advisory ceiling; native insights do not tune Pi without Pi evidence.
+{
+  const {recordLesson,learn,undo,learningView,REQUEST_STEPS}=require('./guard-learning');
+  const {cleanPolicy,decide,buildPlan,initialState}=require('./usage-guard');
+  const {buildAdvice}=require('./guard-advisor');
+  const t0=Date.now();const s=initialState();
+  const quota=(provider,windowId,used,hours)=>({provider,windowId,windowMinutes:10080,usedPercent:used,resetAt:new Date(t0+hours*3600000).toISOString(),observedAt:new Date(t0).toISOString(),source:'manual'});
+  s.bindings={claude:{provider:'claude-code',model:'claude-test'},agy:{provider:'antigravity',model:'gemini-4-argon'}};
+  s.observations=[quota('claude','weekly',10,72),quota('agy','gemini:weekly',0,100)];
+  for(let i=0;i<2;i++){recordLesson(s,{kind:'pause',code:'request-budget',taskId:'t'+i,provider:'claude'},t0-3600000*(i+1));recordLesson(s,{kind:'renew',taskId:'t'+i,provider:'claude'},t0-3600000*(i+1)+60000);}
+  assert.equal(learn(s,t0).length,1);assert.equal(s.policy.maxRequestsPerTask,REQUEST_STEPS[1],'one step up after two renewed pauses');
+  assert.equal(learn(s,t0).length,0,'the same evidence is not counted twice');
+  const id=learningView(s,t0).adjustments[0].id;undo(s,id,t0);assert.equal(s.policy.maxRequestsPerTask,40,'undo restores the previous value');
+  assert.throws(()=>undo(s,id,t0));
+  const plan=buildPlan(s,t0);
+  const task={availableProviders:['claude','agy'],availableModels:['claude-code/claude-test','antigravity/gemini-4-argon'],contextTokens:150000};
+  assert.equal(decide(plan,task,t0).action,'compact','Pi-held history is compacted');
+  const onBridge=decide(plan,{...task,preferredProvider:'agy'},t0);
+  assert.equal(onBridge.action,'continue');assert.ok(onBridge.contextAdvisory,'bridge route gets a warning instead of a dead-end compaction');
+  s.policy=cleanPolicy({...s.policy,contextAdvisoryProviders:[]});
+  recordLesson(s,{kind:'pause',code:'context-stuck',taskId:'t9',provider:'agy',providerId:'antigravity'},t0);
+  learn(s,t0);assert.deepEqual(s.policy.contextAdvisoryProviders,['antigravity'],'a stuck compaction teaches the advisory ceiling');
+  const n=initialState();n.insights={generatedAt:new Date(t0).toISOString(),providers:[{provider:'claude',requests:500,metrics:[{id:'context',percent:97},{id:'subagents',percent:92}]}]};
+  const advice=buildAdvice(n,t0);assert.equal(advice.changes.maxContextTokens,undefined,'native large contexts do not clamp Pi without Pi evidence');
+  n.tasks={x:{startedAt:new Date(t0).toISOString(),contextTokens:160000}};
+  assert.equal(buildAdvice(n,t0).changes.maxContextTokens,80000,'Pi evidence of large contexts still tightens');
+  console.log('Feedback loop, advisory ceiling and harness-scoped tuning passed');
+}

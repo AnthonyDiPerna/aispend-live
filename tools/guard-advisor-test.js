@@ -7,6 +7,8 @@ const now = Date.now(), state = initialState();
 assert.equal(buildAdvice(state,now).learned,false);
 state.insights={generatedAt:new Date(now).toISOString(),providers:[{requests:30,metrics:[{id:'context',percent:90},{id:'long',percent:60},{id:'subagents',percent:50},{id:'effort',percent:80,coveragePercent:90}]}]};
 state.policy.maxThinkingLevel='high';state.policy.maxSubagentCalls=5;
+// Guarded Pi tasks show the same pattern as the native insights, so the bounds may tighten.
+state.tasks={pi1:{startedAt:new Date(now).toISOString(),contextTokens:160000,subagentCalls:2}};
 const proposal=buildAdvice(state,now);
 assert.equal(proposal.learned,true);assert.equal(proposal.changes.maxContextTokens,80000);
 assert.equal(proposal.changes.maxTaskMinutes,undefined,'wall-clock span including idle time must not trigger a shorter hard stop');assert.equal(proposal.changes.maxSubagentCalls,0);

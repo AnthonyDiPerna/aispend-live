@@ -26,6 +26,7 @@ const DEFAULT_POLICY = Object.freeze({
   providerOrder: ['claude', 'codex', 'agy'],
   blockedProviders: [],
   routingRules: [],
+  contextAdvisoryProviders: ['antigravity', 'antigravity-acp'],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
 const LIMITS = {
@@ -54,6 +55,10 @@ function cleanPolicy(input = {}) {
   if (input.blockedProviders !== undefined) {
     if (!Array.isArray(input.blockedProviders) || input.blockedProviders.some(p=>!['claude','codex','agy'].includes(p)) || input.blockedProviders.length>2) throw new Error('blockedProviders may list up to two of claude, codex, agy');
     result.blockedProviders = [...new Set(input.blockedProviders)];
+  }
+  if (input.contextAdvisoryProviders !== undefined) {
+    if (!Array.isArray(input.contextAdvisoryProviders) || input.contextAdvisoryProviders.length > 10 || input.contextAdvisoryProviders.some(p => !/^[a-z0-9._:\/-]{2,80}$/.test(String(p)))) throw new Error('contextAdvisoryProviders must list provider ids');
+    result.contextAdvisoryProviders = [...new Set(input.contextAdvisoryProviders.map(String))];
   }
   if (input.routingRules !== undefined) {
     if (!Array.isArray(input.routingRules) || input.routingRules.length > 20) throw new Error('routingRules may hold up to 20 rules');
@@ -250,7 +255,7 @@ function decide(plan, task = {}, now = Date.now()) {
   if ((task.requests || 0) >= policy.maxRequestsPerTask) return pause('request-budget','Task request budget reached. Review the saved session before raising its budget.');
   if ((task.totalTokens || 0) >= policy.maxTokensPerTask) return pause('token-budget','Task token budget reached. This is a local work limit, not a provider quota.');
   if ((task.repeatedTools || 0) >= policy.repeatedToolLimit) return pause('repeated-tools','Repeated identical tool results detected. Inspect the checkpoint before continuing.');
-  if ((task.contextTokens || 0) > policy.maxContextTokens) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
+  const overContext = (task.contextTokens || 0) > policy.maxContextTokens;
   const available = new Set(task.availableProviders || []);
   const eligible = plan.providers.filter(p=>p.allowanceEligible && p.configured && available.has(p.provider) &&
     (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)))
@@ -266,9 +271,16 @@ function decide(plan, task = {}, now = Date.now()) {
     const alias = exact || candidates.filter(m => m.toLowerCase().includes(wanted)).sort().reverse()[0];
     if (alias) selected = {...selected, binding: {...selected.binding, model: alias}};
   }
+  // The context ceiling is enforced by compaction, which only works where Pi holds the history.
+  // A CLI bridge that keeps its own conversation gets a warning and a fresh-session hint instead.
+  if (overContext) {
+    const advisory = selected && (policy.contextAdvisoryProviders || []).includes(selected.binding?.provider);
+    if (!advisory) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
+  }
   if (!selected) return pause('allowance',policy.usageMode==='strict'?'No configured subscription has a fresh, on-pace allowance in strict mode.':'No configured route has fresh, positive allowance. Refresh readings, redeem an available reset in the provider, or wait for a confirmed refill.');
   return {action:task.currentProvider && task.currentProvider!==selected.provider?'switch':'continue', code:'ready',
     provider:selected.provider, binding:selected.binding,warning:['pace','reserve'].includes(selected.status)?selected.message:null,
+    contextAdvisory:overContext?`Context is above the ${policy.maxContextTokens.toLocaleString()}-token ceiling and this route cannot be compacted from Pi. Finish the step, then /guard-new for a fresh session from a handoff.`:null,
     reason:(preferred===selected?`Task rule: use ${selected.provider}${task.preferredModel?' ('+selected.binding.model+')':''}.`:task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
     decidedAt:new Date(now).toISOString()};
 }

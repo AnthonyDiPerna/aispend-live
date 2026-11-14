@@ -36,6 +36,14 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Add a feedback loop (tools/guard-learning.js): record pauses, renewals,
+  compactions, completions and loop blocks per route; raise the request budget
+  one step after repeated renewed pauses; make the context ceiling advisory
+  on a bridge whose compaction cannot land; show route scores. Every
+  adjustment is explained and undoable (/guard-lessons).
+- Scope auto-tune: native-session insights tighten Pi bounds only when guarded
+  Pi tasks show the same pattern. The 80k clamp from native Claude Code usage
+  had paused an Antigravity task that could not be compacted.
 - Count open Pi windows per controller, show windows/slots in the footer, and
   add /guard-windows (or "3 windows") to set how many guarded requests run at
   once. Each window keeps its own task budget; readings and reserve are shared.

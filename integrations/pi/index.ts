@@ -33,6 +33,7 @@ export default function guard(pi: ExtensionAPI) {
   let localFailure:string|undefined;
   let lastHandoff:string|undefined;
   let lastPauseKey='',lastPauseAt=0;
+  let contextWarned=false;
   let watcher:ReturnType<typeof setInterval>|undefined;
   let guardArmed=false,restoringModel=false,pendingRepair=false,lastOperation='';
   const blockedOperations=new Set<string>();
@@ -158,7 +159,7 @@ export default function guard(pi: ExtensionAPI) {
       if(entry.type==='custom' && entry.customType==='aispend.guard-armed')guardArmed=entry.data?.armed===true;
     }
     if(watcher){clearInterval(watcher);watcher=undefined;}
-    taskId=signature(ctx.sessionManager.getSessionId());taskRule=undefined;
+    taskId=signature(ctx.sessionManager.getSessionId());taskRule=undefined;contextWarned=false;
     watch(ctx);
     try {const state=await discover(ctx);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));}
     catch {ctx.ui.setStatus('aispend','Start AI Spend Guard on port 9021 · /guard');}
@@ -209,8 +210,10 @@ export default function guard(pi: ExtensionAPI) {
         preferredProvider:taskRule?.provider,preferredModel:taskRule?.model||undefined,
       }).catch(error=>{throw new Error(`AI Spend Guard billing guard paused: controller unavailable (${error.message}). Start the local controller; no provider request was authorized.`);});
       policy=decision.policy || policy;
+      if(decision.contextAdvisory && !contextWarned){contextWarned=true;ctx.ui.notify(decision.contextAdvisory,'warning');}
       if(decision.action==='compact') {
         pendingCompact=!compactedThisRun;
+      void api('/api/learning',{action:'lesson',code:'context-stuck',taskId}).catch(()=>{});
         checkpoint(ctx,pendingCompact?'Compacting at the context ceiling':'Context remains above the ceiling after compaction');
         throw new Error('AI Spend Guard billing guard paused for a context checkpoint.');
       }
@@ -499,6 +502,16 @@ export default function guard(pi: ExtensionAPI) {
     const open=state.windows?.active||1;
     ctx.ui.notify(`${n} guarded request${n===1?'':'s'} may run at once across all Pi windows (${open} open now). Each window keeps its own task budget; allowance readings and the reserve are shared. More slots means faster burn of the same subscription.`,'info');
   }
+  pi.registerCommand('guard-lessons',{
+    description:'What Guard learned: recent adjustments with reasons and undo ids, and per-route scores',
+    handler:async(args,ctx)=>{try{
+      const undoId=/^undo\s+(\S+)$/i.exec(args.trim());
+      const view=undoId?await api('/api/learning',{action:'undo',id:undoId[1]}):(await api('/api/state?task='+taskId)).learning;
+      const adj=(view.adjustments||[]).slice(-6).map((a:any)=>`${a.undoneAt?'(undone) ':''}${a.key}: ${Array.isArray(a.from)?a.from.join(','):a.from} → ${Array.isArray(a.to)?a.to.join(','):a.to} · ${a.reason}${a.undoneAt?'':' · /guard-lessons undo '+a.id}`);
+      const routes=(view.routeScores||[]).slice(0,6).map((r:any)=>`${r.route}: ${r.requests} req, ${r.tokensPerRequest===null?'?':r.tokensPerRequest.toLocaleString()} tok/req, ${r.pauses} pauses, ${r.compactions} compactions, ${r.loopBlocks} loop blocks`);
+      ctx.ui.notify((adj.length?'Adjustments:\n'+adj.join('\n'):'No adjustments yet. Guard learns from pauses you renew, compactions that cannot land, and completed requests.')+'\n\nRoutes (7 days):\n'+(routes.join('\n')||'no completed guarded requests yet'),'info');
+    }catch(error:any){ctx.ui.notify(`Guard lessons unavailable: ${error.message}`,'error');}},
+  });
   pi.registerCommand('guard-windows',{
     description:'How many Pi windows may make guarded requests at the same time (1-8); /guard-windows shows the count',
     handler:async(args,ctx)=>{try{

@@ -14,15 +14,21 @@ function buildAdvice(state, now = Date.now()) {
   const learned = age >= 0 && age <= 6 * 3600000 && requests >= 20;
   const metrics = learned ? insight.providers.flatMap(row => row.metrics) : [];
   const high = (id, threshold) => metrics.some(row => row.id === id && Number.isFinite(row.percent) && row.percent >= threshold);
+  // Insights describe every session on the machine (native Claude Code, Codex, AGY). Guarded Pi tasks are
+  // a different population, so a bound is tightened only when Pi's own tasks show the same pattern.
+  const piTasks = Object.values(state.tasks || {}).filter(t => t.startedAt && now - Date.parse(t.startedAt) <= 24 * 3600000);
+  const piLargeContext = piTasks.some(t => (t.contextTokens || 0) > 100000);
+  const piSubagents = piTasks.some(t => (t.subagentCalls || 0) > 0);
   if (high('context', 40)) {
-    tighten('maxContextTokens', 80000, 'Large contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward.');
+    if (piLargeContext) tighten('maxContextTokens', 80000, 'Large contexts dominate recent usage, including guarded Pi tasks. Checkpoint at 80k tokens to carry less history forward.');
+    else reasons.push('Large contexts dominate native sessions on this machine. Guarded Pi tasks have stayed smaller, so their ceiling is unchanged.');
   }
   if (high('long', 40)) {
     reasons.push('Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.');
   }
   if (high('subagents', 30)) {
-    tighten('maxSubagentCalls', 0, 'Subagents account for a substantial share of recorded tokens. Keep routine work in one agent.');
-    tighten('maxConcurrentRequests', 1, 'Keep one guarded request in flight to reduce parallel allowance burn.');
+    if (piSubagents) tighten('maxSubagentCalls', 0, 'Subagents account for a substantial share of recorded tokens, including guarded Pi tasks. Keep routine work in one agent.');
+    else reasons.push('Subagents dominate native sessions on this machine; guarded Pi tasks have not fanned out, so their limits are unchanged.');
   }
   if (metrics.some(row => row.id === 'effort' && row.percent >= 40 && row.coveragePercent >= 50)) {
     reasons.push('High reasoning effort is common where recorded. Medium remains the automatic ceiling.');

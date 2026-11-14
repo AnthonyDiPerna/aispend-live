@@ -7,6 +7,7 @@ const {initialState, cleanPolicy, mergeObservations, buildPlan, decide, recovery
 const {createCollector,fetchClaudeUsage,fetchCodexUsage,fetchAgyUsage,readStatusFile}=require('./usage-collectors');
 const {accounting,checkApiBudget}=require('./guard-accounting');
 const {buildAdvice,applyAdvice,defaultBindings}=require('./guard-advisor');
+const {recordLesson,learn,undo,learningView}=require('./guard-learning');
 const {recordImpact,attributeTrimReplay,impactReport}=require('./guard-impact');
 const {nativeEvent,COVERAGE}=require('./guard-native');
 const {Worker}=require('node:worker_threads');
@@ -95,6 +96,7 @@ function createGuardServer(options={}) {
   // Existing installations retain manual settings unless automatic tuning was enabled.
   if (state.policy.autoTune === undefined) { state.policy.autoTune = false; }
   const adapt=()=>{const result=applyAdvice(state,now());if(result){event('settings','Usage-based protection: '+result.reasons.join(' '));}return result;};
+  const study=()=>{if(!state.policy.autoTune && !state.policy.selfLearn)return;for(const a of learn(state,now()))event('learned',`${a.key}: ${a.from}→${Array.isArray(a.to)?a.to.join(','):a.to}. ${a.reason}`);};
   const sync=()=>{
     if(options.demo) return;
     try {
@@ -123,7 +125,7 @@ function createGuardServer(options={}) {
   const windowsView=()=>{const t=now();const active=[...windows.entries()].filter(([,v])=>t-v<=WINDOW_MS);const slots=cleanPolicy(state.policy).maxConcurrentRequests;const inFlight=[...leases.values()].filter(l=>l.expiresAt>t).length;
     return {active:active.length,slots,inFlight,waiting:Math.max(0,active.filter(([id])=>state.tasks[id]?.status==='pause').length),ids:active.map(([id])=>id.slice(0,8))};};
   const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),windows:windowsView(),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
-    accounting:accounting(state,leases,now()),impact:impactReport(state),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
+    accounting:accounting(state,leases,now()),impact:impactReport(state),learning:learningView(state,now()),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
     models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
     harnesses:Object.entries(COVERAGE).map(([id,coverage])=>({id,...coverage,...state.harnesses?.[id]})),events:state.events, lastSyncAt,syncError});
   broadcast=()=>{if(!clients.size)return;const data='data: '+JSON.stringify(publicState())+'\n\n';for(const client of clients)if(client.writableLength>1024*1024){clients.delete(client);client.destroy();}else client.write(data);};
@@ -260,7 +262,8 @@ function createGuardServer(options={}) {
           task.startedAt ||= new Date(now()).toISOString();task.contextTokens=Number(data.contextTokens)||0;task.thinkingLevel=plan.policy.maxThinkingLevel;
           task.requests++;task.status='running';task.provider=decision.provider;decision.leaseId=lease;
           state.harnesses ||= {};state.harnesses.pi={lastSeenAt:new Date(now()).toISOString()};
-        } else {task.status=decision.action;event(decision.action,`${decision.code}: ${decision.reason}`);if(decision.action==='pause')recordImpact(state,{id:randomUUID(),taskId:id,kind:'budget-pause'},now());}
+        } else {task.status=decision.action;event(decision.action,`${decision.code}: ${decision.reason}`);if(decision.action==='pause')recordImpact(state,{id:randomUUID(),taskId:id,kind:'budget-pause'},now());
+          const b=state.bindings?.[task.provider];recordLesson(state,{kind:decision.action,code:decision.code,taskId:id,provider:task.provider||null,model:b?.model||null,providerId:b?.provider||null,contextTokens:task.contextTokens||0,requests:task.requests||0},now());}
         task.updatedAt=new Date(now()).toISOString();state.tasks[id]=task;save();
         return reply(res,200,{...decision,policy:plan.policy});
       } else if(url.pathname==='/api/complete') {
@@ -268,6 +271,7 @@ function createGuardServer(options={}) {
         if(!lease || lease.taskId!==id || !task) throw new Error('Unknown or completed request');
         const tokens=Number(data.totalTokens), removed=Number(data.removedChars || 0);
         if(!Number.isFinite(tokens) || tokens<0 || tokens>100000000 || !Number.isFinite(removed) || removed<0) throw new Error('Invalid usage');
+        recordLesson(state,{kind:'complete',taskId:id,provider:task.provider||null,model:lease.model?.id||state.bindings?.[task.provider]?.model||null,tokens,failed:Boolean(data.failed)},now());
         const reported=typeof data.costEstimateUsd==='number' && Number.isFinite(data.costEstimateUsd) && data.costEstimateUsd>=0 && data.costEstimateUsd<100000;
         const usd=reported?data.costEstimateUsd:(lease.reserveUsd||0);
         state.costLedger ||= [];state.costLedger.push({taskId:id,billing:lease.billing || 'subscription',day:lease.day || new Date(now()).toISOString().slice(0,10),usd,unknown:!reported,phase:lease.phase||'work',at:new Date(now()).toISOString()});
@@ -281,7 +285,16 @@ function createGuardServer(options={}) {
       } else if(url.pathname==='/api/reset-task') {
         const id=safeTaskId(data.taskId);
         if([...leases.values()].some(l=>l.taskId===id)) throw new Error('Wait for the active request to finish');
-        if(state.tasks[id]){const task=state.tasks[id];task.requests=0;task.totalTokens=0;task.subagentCalls=0;task.autoRepairs=0;delete task.nativePaused;task.nativeBlocked=[];task.nativeRepeats=0;task.startedAt=new Date(now()).toISOString();task.status='ready';event('budget','User renewed a task budget.');save();}
+        if(state.tasks[id]){const task=state.tasks[id];recordLesson(state,{kind:'renew',taskId:id,provider:task.provider||null,requests:task.requests||0},now());task.requests=0;task.totalTokens=0;task.subagentCalls=0;task.autoRepairs=0;delete task.nativePaused;task.nativeBlocked=[];task.nativeRepeats=0;task.startedAt=new Date(now()).toISOString();task.status='ready';event('budget','User renewed a task budget.');study();save();}
+      } else if(url.pathname==='/api/learning') {
+        if(data.action==='undo'){const r=undo(state,String(data.id||''),now());event('learned',`Undid ${r.key}: back to ${Array.isArray(r.from)?r.from.join(','):r.from}.`);save();}
+        else if(data.action==='lesson'){
+          // Harness-reported outcome the controller cannot see itself, e.g. a compaction that did not lower the context.
+          if(!['context-stuck','loop-block'].includes(data.code))throw Error('Unknown lesson code');
+          const id=safeTaskId(data.taskId);const task=state.tasks[id];const b=state.bindings?.[task?.provider];
+          recordLesson(state,{kind:data.code==='loop-block'?'loop-block':'pause',code:data.code,taskId:id,provider:task?.provider||null,model:b?.model||null,providerId:b?.provider||null},now());study();save();
+        } else throw Error('Unknown learning action');
+        return reply(res,200,learningView(state,now()));
       } else if(url.pathname==='/api/simulate') {
         const hours=Number(data.hours || 0);
         if(!Number.isFinite(hours) || hours<0 || hours>336) throw new Error('Invalid simulation time');

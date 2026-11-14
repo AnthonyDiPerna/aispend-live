@@ -77,15 +77,35 @@ A window is counted while it has polled or requested within two minutes.
 Launching `pi-guard` again reuses the running controller instead of starting
 a second one.
 
+## Feedback loop
+
+Guard records what it did and what you did next: pauses with their cause and
+route, renewals, compactions, completed requests with tokens, loop blocks.
+Two rules act on that record today, each one bounded step at a time, with the
+reason and the evidence shown in `/guard-lessons` and undoable with
+`/guard-lessons undo <id>`:
+
+- A request-budget pause that you renew within 30 minutes, twice in a week,
+  raises the starting budget one step (40, 60, 90, 135, 200, 300, 400). Time,
+  token and loop rules are unchanged.
+- A compaction that cannot lower the context on a CLI bridge (Antigravity keeps
+  the conversation on its side) makes the ceiling advisory for that bridge:
+  Guard warns and suggests `/guard-new` instead of pausing. Antigravity starts
+  advisory; the rule covers other bridges as they appear.
+
+Native-session insights (every Claude Code, Codex and AGY session on the
+machine) no longer tighten Pi bounds on their own. A bound tightens only when
+guarded Pi tasks show the same pattern, so one harness cannot tune another.
+
+Route scores compare tokens per request and Guard interruptions per task for
+each provider/model over seven days. They inform your routing rules; nothing
+switches a model by itself.
+
 ## Next
 
-Planned, not built: a feedback loop that scores each finished task on tokens,
-cache reuse, retries and time per accepted change, flags the inefficient
-pattern (fan-out, re-reading, high effort on routine edits) while it is
-happening, proposes the cheaper model or option for that task shape, and
-records the before/after so a bad adjustment can be rolled back. Rules and
-blocks are the manual version of that loop today; the snapshot exporter is
-its evidence trail.
+Not built yet: scoring finished tasks on accepted output per token, flagging
+an inefficient pattern while it happens (fan-out, re-reading, high effort on a
+routine edit), and proposing the cheaper model or option for that task shape.
 
 The planner defaults to Claude returning, then Codex, then other connected
 subscriptions. Change the preference or bridge target under Advanced.
