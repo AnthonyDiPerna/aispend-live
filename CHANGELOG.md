@@ -18,6 +18,8 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
   percent, the active route marked with its measured burn, and one next step
   (run-out and fallback, provider switch, or the next reset). API dollars
   appear only when nonzero.
+- Add /guard-order: pick the subscription priority from a list, name it, or
+  use `auto` (usable allowances first, soonest reset in front).
 
 ## 0.6.3 — 2026-11-09
 

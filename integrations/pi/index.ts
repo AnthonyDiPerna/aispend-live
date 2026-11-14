@@ -344,6 +344,40 @@ export default function guard(pi: ExtensionAPI) {
       ctx.ui.notify(`${isGuard(ctx)?'Guard active':'Guard status only'} · ${statusLine(state)}\nResets: ${resets || 'awaiting readings'}\nProtection: ${policy.reservePercent}% reserve ${policy.usageMode==='strict'?'gate':'target'} · ${policy.maxContextTokens.toLocaleString()} context · ${policy.maxTaskMinutes} min/task · ${policy.maxThinkingLevel} effort\nAutomatic repair: ${policy.autoRecover?'on':'off'}, at most ${policy.maxAutoRepairs}/task. Hard budgets never renew automatically.\nImpact: ${impact.removedChars||0} characters trimmed; ~${impact.estimatedInputTokensAvoided||0} input tokens avoided on completed replays; ${impact.loopBlocks||0} repeated tools blocked.\n${state.advice?.reasons?.join(' ') || 'Connected subscriptions are selected automatically. API fallback stays off.'}\n/guard-handoff saves notes. /guard-new starts fresh. /guard status only inspects.\nEvidence and optional settings: ${endpoint.origin}`,'info');
     }catch(error:any){ctx.ui.notify(`Guard could not activate: ${error.message}`,'error');}},
   });
+  // Priority order: pick in a list (mouse-clickable in fullscreen Pi, arrows otherwise), name it, or let
+  // "auto" apply use-it-or-lose-it: usable allowances first, soonest reset first; unusable ones last.
+  pi.registerCommand('guard-order',{
+    description:'Set subscription priority: pick from a list, /guard-order auto (soonest reset with usable allowance first), or /guard-order codex claude agy',
+    handler:async(args,ctx)=>{try{
+      const labels:any={claude:'Claude',codex:'Codex',agy:'AGY (Antigravity)'};
+      const ids=Object.keys(labels);
+      let state=await discover(ctx);
+      const words=args.trim().toLowerCase().split(/[s,>]+/).filter(Boolean);
+      let order:string[]=[],why='';
+      if(words[0]==='auto'){
+        const reserve=state.policy?.reservePercent??10;
+        const rank=(id:string)=>{const p=state.providers.find((x:any)=>x.provider===id);const w=p?.windows?.filter((x:any)=>x.applies).sort((a:any,b:any)=>a.remainingPercent-b.remainingPercent)[0];
+          const usable=Boolean(w) && w.remainingPercent>reserve && !['depleted','stale','verify-reset'].includes(p.status);
+          return {id,usable,hours:w?w.hoursLeft:Infinity};};
+        order=ids.map(rank).sort((a,b)=>Number(b.usable)-Number(a.usable) || a.hours-b.hours).map(r=>r.id);
+        why='Use-it-or-lose-it: usable allowances first, the one that resets soonest in front; unusable ones wait at the back.';
+      } else if(words.length){
+        order=words.map(w=>w.startsWith('ag')||w.startsWith('ant')?'agy':w);
+        if(order.length!==3 || new Set(order).size!==3 || order.some(o=>!ids.includes(o)))throw Error('Name all three once: /guard-order codex claude agy');
+      } else {
+        if(!ctx.hasUI)throw Error('Pick interactively, or /guard-order codex claude agy');
+        const remaining=[...ids];
+        for(const slot of ['first','second']){
+          const choice=await ctx.ui.select(`Which subscription ${slot}?`,remaining.map(id=>labels[id]));
+          if(!choice)return;
+          const id=remaining.find(x=>labels[x]===choice)!;order.push(id);remaining.splice(remaining.indexOf(id),1);
+        }
+        order.push(remaining[0]);
+      }
+      state=await api('/api/policy',{providerOrder:order});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+      ctx.ui.notify(`Priority: ${order.map(id=>labels[id]).join(' > ')}. ${why}Routing follows this order from the next request; the footer shows it left to right.`,'info');
+    }catch(error:any){ctx.ui.notify(`Guard order not changed: ${error.message}`,'error');}},
+  });
   pi.registerCommand('guard-unlock',{
     description:'Allow direct model selection; direct models bypass Guard request protection',
     handler:async(_args,ctx)=>{await ctx.waitForIdle();guardArmed=false;waitingForAllowance=false;pi.appendEntry('aispend.guard-armed',{armed:false});ctx.ui.notify('Model selection unlocked. Guard still applies while aispend/guard is selected. Selecting a direct model bypasses its request, context, and dollar checks. /guard activates protection again.','warning');},

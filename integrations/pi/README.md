@@ -41,6 +41,10 @@ staleness and unconfirmed resets still stop requests.
 - `/guard max`: use the preferred subscription's available allowance now.
   This does not enable maximum reasoning or increase configured work caps.
 - `/guard strict`: opt into hard reserve and pace gates.
+- `/guard-order`: set the subscription priority from a list (clickable in
+  fullscreen Pi), or `/guard-order auto` for use-it-or-lose-it ordering (usable
+  allowances first, soonest reset in front), or `/guard-order codex claude agy`.
+  The footer shows the order left to right.
 
 The planner defaults to Claude returning, then Codex, then other connected
 subscriptions. Change the preference or bridge target under Advanced.
