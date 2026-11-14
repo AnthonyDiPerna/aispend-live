@@ -63,6 +63,20 @@ staleness and unconfirmed resets still stop requests.
   continues instead of restarting with no context. Repeated pauses for the
   same reason now keep the first handoff instead of writing one per retry.
 
+## Several Pi windows
+
+Every window talks to the same controller on port 9021, so there is one set of
+allowance readings, one reserve, and one concurrency cap. Each window keeps
+its own task budget (requests, minutes, context, repeated tools) and its own
+footer. The footer shows `N windows/S slots` when more than one is open, and
+the next step names it when windows outnumber slots. `/guard-windows 3`, or
+typing "3 windows", lets three guarded requests run at once; the default is
+one, which queues the others for up to 15 minutes per lease. More slots means
+the same subscription burns faster, which the burn rate in the footer shows.
+A window is counted while it has polled or requested within two minutes.
+Launching `pi-guard` again reuses the running controller instead of starting
+a second one.
+
 ## Next
 
 Planned, not built: a feedback loop that scores each finished task on tokens,

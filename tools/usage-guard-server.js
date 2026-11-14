@@ -115,7 +115,14 @@ function createGuardServer(options={}) {
     }
   }
   const refreshCollectors=()=>Promise.allSettled(Object.values(collectors).map(c=>c.refresh()));
-  const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
+  // A window is a Pi session that polled or requested within the last two minutes. The count is
+  // informational; the concurrency cap (policy.maxConcurrentRequests) is what actually limits burn.
+  const WINDOW_MS=120000;
+  const windows=new Map(); // in memory on purpose: a readiness check must never change persisted state
+  const touchWindow=id=>{windows.set(id,now());for(const [k,v] of windows)if(now()-v>WINDOW_MS*5)windows.delete(k);};
+  const windowsView=()=>{const t=now();const active=[...windows.entries()].filter(([,v])=>t-v<=WINDOW_MS);const slots=cleanPolicy(state.policy).maxConcurrentRequests;const inFlight=[...leases.values()].filter(l=>l.expiresAt>t).length;
+    return {active:active.length,slots,inFlight,waiting:Math.max(0,active.filter(([id])=>state.tasks[id]?.status==='pause').length),ids:active.map(([id])=>id.slice(0,8))};};
+  const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),windows:windowsView(),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
     accounting:accounting(state,leases,now()),impact:impactReport(state),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
     models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
     harnesses:Object.entries(COVERAGE).map(([id,coverage])=>({id,...coverage,...state.harnesses?.[id]})),events:state.events, lastSyncAt,syncError});
@@ -148,7 +155,7 @@ function createGuardServer(options={}) {
         return res.end(fs.readFileSync(path.join(__dirname,'usage-guard.html')));
       }
       if(req.method==='GET' && url.pathname==='/health') return reply(res,200,{ok:true,name:'ai-spend-guard',demo:Boolean(options.demo)});
-      if(req.method==='GET' && url.pathname==='/api/state') return reply(res,200,publicState());
+      if(req.method==='GET' && url.pathname==='/api/state'){const t=url.searchParams.get('task');if(t && /^[0-9a-f]{8,64}$/.test(t))touchWindow(t);return reply(res,200,publicState());}
       if(req.method==='GET' && url.pathname==='/api/events'){
         res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Content-Type-Options':'nosniff'});
         clients.add(res);res.write('data: '+JSON.stringify(publicState())+'\n\n');req.on('close',()=>clients.delete(res));return;
@@ -223,7 +230,7 @@ function createGuardServer(options={}) {
         save();return reply(res,200,{...decision,policy:plan.policy});
       } else if(url.pathname==='/api/preflight' || url.pathname==='/api/readiness') {
         if(options.demo) return reply(res,403,{error:'Demo cannot authorize real model requests'});
-        const id=safeTaskId(data.taskId);
+        const id=safeTaskId(data.taskId);touchWindow(id);
         const task=state.tasks[id] || {id,requests:0,totalTokens:0,removedChars:0};
         const plan=buildPlan(state,now());
         let decision=decide(plan,{...task,...{

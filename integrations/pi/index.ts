@@ -78,7 +78,10 @@ export default function guard(pi: ExtensionAPI) {
     else if(bridge?.w)next=labels[bridge.p.provider]+" resets in "+span(bridge.w.hoursLeft);
     else if(current?.w)next=labels[current.p.provider]+" resets in "+span(current.w.hoursLeft);
     const api=Number(state.accounting?.apiEstimateUsd||0);
-    return "Guard · "+cells.join(" · ")+(next?" · next: "+next:"")+(api>0?" · API $"+api.toFixed(2):"");
+    const win=state.windows;
+    const windows=win && win.active>1?` · ${win.active} windows/${win.slots} slot${win.slots===1?"":"s"}`:"";
+    if(win && win.active>win.slots && !next.includes("slot"))next=(next?next+"; ":"")+`${win.active} windows share ${win.slots} slot${win.slots===1?"":"s"}, /guard-windows ${Math.min(8,win.active)}`;
+    return "Guard · "+cells.join(" · ")+windows+(next?" · next: "+next:"")+(api>0?" · API $"+api.toFixed(2):"");
   }
   function watch(ctx:ExtensionContext) {
     if(watcher || !ctx.hasUI) return;
@@ -86,7 +89,7 @@ export default function guard(pi: ExtensionAPI) {
       if(checking || !isGuard(ctx) || !ctx.isIdle()) return;
       checking=true;
       try {
-        const state=await api('/api/state');policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+        const state=await api('/api/state?task='+taskId);policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
         if(!waitingForAllowance)return;
         const decision=await api('/api/readiness',{taskId,currentProvider:currentGroup,continuation:true,
           availableProviders:[...new Set(available(ctx).map(m=>modelGroup(ctx,m)))],availableModels:available(ctx).map(m=>m.provider+'/'+m.id),contextTokens:ctx.getContextUsage()?.tokens || 0,repeatedTools});
@@ -414,6 +417,8 @@ export default function guard(pi: ExtensionAPI) {
         catch(error:any){ctx.ui.notify(`Guard block not changed: ${error.message}`,'error');}
         return {action:'handled'};}
     }
+    const win=/^(?:allow |use |run |i have |we have )?(\d)\s+(?:pi\s+)?windows?(?:\s+(?:open|at once|now))?\.?$/.exec(event.text.trim().toLowerCase());
+    if(win){try{await setWindows(parseInt(win[1],10),ctx);}catch(error:any){ctx.ui.notify(`Guard windows not changed: ${error.message}`,'error');}return {action:'handled'};}
     const ruleRequest=parseRuleRequest(event.text);
     if(ruleRequest){try{await saveRule(ruleRequest,ctx);}catch(error:any){ctx.ui.notify(`Guard rule not saved: ${error.message}`,'error');}return {action:'handled'};}
     const order=parseOrderRequest(event.text);
@@ -487,6 +492,20 @@ export default function guard(pi: ExtensionAPI) {
       const text=readHandoff(point.file);waitingForAllowance=false;
       await ctx.newSession({setup:async manager=>{manager.appendMessage({role:'user',content:[{type:'text',text}],timestamp:Date.now()});},withSession:async fresh=>{fresh.ui.notify(`Blast-off from a checkpoint saved ${age(point.savedAt)}. Review the excerpts, then send your next instruction through Guard. No model call was made.`,'info');}});
     }catch(error:any){ctx.ui.notify(error.message||'Could not open the checkpoint. The current session is intact.','error');}},
+  });
+  async function setWindows(n:number,ctx:ExtensionContext){
+    if(!Number.isInteger(n) || n<1 || n>8)throw Error('Choose 1 to 8 concurrent guarded requests');
+    const state=await api('/api/policy',{maxConcurrentRequests:n});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
+    const open=state.windows?.active||1;
+    ctx.ui.notify(`${n} guarded request${n===1?'':'s'} may run at once across all Pi windows (${open} open now). Each window keeps its own task budget; allowance readings and the reserve are shared. More slots means faster burn of the same subscription.`,'info');
+  }
+  pi.registerCommand('guard-windows',{
+    description:'How many Pi windows may make guarded requests at the same time (1-8); /guard-windows shows the count',
+    handler:async(args,ctx)=>{try{
+      const n=parseInt(args.trim(),10);
+      if(!args.trim()){const state=await api('/api/state?task='+taskId);const w=state.windows||{active:1,slots:policy.maxConcurrentRequests};ctx.ui.notify(`${w.active} window${w.active===1?'':'s'} open, ${w.slots} slot${w.slots===1?'':'s'}, ${w.inFlight||0} request${w.inFlight===1?'':'s'} in flight. /guard-windows N sets the slots.`,'info');return;}
+      await setWindows(n,ctx);
+    }catch(error:any){ctx.ui.notify(`Guard windows not changed: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-rule',{
     description:'Task routing rules: /guard-rule translations -> argon, /guard-rule list, /guard-rule remove translations',

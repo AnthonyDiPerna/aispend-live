@@ -36,6 +36,9 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Count open Pi windows per controller, show windows/slots in the footer, and
+  add /guard-windows (or "3 windows") to set how many guarded requests run at
+  once. Each window keeps its own task budget; readings and reserve are shared.
 - Landing page: replace the synthetic Guard preview with the sanitized live
   snapshot, the Pi footer as rendered, a dated walkthrough of a real morning
   across three subscriptions, and the typed-command summary.

@@ -18,6 +18,7 @@
     "test:pi": "node tools/usage-guard-pi-test.js",
     "guard:export": "node tools/export-guard-demo.js",
     "guard:snapshot": "node tools/export-guard-snapshot.js",
+    "guard:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File integrations/pi/Restart-Controller.ps1",
     "site:preview": "node tools/preview-public.js"
   },
   "keywords": [

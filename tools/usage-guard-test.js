@@ -133,3 +133,23 @@ run().catch(error=>{console.error(error);process.exitCode=1;});
   assert.equal(decide(buildPlan(s,t0),{...task,preferredProvider:'agy'},t0).provider,'claude','a rule cannot reach a blocked provider');
   console.log('Routing rules and blocked providers passed');
 }
+
+// Several Pi windows: each state poll or request identifies its task; the count expires after two minutes.
+(async()=>{
+  const {createGuardServer}=require('./usage-guard-server');
+  const os=require('node:os');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guard-windows-'));
+  const server=createGuardServer({stateDir:dir,sync:false});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port;
+  const get=async q=>(await fetch(base+'/api/state'+q)).json();
+  assert.equal((await get('')).windows.active,0);
+  await get('?task=aaaaaaaa11111111');await get('?task=bbbbbbbb22222222');await get('?task=aaaaaaaa11111111');
+  const seen=await get('');
+  assert.equal(seen.windows.active,2,'two distinct windows counted once each');
+  assert.equal(seen.windows.slots,1,'default concurrency slot');
+  await get('?task=not-a-task-id!');
+  assert.equal((await get('')).windows.active,2,'invalid ids are ignored');
+  await new Promise(r=>server.close(r));
+  console.log('Window counting passed');
+})().catch(e=>{console.error(e);process.exit(1);});
