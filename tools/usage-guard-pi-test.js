@@ -16,6 +16,7 @@ async function runCase(name,{used=20,loop=false,maxRequests=10,offline=false,com
   server.guard.state().observations=[{provider:'claude',windowId:'weekly',windowMinutes:10080,usedPercent:used,resetAt:new Date(now+72*3600000).toISOString(),observedAt:new Date(now).toISOString(),source:'manual'}];
   server.guard.state().bindings={claude:{provider:'claude-code',model:'guard-fixture'}};
   server.guard.state().policy.maxRequestsPerTask=maxRequests;
+  server.guard.state().policy.autoFix=false; // these cases exercise the review-first pauses; auto-fix has its own HTTP test
   server.guard.state().policy.autoRecover=autoRecover;
   server.guard.state().policy.usageMode=usageMode;
   if(api){server.guard.state().bindings={api:{provider:'guard-api-fixture',model:'guard-fixture'}};Object.assign(server.guard.state().policy,{allowApiSpend:apiEnabled,apiDailyBudgetUsd:10,apiTaskBudgetUsd:10});}
