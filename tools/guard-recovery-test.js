@@ -57,7 +57,7 @@ async function main(){
     const repair=await post('/api/recovery',{...q,repeatedTools:3});assert.equal(repair.action,'repair');
     assert.equal(server.guard.state().tasks[q.taskId].requests,1,'repair never resets or spends a request by itself');
     assert.equal((await post('/api/recovery',{...q,repeatedTools:3})).code,'repair-limit');
-    await post('/api/policy',{maxRequestsPerTask:1});assert.equal((await post('/api/preflight',q)).code,'request-budget');
+    await post('/api/policy',{maxRequestsPerTask:1,autoFix:false});assert.equal((await post('/api/preflight',q)).code,'request-budget'); // review-first pause under test
     const persisted=JSON.parse(fs.readFileSync(path.join(temp,'state/state.json')));assert.equal(persisted.tasks[q.taskId].autoRepairs,1);
     assert.equal((await post('/api/native-event',{harness:'agy',event:'request',taskId:'agy-http-task',eventId:'native-http-event'})).action,'continue');
   }finally{await new Promise(resolve=>server.close(resolve));if(path.dirname(temp)===path.resolve(os.tmpdir())&&path.basename(temp).startsWith('guard-recovery-'))fs.rmSync(temp,{recursive:true,force:true});}
