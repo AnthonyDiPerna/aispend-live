@@ -90,6 +90,16 @@ provider you blocked, a repeated-tool loop after its one repair, and a
 controller that is unreachable. Turn it off with `autoFix: false` under
 Advanced if you want the old review-first pauses.
 
+## Next model when one is exhausted
+
+On by default (`fallbackModels`). When the selected model's allowance is
+exhausted, stale or past an unconfirmed reset, Guard tries the other models
+Pi has on the same subscription in discovery order (an empty Argon window
+can leave Hydrogen or Flash with room), then the next subscription in your
+priority order. The switch becomes the new binding, is announced in Pi, and
+is recorded as a lesson. Blocked subscriptions are never tried. Set
+`fallbackModels: false` to pause instead.
+
 ## Feedback loop
 
 Guard records what it did and what you did next: pauses with their cause and

@@ -36,6 +36,9 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Fall through to the next model on the same subscription, then the next
+  subscription, when a route's allowance is exhausted (fallbackModels, on by
+  default). The switch is bound, announced and recorded.
 - Auto-fix by default: tripped request/time/token budgets renew themselves
   and continue (recorded as lessons), concurrency grows to the number of open
   windows, and the bridge context ceiling is advisory. Only exhausted or

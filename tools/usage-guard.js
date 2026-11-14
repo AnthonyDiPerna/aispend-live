@@ -27,6 +27,7 @@ const DEFAULT_POLICY = Object.freeze({
   blockedProviders: [],
   routingRules: [],
   autoFix: true,
+  fallbackModels: true,
   contextAdvisoryProviders: ['antigravity', 'antigravity-acp'],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
@@ -71,6 +72,7 @@ function cleanPolicy(input = {}) {
       return {match, provider: rule.provider, model};
     });
   }
+  if(input.fallbackModels!==undefined){if(typeof input.fallbackModels!=='boolean')throw Error('fallbackModels must be true or false');result.fallbackModels=input.fallbackModels;}
   if(input.autoFix!==undefined){if(typeof input.autoFix!=='boolean')throw Error('autoFix must be true or false');result.autoFix=input.autoFix;}
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}

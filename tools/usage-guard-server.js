@@ -245,6 +245,26 @@ function createGuardServer(options={}) {
           preferredModel:typeof data.preferredModel==='string' && data.preferredModel.length<=80?data.preferredModel:undefined,
         }},now());
         let decision=judge();
+        // Model fallback: when no configured route has allowance, try the other models Pi has on each
+        // subscription in priority order (a family window such as Argon can be empty while Hydrogen or
+        // Flash still has room), then the next subscription. The switch is recorded and shown.
+        if(decision.action==='pause' && decision.code==='allowance' && plan.policy.fallbackModels){
+          const wanted=Array.isArray(data.availableModels)?new Set(data.availableModels):null;
+          outer: for(const group of plan.policy.providerOrder){
+            if((plan.policy.blockedProviders||[]).includes(group))continue;
+            const current=state.bindings?.[group];
+            for(const m of [...models.values()].filter(m=>m.group===group && m.auth==='subscription' && (!wanted || wanted.has(m.provider+'/'+m.id)) && !(current && current.provider===m.provider && current.model===m.id))){
+              const trial=buildPlan({...state,bindings:{...state.bindings,[group]:{provider:m.provider,model:m.id}}},now());
+              const d=decide(trial,{...task,currentProvider:data.currentProvider,continuation:Boolean(data.continuation),contextTokens:Number(data.contextTokens)||0,repeatedTools:Number(data.repeatedTools)||0,availableProviders:Array.isArray(data.availableProviders)?data.availableProviders:[],availableModels:Array.isArray(data.availableModels)?data.availableModels:undefined},now());
+              if(!['continue','switch'].includes(d.action) || d.provider!==group)continue;
+              state.bindings[group]={provider:m.provider,model:m.id};
+              recordLesson(state,{kind:'model-fallback',taskId:id,provider:group,model:m.id,from:current?.model||null},now());
+              event('auto-fix',`${group}: ${current?.model||'no model'} has no allowance; switched to ${m.id} and continued.`);
+              decision={...d,action:task.provider && task.provider!==group?'switch':d.action,autoFixed:'model-fallback',autoFixNote:`${current?.model||group} is out of allowance. Guard switched this task to ${m.id} on ${group}.`};
+              break outer;
+            }
+          }
+        }
         // Auto-fix: a work budget is a pacing device, not a quota. When it trips, renew it, say so, learn from it, and continue.
         if(decision.action==='pause' && SOFT.includes(decision.code) && plan.policy.autoFix){
           const b=state.bindings?.[task.provider];

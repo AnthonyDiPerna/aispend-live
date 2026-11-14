@@ -211,3 +211,35 @@ run().catch(error=>{console.error(error);process.exitCode=1;});
   await new Promise(r=>server.close(r));
   console.log('Auto-fix passed');
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// Model fallback: an exhausted family window (Argon) falls through to another model on the same subscription
+// before the next subscription; with the option off the task pauses.
+(async()=>{
+  const {createGuardServer}=require('./usage-guard-server');
+  const os=require('node:os');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guard-fallback-'));
+  const server=createGuardServer({stateDir:dir,sync:false});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port;
+  const post=async(route,body)=>{const r=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json();};
+  const t0=Date.now(),iso=h=>new Date(t0+h*3600000).toISOString(),at=new Date(t0).toISOString();
+  await post('/api/observations',{observations:[
+    {provider:'agy',windowId:'gemini-argon:weekly',windowMinutes:10080,usedPercent:100,resetAt:iso(100),observedAt:at,source:'manual',modelFamily:'gemini-argon'},
+    {provider:'agy',windowId:'gemini:weekly',windowMinutes:10080,usedPercent:20,resetAt:iso(100),observedAt:at,source:'manual',modelFamily:'gemini'},
+    {provider:'codex',windowId:'codex:primary',windowMinutes:10080,usedPercent:50,resetAt:iso(20),observedAt:at,source:'manual'}]});
+  await post('/api/models',{models:[{group:'agy',provider:'antigravity',id:'gemini-4-argon',auth:'subscription'},{group:'agy',provider:'antigravity',id:'gemini-4-hydrogen',auth:'subscription'},{group:'codex',provider:'openai-codex',id:'gpt-test',auth:'subscription'}]});
+  await post('/api/binding',{group:'agy',provider:'antigravity',model:'gemini-4-argon'});
+  await post('/api/policy',{usageMode:'max',providerOrder:['agy','codex','claude']});
+  const q={taskId:'fallback-task-0001',availableProviders:['agy','codex'],availableModels:['antigravity/gemini-4-argon','antigravity/gemini-4-hydrogen','openai-codex/gpt-test'],contextTokens:1000};
+  const d=await post('/api/preflight',q);
+  assert.equal(d.action,'continue');assert.equal(d.provider,'agy');assert.equal(d.binding.model,'gemini-4-hydrogen','Argon empty, Hydrogen on the same subscription takes over');
+  assert.equal(d.autoFixed,'model-fallback');
+  await post('/api/complete',{taskId:q.taskId,leaseId:d.leaseId,totalTokens:10,removedChars:0});
+  const st=await (await fetch(base+'/api/state')).json();
+  assert.equal(st.providers.find(p=>p.provider==='agy').binding.model,'gemini-4-hydrogen','the switch is visible as the new binding');
+  await post('/api/binding',{group:'agy',provider:'antigravity',model:'gemini-4-argon'});
+  await post('/api/policy',{fallbackModels:false});
+  assert.equal((await post('/api/preflight',{...q,availableModels:['antigravity/gemini-4-argon']})).action,'pause','without fallback and without other routes the task pauses');
+  await new Promise(r=>server.close(r));
+  console.log('Model fallback passed');
+})().catch(e=>{console.error(e);process.exit(1);});
