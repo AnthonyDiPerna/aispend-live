@@ -51,30 +51,31 @@ export default function guard(pi: ExtensionAPI) {
   const persistBlocks=()=>pi.appendEntry('aispend.guard-blocks',{operations:[...blockedOperations]});
   const impact=(kind:string,extra:any={})=>api('/api/intervention',{id:randomUUID(),taskId,kind,...extra});
   const routing=(ctx:ExtensionContext)=>({currentProvider:currentGroup,availableProviders:[...new Set(available(ctx).map(m=>modelGroup(ctx,m)))],availableModels:available(ctx).map(m=>m.provider+'/'+m.id),contextTokens:ctx.getContextUsage()?.tokens||0});
-  // Footer: subscriptions left to right in priority order. Per provider: route marker, remaining %,
-  // status flag, measured burn, time to run-out when it precedes the reset, time to reset.
+  // Footer: one glance. Subscriptions in priority order with remaining %, the active route marked
+  // with its measured burn, then the single next step (run-out, switch, or the next reset).
   const span=(h:number)=>!Number.isFinite(h)||h<0?"?":h<1?Math.max(1,Math.round(h*60))+"m":h<48?Math.round(h)+"h":Math.round(h/24)+"d";
-  const FLAG:any={reserve:"⚑",pace:"⚑",depleted:"∅",stale:"?",unknown:"?","verify-reset":"↻?"};
   function statusLine(state:any){
     const labels:any={claude:"Claude",codex:"Codex",agy:"AGY"};
     const order:string[]=state.policy?.providerOrder||["claude","codex","agy"];
-    const cells=order.map(id=>state.providers.find((p:any)=>p.provider===id)).filter(Boolean).map((p:any)=>{
-      const rows=p.windows.filter((w:any)=>w.applies).sort((a:any,b:any)=>a.remainingPercent-b.remainingPercent);
-      const w=rows[0];
-      let cell=(p.provider===currentGroup?"▸":"")+labels[p.provider];
-      if(!w)return cell+" ?";
-      cell+=" "+Math.max(0,w.remainingPercent).toFixed(0)+"%";
-      const other=rows.find((r:any)=>r.windowId!==w.windowId && r.remainingPercent-w.remainingPercent>=5);
-      if(other)cell+="·"+String(other.windowId).split(":").pop()+" "+Math.max(0,other.remainingPercent).toFixed(0)+"%";
-      if(FLAG[p.status])cell+=" "+FLAG[p.status];
-      const slope=w.slopePercentPerHour;
-      if(Number.isFinite(slope) && slope>=0.1)cell+=" −"+(slope<1?slope.toFixed(1):Math.round(slope))+"%/h";
-      if(Number.isFinite(w.depletionHours) && w.depletionHours<w.hoursLeft)cell+=" ⌛"+span(w.depletionHours)+"!";
-      cell+=" ↻"+span(w.hoursLeft);
+    const lowest=(p:any)=>p.windows.filter((w:any)=>w.applies).sort((a:any,b:any)=>a.remainingPercent-b.remainingPercent)[0];
+    const rows=order.map(id=>state.providers.find((p:any)=>p.provider===id)).filter(Boolean).map((p:any)=>({p,w:lowest(p)}));
+    const cells=rows.map(({p,w})=>{
+      const active=p.provider===currentGroup;
+      let cell=(active?"▸":"")+labels[p.provider]+" "+(w?Math.max(0,w.remainingPercent).toFixed(0)+"%":"?");
+      if(p.status==="depleted")cell+="∅";
+      if(active && w && Number.isFinite(w.slopePercentPerHour) && w.slopePercentPerHour>=0.1)cell+=" −"+(w.slopePercentPerHour<1?w.slopePercentPerHour.toFixed(1):Math.round(w.slopePercentPerHour))+"%/h";
       return cell;
     });
+    const current=rows.find(r=>r.p.provider===currentGroup);
+    const fallback=rows.find(r=>r.p.provider!==currentGroup && r.p.status==="ready" && r.w && r.w.remainingPercent>(state.policy?.reservePercent??10));
+    const bridge=rows.find(r=>r.p.provider===state.policy?.bridgeProvider && r.p.provider!==currentGroup);
+    let next="";
+    if(current && ["depleted","stale","verify-reset"].includes(current.p.status))next=fallback?"switch to "+labels[fallback.p.provider]:"wait for a fresh reading";
+    else if(current?.w && Number.isFinite(current.w.depletionHours) && current.w.depletionHours<current.w.hoursLeft)next=labels[current.p.provider]+" runs out in "+span(current.w.depletionHours)+(fallback?", then "+labels[fallback.p.provider]:"");
+    else if(bridge?.w)next=labels[bridge.p.provider]+" resets in "+span(bridge.w.hoursLeft);
+    else if(current?.w)next=labels[current.p.provider]+" resets in "+span(current.w.hoursLeft);
     const api=Number(state.accounting?.apiEstimateUsd||0);
-    return "Guard "+(state.policy?.usageMode||"")+" · "+cells.join(" · ")+(api>0?" · API $"+api.toFixed(2):"");
+    return "Guard · "+cells.join(" · ")+(next?" · next: "+next:"")+(api>0?" · API $"+api.toFixed(2):"");
   }
   function watch(ctx:ExtensionContext) {
     if(watcher || !ctx.hasUI) return;

@@ -14,10 +14,10 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
   unroutable.
 - Document Argon window matching, the bridge's tool-loop and cost limits, and
   the unpublished policy position on driving `agy` from another agent.
-- Redesign the Pi footer: subscriptions left to right in priority order with the
-  active route marked, remaining percent, a second window when it differs,
-  status flag, measured burn per hour, time to run-out when it precedes the
-  reset, and time to reset. API dollars appear only when nonzero.
+- Simplify the Pi footer: subscriptions in priority order with remaining
+  percent, the active route marked with its measured burn, and one next step
+  (run-out and fallback, provider switch, or the next reset). API dollars
+  appear only when nonzero.
 
 ## 0.6.3 — 2026-11-09
 
