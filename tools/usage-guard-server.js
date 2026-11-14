@@ -248,10 +248,15 @@ function createGuardServer(options={}) {
         // Model fallback: when no configured route has allowance, try the other models Pi has on each
         // subscription in priority order (a family window such as Argon can be empty while Hydrogen or
         // Flash still has room), then the next subscription. The switch is recorded and shown.
-        if(decision.action==='pause' && decision.code==='allowance' && plan.policy.fallbackModels){
+        // Runs when nothing is routable, and also when a higher-priority subscription lost its route only
+        // because its bound model's window is exhausted: another model there beats dropping down the order.
+        const exhausted=new Set(plan.providers.filter(p=>['depleted','stale','verify-reset'].includes(p.status)).map(p=>p.provider));
+        const decidedIndex=['continue','switch'].includes(decision.action)?plan.policy.providerOrder.indexOf(decision.provider):plan.policy.providerOrder.length;
+        const stayPut=Boolean(data.continuation) && decision.provider===data.currentProvider;
+        if(plan.policy.fallbackModels && !stayPut && (decision.action==='pause'?decision.code==='allowance':decidedIndex>0)){
           const wanted=Array.isArray(data.availableModels)?new Set(data.availableModels):null;
-          outer: for(const group of plan.policy.providerOrder){
-            if((plan.policy.blockedProviders||[]).includes(group))continue;
+          outer: for(const group of plan.policy.providerOrder.slice(0,decidedIndex)){
+            if((plan.policy.blockedProviders||[]).includes(group) || !exhausted.has(group))continue;
             const current=state.bindings?.[group];
             for(const m of [...models.values()].filter(m=>m.group===group && m.auth==='subscription' && (!wanted || wanted.has(m.provider+'/'+m.id)) && !(current && current.provider===m.provider && current.model===m.id))){
               const trial=buildPlan({...state,bindings:{...state.bindings,[group]:{provider:m.provider,model:m.id}}},now());
