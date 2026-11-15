@@ -7,7 +7,7 @@
   "scripts": {
     "guard": "node tools/usage-guard-server.js",
     "guard:demo": "node tools/usage-guard-server.js --demo",
-    "test:guard": "node tools/usage-guard-test.js && node tools/usage-collectors-test.js && node tools/guard-advisor-test.js && node tools/guard-recovery-test.js && node tools/guard-continuity-test.js",
+    "test:guard": "node tools/usage-guard-test.js && node tools/usage-collectors-test.js && node tools/guard-advisor-test.js && node tools/guard-recovery-test.js && node tools/guard-continuity-test.js && node tools/guard-rejection-test.js",
     "dashboard": "node tools/ai-spend-dashboard-server.js",
     "summary": "node tools/ai-spend-dashboard-server.js --summary",
     "demo:export": "node tools/export-public-demo.js",

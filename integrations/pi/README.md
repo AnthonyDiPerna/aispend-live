@@ -90,6 +90,23 @@ provider you blocked, a repeated-tool loop after its one repair, and a
 controller that is unreachable. Turn it off with `autoFix: false` under
 Advanced if you want the old review-first pauses.
 
+## Refusals that look like answers
+
+Some bridges return a quota wall as an ordinary reply ("Individual quota
+reached ... Resets in 154h30m7s") rather than an error, so Pi sees a finished
+turn and nothing is retried. Guard reads every bridge reply: a short reply with
+no tool calls that is only a quota, rate-limit or upgrade notice is treated as
+a refusal. The request is settled as failed, the model's window is marked
+exhausted until the reset the notice names (five hours when it names none), and
+Guard re-sends your last instruction on the next eligible route, up to four
+times in a row before it stops and saves a handoff. Direct API and OAuth
+providers raise real errors, which Pi already handles, so they are not parsed.
+
+An instruction with a provider in it also steers the task without a model
+call: "switch to codex" alone reorders priority; "fix that, use codex" or
+"switch to codex and finish everything" sets the task's route to Codex and then
+sends the message as usual.
+
 ## Next model when one is exhausted
 
 On by default (`fallbackModels`). When the selected model's allowance is

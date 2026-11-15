@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert');
+const {parseProviderRejection,resetDelayMs}=require('./guard-rejection');
+const now=Date.parse('2026-11-15T06:15:31.000Z');
+const agy=(text,model='gemini-4-argon')=>({role:'assistant',provider:'antigravity',model,stopReason:'stop',content:[{type:'text',text}]});
+const r=parseProviderRejection(agy('⚠ Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 154h29m39s.'),now);
+assert.ok(r,'the quota wall is recognized');
+assert.equal(r.observation.provider,'agy');assert.equal(r.observation.windowId,'gemini-argon:weekly');assert.equal(r.observation.usedPercent,100);
+assert.equal(r.observation.resetAt,new Date(now+(154*3600+29*60+39)*1000).toISOString(),'the reset comes from the message');
+assert.equal(r.confirmedReset,true);assert.equal(r.observation.modelFamily,'gemini-argon');
+assert.equal(parseProviderRejection(agy('Rate limit exceeded, try again later','gemini-4-hydrogen'),now).observation.windowId,'gemini:session','no reset given: assume the session window');
+assert.equal(parseProviderRejection(agy('Here is the quota reached handler you asked for:\n\nfunction onQuota(){...}\n'+'x'.repeat(700)),now),null,'long answers that mention quotas are answers');
+assert.equal(parseProviderRejection({...agy('quota reached'),content:[{type:'toolCall',name:'read'},{type:'text',text:'quota reached'}]},now),null,'a reply that does work is not a refusal');
+assert.equal(parseProviderRejection({role:'assistant',provider:'anthropic',model:'claude-sonnet-5',content:[{type:'text',text:'quota reached'}]},now),null,'direct providers raise real errors; not parsed');
+assert.equal(parseProviderRejection({role:'assistant',provider:'claude-code',model:'claude-opus-5-5',content:[{type:'text',text:'Usage limit reached. Resets in 2h10m.'}]},now).observation.windowId,'session');
+assert.equal(resetDelayMs('Resets in 3d 2h'),(3*24+2)*3600000);
+assert.equal(resetDelayMs('no reset here'),null);
+console.log('Provider rejection parsing passed');

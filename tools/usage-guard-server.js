@@ -86,7 +86,7 @@ function createGuardServer(options={}) {
   fs.mkdirSync(stateDir,{recursive:true});
   let state=fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):options.demo?demoState(now()):initialState();
   cleanPolicy(state.policy);
-  const leases=new Map(Object.entries(state.pendingRequests || {})), models=new Map();
+  const leases=new Map(Object.entries(state.pendingRequests || {})), models=new Map((Array.isArray(state.models)?state.models:[]).map(m=>[m.provider+":"+m.id,m])); // seeded from the last save so a restart mid-session keeps every discovered model
   let lastSyncAt=null, syncError=null;
   const collectors={};
   const clients=new Set();
@@ -196,6 +196,7 @@ function createGuardServer(options={}) {
           const cost=model.cost && Object.fromEntries(['input','output','cacheRead','cacheWrite'].map(k=>[k,Number.isFinite(model.cost[k]) && model.cost[k]>=0?model.cost[k]:null]));
           models.set(`${model.provider}:${model.id}`,{group:model.group,provider:model.provider,id:model.id,auth:model.auth,cost,contextWindow:model.contextWindow,maxTokens:model.maxTokens});
         }
+        state.models=[...models.values()];save();
         const bindings=defaultBindings([...models.values()],state.bindings);
         if(JSON.stringify(bindings)!==JSON.stringify(state.bindings)){state.bindings=bindings;event('binding','Selected connected subscription models. Existing choices and API spending are unchanged.');save();}
       } else if(url.pathname==='/api/binding') {

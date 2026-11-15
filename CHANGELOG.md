@@ -36,6 +36,11 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Treat a bridge reply that is only a quota or rate-limit notice as a refusal:
+  settle it as failed, mark the window exhausted until the named reset, and
+  re-send the instruction on the next eligible route (four tries, then stop).
+  "switch to codex" alone and inline directives such as "fix that - use codex"
+  now steer the task without a model call.
 - Fall through to the next model on the same subscription, then the next
   subscription, when a route's allowance is exhausted (fallbackModels, on by
   default). The switch is bound, announced and recorded.

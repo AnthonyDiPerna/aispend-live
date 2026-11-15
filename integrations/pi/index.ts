@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const {trimToolOutput, signature, DEFAULT_POLICY} = require('../../tools/usage-guard.js');
 const {codexObservations} = require('../../tools/usage-guard-server.js');
 const {buildHandoff,readHandoff} = require('../../tools/guard-handoff.js');
+const {parseProviderRejection} = require('../../tools/guard-rejection.js');
 
 // Local CLI bridges (official Claude bridge, agy acp bridge) run on the login the
 // CLI already holds; Pi has no OAuth token for them, so group them by provider id.
@@ -33,6 +34,8 @@ export default function guard(pi: ExtensionAPI) {
   let localFailure:string|undefined;
   let lastHandoff:string|undefined;
   let lastPauseKey='',lastPauseAt=0;
+  // A bridge reply that is only a quota refusal: re-route and re-send the instruction, a few times at most.
+  let rerouteNote:string|undefined, rerouteCount=0;
   let contextWarned=false;
   let watcher:ReturnType<typeof setInterval>|undefined;
   let guardArmed=false,restoringModel=false,pendingRepair=false,lastOperation='';
@@ -247,7 +250,15 @@ export default function guard(pi: ExtensionAPI) {
     const tokens=usage.totalTokens ?? ((usage.input||0)+(usage.output||0)+(usage.cacheRead||0)+(usage.cacheWrite||0));
     const amount=usage.cost?.total;
     const cost=typeof amount==='number' && Number.isFinite(amount) && (amount>0 || tokens===0)?amount:undefined;
-    try {const state=await complete(tokens,message.stopReason==='error' || message.stopReason==='aborted',cost);if(state)ctx.ui.setStatus('aispend',statusLine(state));}
+    const refusal=parseProviderRejection(message);
+    if(refusal){
+      // The provider answered with a quota wall instead of work. Mark that window exhausted now (the
+      // 5-minute collector is too slow for a queue of instructions), then let agent_end re-dispatch.
+      try{await api('/api/observations',{observations:[refusal.observation]});}catch{}
+      rerouteNote=refusal.note;
+      ctx.ui.notify(`Guard: ${refusal.note}\nMarked ${refusal.observation.windowId} on ${ORDER_LABELS[refusal.group]||refusal.group} as exhausted until ${new Date(refusal.resetAt).toLocaleString()}; re-routing.`,'warning');
+    } else if(message.stopReason!=='error' && message.stopReason!=='aborted') rerouteCount=0;
+    try {const state=await complete(tokens,Boolean(refusal) || message.stopReason==='error' || message.stopReason==='aborted',cost);if(state)ctx.ui.setStatus('aispend',statusLine(state));}
     catch {localFailure='Usage accounting was not acknowledged. Check the controller before resuming.';ctx.ui.notify('Guard could not record usage. Further requests are paused.','warning');}
     for(const diagnostic of message.diagnostics || []) {
       if(diagnostic.type!=='claude-code.rate-limit') continue;
@@ -310,6 +321,12 @@ export default function guard(pi: ExtensionAPI) {
   });
   pi.on('agent_end',async(_event,ctx)=>{
     if(activeLease) await complete(0,true).catch(()=>{localFailure='Could not settle the last request.';});
+    if(rerouteNote && isGuard(ctx)){
+      const note=rerouteNote;rerouteNote=undefined;
+      if(++rerouteCount>4){rerouteCount=0;checkpoint(ctx,'Providers kept refusing the request after re-routing');ctx.ui.notify('Guard stopped after four refusals in a row. Check /guard-status for allowances, then resend your instruction.','warning');return;}
+      pi.sendUserMessage(`Guard automatic re-route (${rerouteCount}/4): ${note} That reply was not an answer. Continue the user's last instruction from where the work stands on the newly routed subscription; do not repeat finished steps.`);
+      return;
+    }
     if(pendingRepair && isGuard(ctx)){
       pendingRepair=false;
       if(localFailure || !checkpoint(ctx,'Repeated operation stopped before execution'))return;
@@ -404,7 +421,7 @@ export default function guard(pi: ExtensionAPI) {
     const hits:{at:number,id:string}[]=[];
     for(const [re,id] of ALIASES){let m;re.lastIndex=0;while((m=re.exec(t)))hits.push({at:m.index,id});}
     const seen=[...new Set(hits.sort((a,b)=>a.at-b.at).map(h=>h.id))];
-    if(seen.length<2 && !/\bfirst\b/.test(t))return null;
+    if(seen.length<2 && !/\b(first|switch to|route to|move to|go to|only)\b/.test(t))return null;
     if(seen.length<1)return null;
     // "prefer X over Y" / "X before Y" keep X first; "then" keeps appearance order.
     const rest=(policy.providerOrder||['claude','codex','agy']).filter((id:string)=>!seen.includes(id));
@@ -427,8 +444,12 @@ export default function guard(pi: ExtensionAPI) {
     if(ruleRequest){try{await saveRule(ruleRequest,ctx);}catch(error:any){ctx.ui.notify(`Guard rule not saved: ${error.message}`,'error');}return {action:'handled'};}
     const order=parseOrderRequest(event.text);
     if(!order){
-      // Ordinary work: a matching rule steers this task from its next request on.
-      const rule=matchRule(event.text);
+      // Ordinary work: a matching rule steers this task from its next request on. An inline directive
+      // ("fix that - use codex", "switch to codex and finish everything") steers it too, then the
+      // message still goes to the model.
+      const inline=/(?:^|[\s,.;:()\-])(?:switch(?:ing)? to|use|using|on|with|route to|move to|go to|via)\s+(?:the\s+)?(argon|hydrogen|flash|gemini|antigravity|agy|opus|fable|sonnet|haiku|claude|sol|luna|astra|codex|gpt|openai)\b(?!\s*(?:tool|api|sdk|cli|key|token|command|binary|repo|folder|file|docs?))/i.exec(event.text);
+      const directive=inline?MODEL_ALIASES[inline[1].toLowerCase()]:undefined;
+      const rule=directive?{provider:directive[0],model:directive[1],match:inline![0].trim()}:matchRule(event.text);
       if(rule && (taskRule?.provider!==rule.provider || taskRule?.model!==rule.model)){taskRule=rule;ctx.ui.notify(`Rule "${rule.match}": routing this task to ${ORDER_LABELS[rule.provider]}${rule.model?' ('+rule.model+')':''}.`,'info');}
       return {action:'continue'};
     }
