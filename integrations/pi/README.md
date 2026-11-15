@@ -90,6 +90,34 @@ provider you blocked, a repeated-tool loop after its one repair, and a
 controller that is unreachable. Turn it off with `autoFix: false` under
 Advanced if you want the old review-first pauses.
 
+## Watchdog for unattended runs
+
+`pi-guard -Watch` (or `npm run guard:watch`) keeps an overnight run moving
+without a model in the loop. Every 30 seconds it reads the controller and the
+newest Pi session file and fixes what it can on its own:
+
+- a quota wall returned as a reply is recorded as an exhausted window, so the
+  next request leaves that model (this also covers sessions started before
+  the extension learned to read refusals itself);
+- a controller that stopped answering is restarted with the same state;
+- readings older than 20 minutes get a refresh;
+- a Pi process that died with a turn open is relaunched in the session's own
+  folder, resumed, unattended, with a one-line instruction to continue.
+
+A stall it cannot classify (Pi alive but silent for 12 minutes, three identical
+short replies, repeated pauses) goes to a cheap triage model through the
+`claude` CLI with counts, kinds and timestamps only, never message text, and a
+one-word verdict (reroute, restart, relaunch, needs-human) is carried out.
+Whatever remains is written as an `ALERT` line on stdout, appended to
+`watchdog-alerts.jsonl` in the controller state directory, and shown as a
+Windows notification. A Claude Code session can watch that stdout and step in
+on the alert. Each finding acts at most once per 15 minutes.
+
+Start Pi with `pi-guard -Unattended` for runs nobody is watching: the
+Antigravity bridge then never waits on a permission or ask prompt. Flags:
+`--once`, `--interval 60`, `--stall-minutes 20`, `--no-triage`,
+`--no-relaunch`, `--no-toast`.
+
 ## Refusals that look like answers
 
 Some bridges return a quota wall as an ordinary reply ("Individual quota

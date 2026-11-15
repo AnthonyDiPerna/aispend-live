@@ -5,7 +5,9 @@ param(
   [string]$AgentDirectory,
   [string]$StateDirectory,
   [switch]$Resume,
-  [switch]$ListModels
+  [switch]$ListModels,
+  [switch]$Unattended,
+  [string]$Prompt
 )
 $ErrorActionPreference = 'Stop'
 $guardRepo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -44,11 +46,13 @@ $guardArgs = @($guardCli, '--no-extensions', '-e', $guardBridge)
 $agyBridge = Join-Path $RuntimeDirectory 'node_modules/@estebanforge/pi-antigravity-bridge/extensions/index.ts'
 if (Test-Path -LiteralPath $agyBridge) {
   if (!$env:AGY_ENGINE) { $env:AGY_ENGINE = 'acp' }
+  if ($Unattended) { $env:AGY_SKIP_PERMISSIONS = '1'; $env:AGY_ASK_TOOL = '0' } # nothing may wait on a human overnight
   $guardArgs += @('-e', $agyBridge)
 }
 $guardArgs += @('-e', (Join-Path $PSScriptRoot 'index.ts'), '--model', 'aispend/guard')
 if ($ListModels) { $guardArgs += '--list-models' }
 elseif ($Resume) { $guardArgs += '--continue' }
+if ($Prompt) { $guardArgs += @('--', $Prompt) }
 Write-Host 'AI Spend Guard: http://127.0.0.1:9021 · /guard to connect · /guard-hold to stop automatic resumption'
 Push-Location -LiteralPath $ProjectPath
 try { & node.exe @guardArgs } finally { Pop-Location }

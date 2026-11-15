@@ -36,6 +36,11 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 - Add /guard-start: continue from the newest saved checkpoint per task, with a
   start-of-session notice when a recent one exists. Deduplicate repeated pause
   handoffs (the 40-request pause wrote twenty files in 300 ms).
+- Add a watchdog (tools/guard-watchdog.js, `pi-guard -Watch`) for unattended
+  runs: records quota walls, restarts a dead controller, refreshes stale
+  readings, relaunches a Pi that died mid-task, sends unclassified stalls to a
+  cheap text-free triage, and alerts only for what remains. `pi-guard
+  -Unattended` starts Pi with no permission or ask prompts.
 - Treat a bridge reply that is only a quota or rate-limit notice as a refusal:
   settle it as failed, mark the window exhausted until the named reset, and
   re-send the instruction on the next eligible route (four tries, then stop).
