@@ -1,4 +1,4 @@
-// Deterministic Multi-Subscription Value Optimizer (Claude + Codex + Antigravity/AGY).
+// Deterministic Multi-Subscription Value Optimizer (Claude + Codex + Antigravity/AGY + optional custom plans).
 // Zero Node-only imports so export-guard-demo.js can bundle this directly into public/guard.html.
 
 const PROVIDER_LABELS = {
@@ -14,6 +14,74 @@ const SHORT_LABELS = {
 };
 
 const SUBSCRIPTION_IDS = ['claude', 'codex', 'agy'];
+const RESERVED_CUSTOM_IDS = new Set(['claude', 'codex', 'agy', 'api']);
+const MAX_CUSTOM_PROVIDERS = 12;
+const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+const UNSAFE_CUSTOM_TEXT_RE = /[A-Za-z]:\\|\\\\[A-Za-z0-9._-]+\\|(?:^|[\s"'(])(?:~\/|\/(?:Users|home|var|tmp|etc|opt|mnt|Volumes|root|proc)\/)|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|https?:\/\/[^/\s]+:[^/\s]+@|\b(?:sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{10,}|gho_[A-Za-z0-9]{10,}|github_pat_[A-Za-z0-9_]{10,}|AIza[0-9A-Za-z_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|Bearer\s+\S{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b|[\x00-\x1f\x7f]/i;
+const FORBIDDEN_CUSTOM_KEY_RE = /(?:secret|token|apikey|api_key|password|passwd|auth|cookie|email|filepath|file_path|homedir|prompt)/i;
+
+function shortLabel(summaryOrId, byId = null) {
+  if (typeof summaryOrId === 'string') {
+    return SHORT_LABELS[summaryOrId] || byId?.[summaryOrId]?.label || summaryOrId;
+  }
+  if (!summaryOrId) return '';
+  return SHORT_LABELS[summaryOrId.provider] || summaryOrId.label || summaryOrId.provider;
+}
+
+function sanitizeCustomProvider(entry, now) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  for (const key of Object.keys(entry)) {
+    if (FORBIDDEN_CUSTOM_KEY_RE.test(key)) return null;
+  }
+  const id = typeof entry.id === 'string' ? entry.id : '';
+  if (!/^[a-z0-9-]{2,24}$/.test(id) || RESERVED_CUSTOM_IDS.has(id)) return null;
+  if (typeof entry.label !== 'string') return null;
+  const label = entry.label.trim();
+  if (label.length < 1 || label.length > 48 || UNSAFE_CUSTOM_TEXT_RE.test(label)) return null;
+  if (typeof entry.remainingPercent !== 'number' || !Number.isFinite(entry.remainingPercent) || entry.remainingPercent < 0 || entry.remainingPercent > 100) return null;
+  if (typeof entry.resetAt !== 'string' || !ISO_TS_RE.test(entry.resetAt.trim())) return null;
+  const resetMs = Date.parse(entry.resetAt);
+  if (!Number.isFinite(resetMs)) return null;
+  let observedMs = now;
+  if (entry.observedAt !== undefined) {
+    if (typeof entry.observedAt !== 'string' || !ISO_TS_RE.test(entry.observedAt.trim())) return null;
+    observedMs = Date.parse(entry.observedAt);
+    if (!Number.isFinite(observedMs) || observedMs > now + 60000) return null;
+  }
+  const windowMinutes = entry.windowMinutes === undefined ? 43200 : entry.windowMinutes;
+  if (typeof windowMinutes !== 'number' || !Number.isFinite(windowMinutes) || windowMinutes < 5 || windowMinutes > 525600) return null;
+  let notes = null;
+  if (entry.notes !== undefined && entry.notes !== null && entry.notes !== '') {
+    if (typeof entry.notes !== 'string') return null;
+    const trimmed = entry.notes.trim();
+    if (trimmed.length > 80 || UNSAFE_CUSTOM_TEXT_RE.test(trimmed)) return null;
+    notes = trimmed;
+  }
+  return {
+    id,
+    label,
+    remainingPercent: round1(entry.remainingPercent),
+    resetAt: new Date(resetMs).toISOString(),
+    windowMinutes: Math.round(windowMinutes),
+    observedAt: new Date(observedMs).toISOString(),
+    ...(notes ? { notes } : {}),
+  };
+}
+
+function sanitizeCustomProviders(rawList, now) {
+  if (!Array.isArray(rawList) || !rawList.length) return [];
+  const seen = new Set();
+  const result = [];
+  for (const item of rawList) {
+    if (result.length >= MAX_CUSTOM_PROVIDERS) break;
+    const clean = sanitizeCustomProvider(item, now);
+    if (clean && !seen.has(clean.id)) {
+      seen.add(clean.id);
+      result.push(clean);
+    }
+  }
+  return result;
+}
 
 function round1(value) {
   return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
@@ -188,7 +256,7 @@ function extractBankedResets(plan, provider) {
   };
 }
 
-function analyzeAgyLanes(windows) {
+function analyzeAgyQuotas(windows) {
   const isArgon = (w) => w.modelFamily === 'gemini-argon' || w.windowId.toLowerCase().startsWith('gemini-argon');
   const isClaudeGpt = (w) => w.modelFamily === 'claude-gpt' || w.windowId.toLowerCase().startsWith('claude-gpt');
   const isGemini = (w) => !isArgon(w) && !isClaudeGpt(w);
@@ -240,29 +308,29 @@ function summarizeProvider(plan, providerId, reservePercent) {
   let primaryWin = null;
   let weeklyWin = null;
   let effectiveStatus = raw.status || 'unknown';
-  let agyLanes = null;
+  let agyQuotas = null;
 
   if (providerId === 'agy') {
-    agyLanes = analyzeAgyLanes(allWindows);
+    agyQuotas = analyzeAgyQuotas(allWindows);
     const model = String(raw.binding?.model || '').toLowerCase();
     const prefersCg = Boolean(model) && !/(?:gemini|argon|neon|carbon|hydrogen|flash)/.test(model);
 
-    if (prefersCg && agyLanes.cgFresh && agyLanes.cgPrimary.remainingPercent > 0) {
-      primaryWin = agyLanes.cgPrimary;
-      weeklyWin = agyLanes.cgWeekly;
-    } else if (agyLanes.geminiFresh && (agyLanes.geminiPrimary.remainingPercent > 0 || !agyLanes.cgFresh || agyLanes.cgPrimary.remainingPercent <= 0)) {
-      primaryWin = agyLanes.geminiPrimary;
-      weeklyWin = agyLanes.geminiWeekly;
-    } else if (agyLanes.cgFresh) {
-      primaryWin = agyLanes.cgPrimary;
-      weeklyWin = agyLanes.cgWeekly;
+    if (prefersCg && agyQuotas.cgFresh && agyQuotas.cgPrimary.remainingPercent > 0) {
+      primaryWin = agyQuotas.cgPrimary;
+      weeklyWin = agyQuotas.cgWeekly;
+    } else if (agyQuotas.geminiFresh && (agyQuotas.geminiPrimary.remainingPercent > 0 || !agyQuotas.cgFresh || agyQuotas.cgPrimary.remainingPercent <= 0)) {
+      primaryWin = agyQuotas.geminiPrimary;
+      weeklyWin = agyQuotas.geminiWeekly;
+    } else if (agyQuotas.cgFresh) {
+      primaryWin = agyQuotas.cgPrimary;
+      weeklyWin = agyQuotas.cgWeekly;
     } else {
-      primaryWin = agyLanes.geminiPrimary || agyLanes.cgPrimary || agyLanes.argonPrimary || pickBottleneck(allWindows);
-      weeklyWin = agyLanes.geminiWeekly || agyLanes.cgWeekly || pickWeekly(allWindows);
+      primaryWin = agyQuotas.geminiPrimary || agyQuotas.cgPrimary || agyQuotas.argonPrimary || pickBottleneck(allWindows);
+      weeklyWin = agyQuotas.geminiWeekly || agyQuotas.cgWeekly || pickWeekly(allWindows);
     }
 
     if (!isBlocked) {
-      // Do not let a retired/stale legacy Argon window mark healthy Gemini/Claude-GPT lanes stale or depleted.
+      // Do not let a retired/stale legacy Argon window mark healthy Gemini/Claude-GPT quotas stale or depleted.
       if (primaryWin && isFreshWindow(primaryWin)) {
         effectiveStatus = primaryWin.status;
       } else if (primaryWin) {
@@ -314,10 +382,10 @@ function summarizeProvider(plan, providerId, reservePercent) {
   });
 
   // For AGY: if Gemini is healthy/surplus OR Claude/GPT has big surplus while Gemini isn't dead, reflect surplus accurately.
-  if (providerId === 'agy' && agyLanes && !isBlocked) {
-    const gRem = agyLanes.geminiFresh ? agyLanes.geminiPrimary.remainingPercent : null;
-    const gHours = agyLanes.geminiFresh ? agyLanes.geminiWeekly?.hoursLeft ?? agyLanes.geminiPrimary.hoursLeft : null;
-    const cgRem = agyLanes.cgFresh ? agyLanes.cgPrimary.remainingPercent : null;
+  if (providerId === 'agy' && agyQuotas && !isBlocked) {
+    const gRem = agyQuotas.geminiFresh ? agyQuotas.geminiPrimary.remainingPercent : null;
+    const gHours = agyQuotas.geminiFresh ? agyQuotas.geminiWeekly?.hoursLeft ?? agyQuotas.geminiPrimary.hoursLeft : null;
+    const cgRem = agyQuotas.cgFresh ? agyQuotas.cgPrimary.remainingPercent : null;
     if (utilizationState === 'on-pace' && ((gRem !== null && gRem >= 30 && gHours !== null && gHours <= 48) || (cgRem !== null && cgRem >= 65))) {
       utilizationState = 'surplus';
     }
@@ -349,23 +417,23 @@ function summarizeProvider(plan, providerId, reservePercent) {
     projectedUnusedAtReset,
     windows: publicWindows,
     bankedResets,
-    _meta: { primaryWin, weeklyWin, agyLanes, allWindows },
+    _meta: { primaryWin, weeklyWin, agyQuotas, allWindows },
   };
 }
 
 function buildAgyKnobs(summary, others, insights) {
   const { utilizationState, hoursLeft, projectedUnusedAtReset } = summary;
-  const lanes = summary._meta.agyLanes || {};
-  const gRem = lanes.geminiFresh ? lanes.geminiPrimary.remainingPercent : null;
-  const gWeeklyRem = lanes.geminiWeekly && isFreshWindow(lanes.geminiWeekly) && lanes.geminiWeekly.windowMinutes >= 1440
-    ? lanes.geminiWeekly.remainingPercent
+  const quotas = summary._meta.agyQuotas || {};
+  const gRem = quotas.geminiFresh ? quotas.geminiPrimary.remainingPercent : null;
+  const gWeeklyRem = quotas.geminiWeekly && isFreshWindow(quotas.geminiWeekly) && quotas.geminiWeekly.windowMinutes >= 1440
+    ? quotas.geminiWeekly.remainingPercent
     : null;
-  const gHours = lanes.geminiFresh ? (lanes.geminiWeekly?.hoursLeft ?? lanes.geminiPrimary.hoursLeft) : null;
-  const gSess = lanes.geminiSession && isFreshWindow(lanes.geminiSession) ? lanes.geminiSession.remainingPercent : null;
-  const gSessHours = lanes.geminiSession && isFreshWindow(lanes.geminiSession) ? lanes.geminiSession.hoursLeft : null;
-  const cgRem = lanes.cgFresh ? lanes.cgPrimary.remainingPercent : null;
-  const cgSess = lanes.cgSession && isFreshWindow(lanes.cgSession) ? lanes.cgSession.remainingPercent : null;
-  const cgSessHours = lanes.cgSession && isFreshWindow(lanes.cgSession) ? lanes.cgSession.hoursLeft : null;
+  const gHours = quotas.geminiFresh ? (quotas.geminiWeekly?.hoursLeft ?? quotas.geminiPrimary.hoursLeft) : null;
+  const gSess = quotas.geminiSession && isFreshWindow(quotas.geminiSession) ? quotas.geminiSession.remainingPercent : null;
+  const gSessHours = quotas.geminiSession && isFreshWindow(quotas.geminiSession) ? quotas.geminiSession.hoursLeft : null;
+  const cgRem = quotas.cgFresh ? quotas.cgPrimary.remainingPercent : null;
+  const cgSess = quotas.cgSession && isFreshWindow(quotas.cgSession) ? quotas.cgSession.remainingPercent : null;
+  const cgSessHours = quotas.cgSession && isFreshWindow(quotas.cgSession) ? quotas.cgSession.hoursLeft : null;
 
   const claudeTight = ['exhausted', 'hot', 'blocked'].includes(others.claude?.utilizationState);
   const claudeExhausted = others.claude?.utilizationState === 'exhausted';
@@ -384,7 +452,7 @@ function buildAgyKnobs(summary, others, insights) {
   const geminiHot = (gRem !== null && gRem < 25) || geminiSessionTight;
   const expiringSoon = Number.isFinite(hoursLeft) && hoursLeft <= 48;
 
-  const earliest = [lanes.geminiPrimary, lanes.cgPrimary]
+  const earliest = [quotas.geminiPrimary, quotas.cgPrimary]
     .filter(Boolean)
     .sort((a, b) => (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity))[0];
   const span = formatSpan(earliest?.hoursLeft ?? hoursLeft);
@@ -392,33 +460,33 @@ function buildAgyKnobs(summary, others, insights) {
   if (utilizationState === 'blocked') {
     return [
       makeKnob('swarm-size', '/swarm workers', 'off', 'OFF (blocked)', 'AGY is manually blocked — unblock before launching /swarm workers.', '/guard-block none'),
-      makeKnob('dual-pool', 'Dual-pool routing', 'off', 'Blocked', 'Both Gemini and Claude/GPT quota pools are paused while AGY is blocked.', '/guard-block none'),
-      makeKnob('worker-tier', 'Worker model tiering', 'off', 'Paused', 'Unblock AGY to assign Neon coordinator and Hydrogen/Flash worker models.'),
-      makeKnob('effort-suffix', 'Model effort suffix', 'off', 'OFF (blocked)', 'Effort suffix tuning resumes once AGY is unblocked.'),
-      makeKnob('session-5h', '5h burst guard', 'off', 'Blocked', '5h burst monitoring is idle while AGY is blocked.'),
-      makeKnob('context-compact', 'Context & /goal timing', 'off', 'Paused', 'Unblock AGY before scheduling /goal runs or context compaction.'),
+      makeKnob('separate-quotas', 'AGY Claude/GPT quota', 'off', 'Blocked', 'AGY tracks Gemini and Claude/GPT separately — both are paused while AGY is blocked.', '/guard-block none'),
+      makeKnob('worker-tier', 'Mix big & fast models', 'off', 'Paused', 'Unblock AGY to assign Neon coordinator and Hydrogen/Flash worker models.'),
+      makeKnob('effort-suffix', 'Effort level', 'off', 'OFF (blocked)', 'Effort tuning resumes once AGY is unblocked.'),
+      makeKnob('session-5h', '5-hour burst limit', 'off', 'Blocked', '5-hour burst monitoring is idle while AGY is blocked.'),
+      makeKnob('context-compact', 'Keep context lean', 'off', 'Paused', 'Unblock AGY before scheduling /goal runs or context compaction.'),
     ];
   }
 
   if (utilizationState === 'unknown') {
     return [
       makeKnob('swarm-size', '/swarm workers', 'steady', 'Refresh /usage first', 'Run agy --print /usage to size /swarm safely against 5h and weekly limits.', 'agy --print /usage'),
-      makeKnob('dual-pool', 'Dual-pool routing', 'steady', 'Check both pools', 'AGY tracks separate Gemini and Claude/GPT pools — refresh /usage to inspect both.', 'agy --print /usage'),
-      makeKnob('worker-tier', 'Worker model tiering', 'steady', 'Neon coord + Hydrogen/Flash', 'Default tiered setup keeps coordinator quality sharp while conserving worker burn.', '/model gemini-4-neon-high'),
-      makeKnob('effort-suffix', 'Model effort suffix', 'steady', '-high (default)', 'Use -high until live AGY allowance readings confirm surplus or 5h pressure.', '/model gemini-4-neon-high'),
-      makeKnob('session-5h', '5h burst guard', 'steady', 'Unobserved', 'Refresh /usage to watch 5h session burst caps alongside weekly windows.', 'agy --print /usage'),
-      makeKnob('context-compact', 'Context & /goal timing', 'steady', '/compact at milestones', 'Keep threads compact and confirm headroom before queuing long /goal loops.', '/compact'),
+      makeKnob('separate-quotas', 'AGY Claude/GPT quota', 'steady', 'Check both quotas', 'AGY tracks Gemini and Claude/GPT separately — refresh /usage to inspect both.', 'agy --print /usage'),
+      makeKnob('worker-tier', 'Mix big & fast models', 'steady', 'Neon coord + Hydrogen/Flash', 'Default tiered setup keeps coordinator quality sharp while conserving worker burn.', '/model gemini-4-neon-high'),
+      makeKnob('effort-suffix', 'Effort level', 'steady', '-high (default)', 'Use -high until live AGY allowance readings confirm surplus or 5h pressure.', '/model gemini-4-neon-high'),
+      makeKnob('session-5h', '5-hour burst limit', 'steady', 'Unobserved', 'Refresh /usage to watch 5h session burst caps alongside weekly windows.', 'agy --print /usage'),
+      makeKnob('context-compact', 'Keep context lean', 'steady', '/compact at milestones', 'Keep threads compact and confirm headroom before queuing long /goal loops.', '/compact'),
     ];
   }
 
   if (utilizationState === 'exhausted') {
     return [
-      makeKnob('swarm-size', '/swarm workers', 'off', 'OFF (exhausted)', `Both Gemini and Claude/GPT pools are empty — pause /swarm until reset in ${span}.`, 'agy --print /usage'),
-      makeKnob('dual-pool', 'Dual-pool routing', 'off', 'Both pools 0%', `Gemini and Claude/GPT buckets are both depleted — next refill in ${span}.`, 'agy --print /usage'),
-      makeKnob('worker-tier', 'Worker model tiering', 'off', 'OFF (exhausted)', `All AGY model tiers are paused until the ${span} reset.`),
-      makeKnob('effort-suffix', 'Model effort suffix', 'off', 'OFF (exhausted)', `Hold AGY runs until the window refills in ${span}.`),
-      makeKnob('session-5h', '5h burst guard', 'off', 'Depleted', `5h and weekly windows are exhausted — next unlock in ${span}.`),
-      makeKnob('context-compact', 'Context & /goal timing', 'off', 'Queue /goal for reset', `Hold heavy /goal runs until ${span}; /compact existing threads before resuming.`, '/compact'),
+      makeKnob('swarm-size', '/swarm workers', 'off', 'OFF (exhausted)', `Both Gemini and Claude/GPT quotas on AGY are empty — pause /swarm until reset in ${span}.`, 'agy --print /usage'),
+      makeKnob('separate-quotas', 'AGY Claude/GPT quota', 'off', 'Both quotas 0%', `Gemini and Claude/GPT quotas are both depleted — next refill in ${span}.`, 'agy --print /usage'),
+      makeKnob('worker-tier', 'Mix big & fast models', 'off', 'OFF (exhausted)', `All AGY model tiers are paused until the ${span} reset.`),
+      makeKnob('effort-suffix', 'Effort level', 'off', 'OFF (exhausted)', `Hold AGY runs until the window refills in ${span}.`),
+      makeKnob('session-5h', '5-hour burst limit', 'off', 'Depleted', `5h and weekly windows are exhausted — next unlock in ${span}.`),
+      makeKnob('context-compact', 'Keep context lean', 'off', 'Queue /goal for reset', `Hold heavy /goal runs until ${span}; /compact existing threads before resuming.`, '/compact'),
     ];
   }
 
@@ -430,7 +498,7 @@ function buildAgyKnobs(summary, others, insights) {
       '/swarm workers',
       'tighten',
       '1–2 workers / single-thread',
-      `Gemini 5h burst window is down to ${Math.round(gSess)}%${gWeeklyRem !== null && gWeeklyRem >= 40 ? ` (weekly still ${Math.round(gWeeklyRem)}%)` : ''}${gSessHours !== null ? ` — refills in ${formatSpan(gSessHours)}` : ''}; throttle /swarm${cgRem !== null && cgRem >= 30 ? ' or pivot to Claude/GPT' : ''}.`,
+      `Gemini 5h burst window is down to ${Math.round(gSess)}%${gWeeklyRem !== null && gWeeklyRem >= 40 ? ` (weekly still ${Math.round(gWeeklyRem)}%)` : ''}${gSessHours !== null ? ` — refills in ${formatSpan(gSessHours)}` : ''}; throttle /swarm${cgRem !== null && cgRem >= 30 ? ' or switch to AGY Claude/GPT' : ''}.`,
       cgRem !== null && cgRem >= 30 ? '/model claude-opus-5-5-high' : '/model gemini-3.8-flash-medium'
     );
   } else if (geminiPivotToCg) {
@@ -484,65 +552,65 @@ function buildAgyKnobs(summary, others, insights) {
     );
   }
 
-  // 2. dual-pool
-  let dualPoolKnob;
+  // 2. separate-quotas
+  let separateQuotaKnob;
   if (cgRem !== null && cgRem >= 30 && (claudeTight || codexTight || geminiPivotToCg)) {
     const val = geminiPivotToCg
-      ? `Pivot to Claude/GPT (${Math.round(cgRem)}%)`
-      : `Tap Claude/GPT lane (${Math.round(cgRem)}%)`;
+      ? `Switch to Claude/GPT (${Math.round(cgRem)}%)`
+      : `Use AGY Claude/GPT (${Math.round(cgRem)}%)`;
     const why = claudeExhausted
-      ? `Native Claude is exhausted while AGY's separate Claude/GPT pool has ${Math.round(cgRem)}% left${cgSess !== null ? ` (${Math.round(cgSess)}% 5h)` : ''} — route Opus/coding overflow here.`
+      ? `AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (${Math.round(cgRem)}% left${cgSess !== null ? `, ${Math.round(cgSess)}% 5h` : ''}) while native Claude resets.`
       : geminiPivotToCg
-        ? `Gemini lane is down to ${Math.round(gRem)}%, while AGY's separate Claude/GPT pool still has ${Math.round(cgRem)}% left.`
-        : `Native ${claudeTight && codexTight ? 'Claude & Codex are tight' : claudeTight ? 'Claude is tight' : 'Codex is tight'} — arbitrate overflow onto AGY Claude/GPT (${Math.round(cgRem)}% free).`;
-    dualPoolKnob = makeKnob('dual-pool', 'Dual-pool routing', 'boost', val, why, '/model claude-opus-5-5-high');
+        ? `AGY tracks Gemini and Claude/GPT separately — Gemini is down to ${Math.round(gRem)}%, while AGY's Claude/GPT quota still has ${Math.round(cgRem)}% left.`
+        : `AGY tracks Gemini and Claude/GPT separately — native ${claudeTight && codexTight ? 'Claude & Codex are tight' : claudeTight ? 'Claude is tight' : 'Codex is tight'}, so shift overflow to AGY's Claude/GPT quota (${Math.round(cgRem)}% left).`;
+    separateQuotaKnob = makeKnob('separate-quotas', 'AGY Claude/GPT quota', 'boost', val, why, '/model claude-opus-5-5-high');
   } else if (cgRem !== null && cgRem >= 50) {
-    dualPoolKnob = makeKnob(
-      'dual-pool',
-      'Dual-pool routing',
+    separateQuotaKnob = makeKnob(
+      'separate-quotas',
+      'AGY Claude/GPT quota',
       'boost',
       `Gemini + Claude/GPT (${Math.round(cgRem)}%)`,
-      `Both pools are open — run /swarm on Gemini (${gRem !== null ? Math.round(gRem) + '%' : 'active'}) and tap AGY Claude/GPT (${Math.round(cgRem)}%) for extra Opus/GPT headroom.`,
+      `AGY tracks Gemini and Claude/GPT separately — run /swarm on Gemini (${gRem !== null ? Math.round(gRem) + '%' : 'active'}) and use AGY's Claude/GPT quota (${Math.round(cgRem)}% left) for extra Opus/GPT capacity.`,
       '/model claude-opus-5-5-high'
     );
   } else if (cgRem !== null && cgRem < 20 && gRem !== null && gRem >= 30) {
-    dualPoolKnob = makeKnob(
-      'dual-pool',
-      'Dual-pool routing',
+    separateQuotaKnob = makeKnob(
+      'separate-quotas',
+      'AGY Claude/GPT quota',
       'tighten',
-      `Gemini lane only (${Math.round(gRem)}%)`,
-      `AGY Claude/GPT pool is low (${Math.round(cgRem)}%) — keep workloads on the Gemini lane (${Math.round(gRem)}% left).`,
+      `Gemini only (${Math.round(gRem)}%)`,
+      `AGY's Claude/GPT quota is low (${Math.round(cgRem)}%) — keep workloads on Gemini (${Math.round(gRem)}% left).`,
       '/model gemini-4-neon-high'
     );
   } else {
-    dualPoolKnob = makeKnob(
-      'dual-pool',
-      'Dual-pool routing',
+    separateQuotaKnob = makeKnob(
+      'separate-quotas',
+      'AGY Claude/GPT quota',
       utilizationState === 'hot' ? 'tighten' : 'steady',
-      gRem !== null ? `Gemini lane (${Math.round(gRem)}%)` : 'Gemini lane',
+      gRem !== null ? `Gemini (${Math.round(gRem)}%)` : 'Gemini',
       cgRem !== null
-        ? `Gemini (${gRem !== null ? Math.round(gRem) + '%' : '?'}) and Claude/GPT (${Math.round(cgRem)}%) are balanced — match model pool to task.`
-        : 'Only Gemini pool windows are active — keep routine runs on Gemini.',
+        ? `AGY tracks Gemini (${gRem !== null ? Math.round(gRem) + '%' : '?'}) and Claude/GPT (${Math.round(cgRem)}%) separately — match model to task.`
+        : 'Only Gemini quota windows are active — keep routine runs on Gemini.',
       '/model gemini-4-neon-high'
     );
   }
 
   // 3. worker-tier
-  const argonNote = lanes.argonDepleted ? 'Gemini Argon cap is depleted; ' : '';
+  const argonNote = quotas.argonDepleted ? 'Gemini Argon cap is depleted; ' : '';
   let workerTierKnob;
   if (geminiPivotToCg) {
     workerTierKnob = makeKnob(
       'worker-tier',
-      'Worker model tiering',
+      'Mix big & fast models',
       'steady',
-      'Claude/GPT lane · pause Gemini',
+      'AGY Claude/GPT · pause Gemini',
       `Keep Gemini workers parked (${Math.round(gRem)}% left) and run focused Opus/Sonnet sessions on AGY Claude/GPT (${Math.round(cgRem)}% left).`,
       '/model claude-opus-5-5-high'
     );
   } else if (geminiHot || utilizationState === 'hot') {
     workerTierKnob = makeKnob(
       'worker-tier',
-      'Worker model tiering',
+      'Mix big & fast models',
       'tighten',
       'Hydrogen / Flash only',
       `${argonNote}Protect ${geminiSessionTight ? `the 5h burst window (${Math.round(gSess)}% left)` : 'remaining Gemini budget'} by stepping workers and routine edits down to Hydrogen or Flash.`,
@@ -551,7 +619,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (geminiSessionWarn) {
     workerTierKnob = makeKnob(
       'worker-tier',
-      'Worker model tiering',
+      'Mix big & fast models',
       'tighten',
       'Neon coord + Hydrogen/Flash',
       `${argonNote}5h session is at ${Math.round(gSess)}% — keep coordinator on Neon and pin workers/verifiers to Hydrogen or Flash.`,
@@ -560,7 +628,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (geminiSurplus) {
     workerTierKnob = makeKnob(
       'worker-tier',
-      'Worker model tiering',
+      'Mix big & fast models',
       'boost',
       'Neon coord + Hydrogen/Flash',
       `${argonNote}Keep coordinator sharp on Neon while Hydrogen/Flash workers absorb parallel edits so the 5h burst cap stays comfortable.`,
@@ -569,7 +637,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else {
     workerTierKnob = makeKnob(
       'worker-tier',
-      'Worker model tiering',
+      'Mix big & fast models',
       'steady',
       'Neon coord + Hydrogen/Flash',
       `${argonNote}Run Neon for coordination and delegate bounded search/edits to Hydrogen or Flash.`,
@@ -582,25 +650,25 @@ function buildAgyKnobs(summary, others, insights) {
   if (geminiPivotToCg && !cgSessionTight) {
     effortKnob = makeKnob(
       'effort-suffix',
-      'Model effort suffix',
+      'Effort level',
       'steady',
       '-high (Claude/GPT) · -medium (Gem)',
-      `Use -high on AGY's open Claude/GPT lane (${Math.round(cgRem)}%) and hold any Gemini turns at -medium.`,
+      `Use -high on AGY's open Claude/GPT quota (${Math.round(cgRem)}%) and hold any Gemini turns at -medium.`,
       '/model claude-opus-5-5-high'
     );
   } else if (geminiHot || utilizationState === 'hot' || geminiSessionTight || cgSessionTight) {
     effortKnob = makeKnob(
       'effort-suffix',
-      'Model effort suffix',
+      'Effort level',
       'tighten',
       '-medium',
-      `Step effort suffix down to -medium (${geminiSessionTight ? `Gemini 5h at ${Math.round(gSess)}%` : 'headroom tight'}) to stretch burst and weekly quota.`,
+      `Step effort down to -medium (${geminiSessionTight ? `Gemini 5h at ${Math.round(gSess)}%` : 'headroom tight'}) to stretch burst and weekly quota.`,
       '/model gemini-3.8-flash-medium'
     );
   } else if (highEffort && (utilizationState !== 'surplus' || !expiringSoon)) {
     effortKnob = makeKnob(
       'effort-suffix',
-      'Model effort suffix',
+      'Effort level',
       'tighten',
       '-medium / -high (trim -xhigh)',
       `${Math.round(ins.effort)}% of 24h AGY tokens ran at xhigh/max effort — use -medium on routine workers and save -high for complex steps.`,
@@ -609,7 +677,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus' && !geminiSessionWarn) {
     effortKnob = makeKnob(
       'effort-suffix',
-      'Model effort suffix',
+      'Effort level',
       'boost',
       '-xhigh / -high',
       `Surplus weekly (${Math.round(gWeeklyRem ?? gRem ?? summary.remainingPercent ?? 0)}%) and healthy 5h headroom support -xhigh on hard problems and -high on workers.`,
@@ -618,7 +686,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else {
     effortKnob = makeKnob(
       'effort-suffix',
-      'Model effort suffix',
+      'Effort level',
       'steady',
       '-high',
       geminiSessionWarn
@@ -637,14 +705,14 @@ function buildAgyKnobs(summary, others, insights) {
     const wallNote = geminiSessionTight && gWeeklyRem !== null && gWeeklyRem >= 50
       ? `5h Gemini session is at ${Math.round(gSess)}%${gSessHours !== null ? ` (refills in ${formatSpan(gSessHours)})` : ''} even though weekly is ${Math.round(gWeeklyRem)}% — pause heavy /swarm bursts so you do not trip the 5h wall.`
       : `5h burst window is low (${parts.join(', ')}${gSessHours !== null && geminiSessionTight ? `, refills in ${formatSpan(gSessHours)}` : cgSessHours !== null && cgSessionTight ? `, refills in ${formatSpan(cgSessHours)}` : ''}) — pace turns until the 5h window recovers.`;
-    sessionKnob = makeKnob('session-5h', '5h burst guard', 'tighten', parts.join(' · '), wallNote);
+    sessionKnob = makeKnob('session-5h', '5-hour burst limit', 'tighten', parts.join(' · '), wallNote);
   } else if ((gSess !== null && gSess < 50) || (cgSess !== null && cgSess < 50)) {
     const parts = [];
     if (gSess !== null) parts.push(`Gem 5h ${Math.round(gSess)}%`);
     if (cgSess !== null) parts.push(`CG 5h ${Math.round(cgSess)}%`);
     sessionKnob = makeKnob(
       'session-5h',
-      '5h burst guard',
+      '5-hour burst limit',
       'steady',
       parts.join(' · '),
       `Monitor 5h burst burn (${parts.join(', ')}) — stagger /swarm waves instead of spawning all workers simultaneously.`
@@ -655,7 +723,7 @@ function buildAgyKnobs(summary, others, insights) {
     if (cgSess !== null) parts.push(`CG 5h ${Math.round(cgSess)}%`);
     sessionKnob = makeKnob(
       'session-5h',
-      '5h burst guard',
+      '5-hour burst limit',
       utilizationState === 'hot' ? 'tighten' : 'boost',
       parts.join(' · '),
       utilizationState === 'hot'
@@ -665,7 +733,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else {
     sessionKnob = makeKnob(
       'session-5h',
-      '5h burst guard',
+      '5-hour burst limit',
       utilizationState === 'hot' ? 'tighten' : 'steady',
       'Weekly only (pace bursts)',
       'No 5h session window reported yet — stagger large /swarm waves so a burst does not trip an unseen 5h cap.',
@@ -678,7 +746,7 @@ function buildAgyKnobs(summary, others, insights) {
   if (highContext) {
     contextKnob = makeKnob(
       'context-compact',
-      'Context & /goal timing',
+      'Keep context lean',
       'tighten',
       `/compact now (${Math.round(ins.context)}% >150k)`,
       `${Math.round(ins.context)}% of 24h AGY tokens ran above 150k context — run /compact or open a fresh thread at milestones${utilizationState === 'surplus' && expiringSoon ? ` before launching expiring-surplus /goal runs (${formatSpan(hoursLeft)} left)` : ''}.`,
@@ -687,7 +755,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus' && (expiringSoon || (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25))) {
     contextKnob = makeKnob(
       'context-compact',
-      'Context & /goal timing',
+      'Keep context lean',
       'boost',
       'Schedule /goal before reset',
       `${Math.round(summary.remainingPercent ?? 0)}% AGY headroom${expiringSoon ? ` expires in ${formatSpan(hoursLeft)}` : ` (~${Math.round(projectedUnusedAtReset)}% projected unused)`} — run heavy /goal or refactor passes before weekly reset and /compact between phases.`,
@@ -696,7 +764,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (utilizationState === 'hot' || geminiSessionTight) {
     contextKnob = makeKnob(
       'context-compact',
-      'Context & /goal timing',
+      'Keep context lean',
       'tighten',
       '/compact + fresh threads',
       `AGY headroom is tight — run /compact early and hold long /goal runs until refill (${formatSpan(hoursLeft)}).`,
@@ -705,7 +773,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus') {
     contextKnob = makeKnob(
       'context-compact',
-      'Context & /goal timing',
+      'Keep context lean',
       'boost',
       '/goal open · /compact at milestones',
       'Plenty of weekly runway for /goal tasks — /compact when switching subsystems to protect the 5h burst window.',
@@ -714,7 +782,7 @@ function buildAgyKnobs(summary, others, insights) {
   } else {
     contextKnob = makeKnob(
       'context-compact',
-      'Context & /goal timing',
+      'Keep context lean',
       'steady',
       '/compact at milestones',
       'Run /compact or start a fresh thread at milestones to stay below 150k context.',
@@ -722,18 +790,18 @@ function buildAgyKnobs(summary, others, insights) {
     );
   }
 
-  return [swarmKnob, dualPoolKnob, workerTierKnob, effortKnob, sessionKnob, contextKnob];
+  return [swarmKnob, separateQuotaKnob, workerTierKnob, effortKnob, sessionKnob, contextKnob];
 }
 
 function buildAgyPlaybook(summary, others, insights) {
   const { utilizationState, hoursLeft, projectedUnusedAtReset } = summary;
-  const lanes = summary._meta.agyLanes || {};
-  const gRem = lanes.geminiFresh ? lanes.geminiPrimary.remainingPercent : null;
-  const gHours = lanes.geminiFresh ? (lanes.geminiWeekly?.hoursLeft ?? lanes.geminiPrimary.hoursLeft) : null;
-  const gSess = lanes.geminiSession && isFreshWindow(lanes.geminiSession) ? lanes.geminiSession.remainingPercent : null;
-  const cgRem = lanes.cgFresh ? lanes.cgPrimary.remainingPercent : null;
-  const cgHours = lanes.cgFresh ? (lanes.cgWeekly?.hoursLeft ?? lanes.cgPrimary.hoursLeft) : null;
-  const cgSess = lanes.cgSession && isFreshWindow(lanes.cgSession) ? lanes.cgSession.remainingPercent : null;
+  const quotas = summary._meta.agyQuotas || {};
+  const gRem = quotas.geminiFresh ? quotas.geminiPrimary.remainingPercent : null;
+  const gHours = quotas.geminiFresh ? (quotas.geminiWeekly?.hoursLeft ?? quotas.geminiPrimary.hoursLeft) : null;
+  const gSess = quotas.geminiSession && isFreshWindow(quotas.geminiSession) ? quotas.geminiSession.remainingPercent : null;
+  const cgRem = quotas.cgFresh ? quotas.cgPrimary.remainingPercent : null;
+  const cgHours = quotas.cgFresh ? (quotas.cgWeekly?.hoursLeft ?? quotas.cgPrimary.hoursLeft) : null;
+  const cgSess = quotas.cgSession && isFreshWindow(quotas.cgSession) ? quotas.cgSession.remainingPercent : null;
 
   const claudeTight = ['exhausted', 'hot', 'blocked'].includes(others.claude?.utilizationState);
   const codexTight = ['exhausted', 'hot', 'blocked'].includes(others.codex?.utilizationState);
@@ -753,19 +821,19 @@ function buildAgyPlaybook(summary, others, insights) {
   if (utilizationState === 'unknown') {
     return {
       mode: 'pause',
-      headline: 'Refresh AGY /usage to unlock /swarm and lane sizing',
+      headline: 'Refresh AGY /usage to unlock /swarm and quota sizing',
       badges: ['Awaiting reading'],
-      guidance: ['Run agy --print /usage (or npm run check -- --live) to read both Gemini and Claude/GPT buckets.'],
+      guidance: ['Run agy --print /usage (or npm run check -- --live) to read both Gemini and Claude/GPT quotas.'],
       commands: ['agy --print /usage'],
       knobs,
     };
   }
   if (utilizationState === 'exhausted') {
-    const earliest = [lanes.geminiPrimary, lanes.cgPrimary].filter(Boolean).sort((a, b) => (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity))[0];
+    const earliest = [quotas.geminiPrimary, quotas.cgPrimary].filter(Boolean).sort((a, b) => (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity))[0];
     const span = formatSpan(earliest?.hoursLeft ?? hoursLeft);
     return {
       mode: 'pause',
-      headline: `AGY Gemini and Claude/GPT lanes are exhausted — resets in ${span}`,
+      headline: `AGY Gemini and Claude/GPT quotas are exhausted — resets in ${span}`,
       badges: ['Exhausted', `Resets in ${span}`],
       guidance: [`Pause /swarm and single-agent AGY runs until the next window refills in ${span}.`],
       commands: ['agy --print /usage'],
@@ -773,16 +841,16 @@ function buildAgyPlaybook(summary, others, insights) {
     };
   }
 
-  // Case: Gemini lane is tight/exhausted (<25%), but separate Claude/GPT lane is wide open (>=30%)
+  // Case: Gemini quota is tight/exhausted (<25%), but separate Claude/GPT quota is wide open (>=30%)
   if (gRem !== null && gRem < 25 && cgRem !== null && cgRem >= 30) {
     const mode = cgRem >= 50 ? 'accelerate' : 'steady';
     return {
       mode,
-      headline: `Gemini lane is low (${Math.round(gRem)}%) — pivot to AGY Claude/GPT lane (${Math.round(cgRem)}% left)`,
-      badges: ['Gemini low: pause /swarm', `Claude/GPT lane ${Math.round(cgRem)}%`],
+      headline: `Gemini quota is low (${Math.round(gRem)}%) — switch to AGY Claude/GPT (${Math.round(cgRem)}% left)`,
+      badges: ['Gemini low: pause /swarm', `AGY Claude/GPT ${Math.round(cgRem)}%`],
       guidance: [
         `Scale Gemini /swarm down to 1 worker or pause Gemini until reset (${formatSpan(gHours)}).`,
-        `Use AGY's separate Claude/GPT bucket (${Math.round(cgRem)}% weekly${cgSess !== null ? `, ${Math.round(cgSess)}% 5h` : ''}) for Opus/coding tasks.`,
+        `AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (${Math.round(cgRem)}% weekly${cgSess !== null ? `, ${Math.round(cgSess)}% 5h` : ''}) for Opus/coding tasks.`,
       ],
       commands: ['/model claude-opus-5-5-high'],
       knobs,
@@ -794,7 +862,7 @@ function buildAgyPlaybook(summary, others, insights) {
 
   if (geminiSurplus && !geminiHot) {
     const badges = ['/swarm 3-4 workers + verifier', 'Gemini Neon / Hydrogen'];
-    if (cgRem !== null && cgRem >= 40) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+    if (cgRem !== null && cgRem >= 40) badges.push(`AGY Claude/GPT ${Math.round(cgRem)}%`);
     if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25) badges.push(`~${Math.round(projectedUnusedAtReset)}% unused risk`);
 
     const guidance = [
@@ -804,9 +872,9 @@ function buildAgyPlaybook(summary, others, insights) {
       const overflowNote = claudeTight || codexTight
         ? ` while native ${claudeTight && codexTight ? 'Claude & Codex are tight' : claudeTight ? 'Claude is exhausted/tight' : 'Codex is tight'}`
         : '';
-      guidance.push(`AGY's separate Claude/GPT lane has ${Math.round(cgRem)}% left${cgSess !== null ? ` (${Math.round(cgSess)}% 5h)` : ''}${overflowNote} — route Opus-tier planning or overflow coding there.`);
+      guidance.push(`AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (${Math.round(cgRem)}% left${cgSess !== null ? `, ${Math.round(cgSess)}% 5h` : ''})${overflowNote} for Opus-tier planning or overflow coding.`);
     }
-    if (lanes.argonDepleted) {
+    if (quotas.argonDepleted) {
       guidance.push('Gemini Argon family cap is depleted — target Neon, Hydrogen, or Flash instead.');
     }
     if (swarmInsight !== null && swarmInsight < 15) {
@@ -819,7 +887,7 @@ function buildAgyPlaybook(summary, others, insights) {
     }
 
     const headline = cgRem !== null && cgRem >= 50 && (claudeTight || codexTight)
-      ? `Run /swarm (3–4 workers + verifier) on Gemini (${Math.round(gRem)}%) + tap AGY Claude/GPT lane (${Math.round(cgRem)}%)`
+      ? `Run /swarm (3–4 workers + verifier) on Gemini (${Math.round(gRem)}%) + use AGY Claude/GPT (${Math.round(cgRem)}%)`
       : `Green light for /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen (${Math.round(gRem)}% left)`;
 
     return { mode: 'accelerate', headline, badges, guidance, commands, knobs };
@@ -827,12 +895,12 @@ function buildAgyPlaybook(summary, others, insights) {
 
   if (geminiHot || utilizationState === 'hot') {
     const badges = ['Scale /swarm to 1-2', 'Hydrogen / Flash'];
-    if (cgRem !== null && cgRem >= 30) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+    if (cgRem !== null && cgRem >= 30) badges.push(`AGY Claude/GPT ${Math.round(cgRem)}%`);
     const guidance = [
       `AGY Gemini is below 25% (${gRem !== null ? Math.round(gRem) + '% weekly' : ''}${gSess !== null ? `, ${Math.round(gSess)}% 5h` : ''}) — scale /swarm down to 1–2 workers or drop to Hydrogen/Flash.`,
     ];
     if (cgRem !== null && cgRem >= 30) {
-      guidance.push(`AGY's Claude/GPT bucket still has ${Math.round(cgRem)}% left — offload critical coding there while Gemini cools down.`);
+      guidance.push(`AGY's separate Claude/GPT quota still has ${Math.round(cgRem)}% left — offload critical coding there while Gemini cools down.`);
     } else {
       guidance.push(`Wait ${formatSpan(hoursLeft)} for the next AGY refill before launching large swarms.`);
     }
@@ -848,12 +916,12 @@ function buildAgyPlaybook(summary, others, insights) {
 
   // Steady / on-pace (25–49%)
   const badges = ['/swarm 2-3 workers', 'Neon / Hydrogen'];
-  if (cgRem !== null && cgRem >= 40) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+  if (cgRem !== null && cgRem >= 40) badges.push(`AGY Claude/GPT ${Math.round(cgRem)}%`);
   const guidance = [
     `AGY Gemini is on pace (${gRem !== null ? Math.round(gRem) : Math.round(summary.remainingPercent ?? 0)}% left) — keep /swarm to 2–3 focused workers on Neon/Hydrogen.`,
   ];
   if (cgRem !== null && cgRem >= 40) {
-    guidance.push(`Separate AGY Claude/GPT lane has ${Math.round(cgRem)}% left (${formatSpan(cgHours)} to reset) for extra Claude/GPT capacity.`);
+    guidance.push(`AGY's separate Claude/GPT quota has ${Math.round(cgRem)}% left (${formatSpan(cgHours)} to reset) for extra Claude/GPT capacity.`);
   }
   return {
     mode: 'steady',
@@ -886,22 +954,22 @@ function buildCodexKnobs(summary, insights, now) {
 
   if (utilizationState === 'blocked') {
     return [
-      makeKnob('speed-tier', '/fast speed tier', 'off', 'OFF (blocked)', 'Codex is manually blocked — unblock before changing speed tier.', '/guard-block none'),
-      makeKnob('reasoning-effort', 'Reasoning effort', 'off', 'OFF (blocked)', 'Unblock Codex before adjusting reasoning effort.'),
-      makeKnob('model-tier', 'Model stepping', 'off', 'OFF (blocked)', 'Unblock Codex to pick a model tier.'),
-      makeKnob('context-cliff', '272k context cliff', 'off', 'Paused', 'Keep threads under 250k tokens to avoid the 272k 2x input cliff when resuming.'),
-      makeKnob('subagents-review', 'Subagents & auto-review', 'off', 'OFF (blocked)', 'Subagent delegation is paused while Codex is blocked.'),
+      makeKnob('speed-tier', '/fast speed', 'off', 'OFF (blocked)', 'Codex is manually blocked — unblock before changing speed tier.', '/guard-block none'),
+      makeKnob('reasoning-effort', 'Effort level', 'off', 'OFF (blocked)', 'Unblock Codex before adjusting reasoning effort.'),
+      makeKnob('model-tier', 'Mix big & fast models', 'off', 'OFF (blocked)', 'Unblock Codex to pick a model tier.'),
+      makeKnob('context-cliff', '272k context limit', 'off', 'Paused', 'Keep threads under 250k tokens to avoid the 272k 2x input cliff when resuming.'),
+      makeKnob('subagents-review', 'Subagents & reviews', 'off', 'OFF (blocked)', 'Subagent delegation is paused while Codex is blocked.'),
       makeKnob('banked-resets', 'Banked resets & cache', 'off', usableCredits > 0 ? `${usableCredits} banked (hold)` : '0 banked', `Unblock Codex first. ${cacheNote}`),
     ];
   }
 
   if (utilizationState === 'unknown') {
     return [
-      makeKnob('speed-tier', '/fast speed tier', 'steady', 'Standard (check /usage)', 'Keep /fast off until Codex /usage confirms live weekly headroom.', '/usage'),
-      makeKnob('reasoning-effort', 'Reasoning effort', 'steady', 'medium / high', 'Hold at medium effort until /usage reports live weekly allowance.', '/effort medium'),
-      makeKnob('model-tier', 'Model stepping', 'steady', 'Sol plans · Terra edits', 'Default to Sol for planning and Terra for edits until surplus is confirmed.', '/model gpt-6.1-terra'),
-      makeKnob('context-cliff', '272k context cliff', 'steady', 'Checkpoint <250k', 'OpenAI models jump to 2x input weight above 272k tokens — start a fresh thread before 250k.', '/new'),
-      makeKnob('subagents-review', 'Subagents & auto-review', 'steady', 'Workers on luna', 'Route subagent workers and verifiers to gpt-6-luna with explicit file lists.', '/model gpt-6-luna'),
+      makeKnob('speed-tier', '/fast speed', 'steady', 'Standard (check /usage)', 'Keep /fast off until Codex /usage confirms live weekly headroom.', '/usage'),
+      makeKnob('reasoning-effort', 'Effort level', 'steady', 'medium / high', 'Hold at medium effort until /usage reports live weekly allowance.', '/effort medium'),
+      makeKnob('model-tier', 'Mix big & fast models', 'steady', 'Sol plans · Terra edits', 'Default to Sol for planning and Terra for edits until surplus is confirmed.', '/model gpt-6.1-terra'),
+      makeKnob('context-cliff', '272k context limit', 'steady', 'Checkpoint <250k', 'OpenAI models jump to 2x input weight above 272k tokens — start a fresh thread before 250k.', '/new'),
+      makeKnob('subagents-review', 'Subagents & reviews', 'steady', 'Workers on luna', 'Route subagent workers and verifiers to gpt-6-luna with explicit file lists.', '/model gpt-6-luna'),
       makeKnob('banked-resets', 'Banked resets & cache', 'steady', usableCredits > 0 ? `${usableCredits} banked` : 'Check /usage', `Run /usage to verify banked reset count and expiry. ${cacheNote}`, '/usage'),
     ];
   }
@@ -914,11 +982,11 @@ function buildCodexKnobs(summary, insights, now) {
         : makeKnob('banked-resets', 'Banked resets & cache', 'off', '0 banked', `No banked resets on hand — wait ${span} for the weekly refill. ${cacheNote}`, '/usage');
 
     return [
-      makeKnob('speed-tier', '/fast speed tier', 'off', 'OFF (/fast off)', 'Codex is at 0% — keep /fast OFF so you do not trigger 2x–8x burn right after reset or credit redeem.', '/fast off'),
-      makeKnob('reasoning-effort', 'Reasoning effort', 'off', `OFF (wait ${span})`, `Codex is exhausted — resume at low/medium effort once the window resets in ${span}.`, '/effort medium'),
-      makeKnob('model-tier', 'Model stepping', 'off', 'OFF (shift to AGY/Claude)', `Codex is exhausted for ${span} — route active coding to AGY or Claude.`),
-      makeKnob('context-cliff', '272k context cliff', 'off', 'Fresh thread on reset', `Start a clean thread after reset (${span}) and stay below 250k to avoid the 272k 2x input cliff.`, '/new'),
-      makeKnob('subagents-review', 'Subagents & auto-review', 'off', 'OFF (exhausted)', `Pause Codex subagents and auto-review until the ${span} reset.`),
+      makeKnob('speed-tier', '/fast speed', 'off', 'OFF (/fast off)', 'Codex is at 0% — keep /fast OFF so you do not trigger 2x–8x burn right after reset or credit redeem.', '/fast off'),
+      makeKnob('reasoning-effort', 'Effort level', 'off', `OFF (wait ${span})`, `Codex is exhausted — resume at low/medium effort once the window resets in ${span}.`, '/effort medium'),
+      makeKnob('model-tier', 'Mix big & fast models', 'off', 'OFF (shift to AGY/Claude)', `Codex is exhausted for ${span} — route active coding to AGY or Claude.`),
+      makeKnob('context-cliff', '272k context limit', 'off', 'Fresh thread on reset', `Start a clean thread after reset (${span}) and stay below 250k to avoid the 272k 2x input cliff.`, '/new'),
+      makeKnob('subagents-review', 'Subagents & reviews', 'off', 'OFF (exhausted)', `Pause Codex subagents and auto-review until the ${span} reset.`),
       bankedKnob,
     ];
   }
@@ -928,7 +996,7 @@ function buildCodexKnobs(summary, insights, now) {
   if (utilizationState === 'surplus') {
     speedKnob = makeKnob(
       'speed-tier',
-      '/fast speed tier',
+      '/fast speed',
       'boost',
       'ON (/fast safe)',
       `${Math.round(remainingPercent)}% left (resets in ${span}) — priority /fast (2x) is safe; save ultrafast (8x) for short urgent bursts.`,
@@ -937,7 +1005,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (utilizationState === 'hot') {
     speedKnob = makeKnob(
       'speed-tier',
-      '/fast speed tier',
+      '/fast speed',
       'off',
       'OFF (/fast off)',
       highFast
@@ -948,7 +1016,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (highFast) {
     speedKnob = makeKnob(
       'speed-tier',
-      '/fast speed tier',
+      '/fast speed',
       'tighten',
       'Standard (cut /fast)',
       `${Math.round(ins.fast)}% of 24h Codex tokens ran in /fast (2x–8x weight) — drop back to standard speed for routine edits.`,
@@ -957,7 +1025,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else {
     speedKnob = makeKnob(
       'speed-tier',
-      '/fast speed tier',
+      '/fast speed',
       'steady',
       'Standard (targeted /fast)',
       `On pace (${Math.round(remainingPercent)}% left, resets in ${span}) — default to standard speed and reserve /fast for short sprints.`,
@@ -970,7 +1038,7 @@ function buildCodexKnobs(summary, insights, now) {
   if (utilizationState === 'hot') {
     effortKnob = makeKnob(
       'reasoning-effort',
-      'Reasoning effort',
+      'Effort level',
       'tighten',
       'low / medium',
       highEffort
@@ -982,7 +1050,7 @@ function buildCodexKnobs(summary, insights, now) {
     if (highEffort && !expiringSoon) {
       effortKnob = makeKnob(
         'reasoning-effort',
-        'Reasoning effort',
+        'Effort level',
         'tighten',
         'medium / high (trim xhigh)',
         `${Math.round(ins.effort)}% of 24h Codex tokens ran at xhigh/max with ${span} left in the week — keep routine edits at medium and save xhigh for hard steps.`,
@@ -991,7 +1059,7 @@ function buildCodexKnobs(summary, insights, now) {
     } else {
       effortKnob = makeKnob(
         'reasoning-effort',
-        'Reasoning effort',
+        'Effort level',
         'boost',
         'high / xhigh',
         highEffort
@@ -1003,7 +1071,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (highEffort) {
     effortKnob = makeKnob(
       'reasoning-effort',
-      'Reasoning effort',
+      'Effort level',
       'tighten',
       'low / medium (cut xhigh)',
       `${Math.round(ins.effort)}% of 24h Codex tokens ran at xhigh/max effort — drop routine edits to medium/low to protect the rest of the week.`,
@@ -1012,7 +1080,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else {
     effortKnob = makeKnob(
       'reasoning-effort',
-      'Reasoning effort',
+      'Effort level',
       'steady',
       'medium / high',
       `On pace (${Math.round(remainingPercent)}% left) — default to medium effort and raise to high only for tricky design or debugging.`,
@@ -1025,7 +1093,7 @@ function buildCodexKnobs(summary, insights, now) {
   if (utilizationState === 'surplus') {
     modelKnob = makeKnob(
       'model-tier',
-      'Model stepping',
+      'Mix big & fast models',
       'boost',
       'gpt-6.2-sol / astra',
       `${Math.round(remainingPercent)}% headroom — keep primary coding and deep reviews on top-tier gpt-6.2-sol or astra.`,
@@ -1034,7 +1102,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (utilizationState === 'hot') {
     modelKnob = makeKnob(
       'model-tier',
-      'Model stepping',
+      'Mix big & fast models',
       'tighten',
       'gpt-6.1-terra / gpt-6-luna',
       `Only ${Math.round(remainingPercent)}% left before the ${span} reset — step down to gpt-6.1-terra or gpt-6-luna for essential edits.`,
@@ -1043,7 +1111,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else {
     modelKnob = makeKnob(
       'model-tier',
-      'Model stepping',
+      'Mix big & fast models',
       'steady',
       'Sol plans · Terra edits',
       `On pace (${Math.round(remainingPercent)}% left) — plan and review on gpt-6.2-sol, execute bounded edits on gpt-6.1-terra.`,
@@ -1056,7 +1124,7 @@ function buildCodexKnobs(summary, insights, now) {
   if (highContext) {
     cliffKnob = makeKnob(
       'context-cliff',
-      '272k context cliff',
+      '272k context limit',
       'tighten',
       `Checkpoint <250k (${Math.round(ins.context)}% >150k)`,
       `${Math.round(ins.context)}% of 24h Codex tokens exceeded 150k context — checkpoint into a fresh thread before 250k so you never hit the 272k 2x input cliff.`,
@@ -1065,7 +1133,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (utilizationState === 'hot') {
     cliffKnob = makeKnob(
       'context-cliff',
-      '272k context cliff',
+      '272k context limit',
       'tighten',
       'Hard cap <150k–250k',
       `Only ${Math.round(remainingPercent)}% left — checkpoint early well below the 272k 2x input-weight cliff.`,
@@ -1074,7 +1142,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else {
     cliffKnob = makeKnob(
       'context-cliff',
-      '272k context cliff',
+      '272k context limit',
       'steady',
       'Checkpoint <250k',
       'OpenAI models jump to 2x input weight above 272k tokens — checkpoint into a fresh thread before 250k.',
@@ -1087,7 +1155,7 @@ function buildCodexKnobs(summary, insights, now) {
   if (highSubagents) {
     subagentKnob = makeKnob(
       'subagents-review',
-      'Subagents & auto-review',
+      'Subagents & reviews',
       'tighten',
       `Luna workers · explicit files (${Math.round(ins.subagents)}%)`,
       `Subagents drove ${Math.round(ins.subagents)}% of 24h Codex tokens — pass explicit file lists, route workers/verifiers to gpt-6-luna, and cut auto-review overhead.`,
@@ -1096,7 +1164,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (utilizationState === 'hot') {
     subagentKnob = makeKnob(
       'subagents-review',
-      'Subagents & auto-review',
+      'Subagents & reviews',
       'tighten',
       'Single-thread · auto-review OFF',
       `Codex is tight (${Math.round(remainingPercent)}% left) — pause subagent fan-out and disable automatic review passes until reset.`,
@@ -1105,7 +1173,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else if (utilizationState === 'surplus') {
     subagentKnob = makeKnob(
       'subagents-review',
-      'Subagents & auto-review',
+      'Subagents & reviews',
       'boost',
       'Parallel workers + verifier OK',
       `${Math.round(remainingPercent)}% headroom supports parallel workers and verifiers — still pin routine roles to gpt-6-luna with explicit file lists.`
@@ -1113,7 +1181,7 @@ function buildCodexKnobs(summary, insights, now) {
   } else {
     subagentKnob = makeKnob(
       'subagents-review',
-      'Subagents & auto-review',
+      'Subagents & reviews',
       'steady',
       'Luna workers · explicit files',
       'Give subagents explicit file lists and route verifier/auto-review roles to gpt-6-luna to avoid redundant context burn.'
@@ -1277,8 +1345,8 @@ function buildCodexPlaybook(summary, insights, now = Date.now()) {
 
 function buildClaudeKnobs(summary, others, insights) {
   const { utilizationState, remainingPercent, hoursLeft } = summary;
-  const agyCg = others.agy?.utilizationState !== 'blocked' && others.agy?._meta?.agyLanes?.cgFresh
-    ? others.agy._meta.agyLanes.cgPrimary
+  const agyCg = others.agy?.utilizationState !== 'blocked' && others.agy?._meta?.agyQuotas?.cgFresh
+    ? others.agy._meta.agyQuotas.cgPrimary
     : null;
   const agyCgRem = agyCg && agyCg.remainingPercent > 0 ? agyCg.remainingPercent : null;
   const codexRem = !['exhausted', 'blocked'].includes(others.codex?.utilizationState) && others.codex?.remainingPercent !== null
@@ -1303,43 +1371,43 @@ function buildClaudeKnobs(summary, others, insights) {
 
   if (utilizationState === 'blocked') {
     return [
-      makeKnob('model-tier', 'Model tier split', 'off', 'OFF (blocked)', 'Claude is manually blocked — unblock before routing models here.', '/guard-block none'),
-      makeKnob('effort-level', 'Per-turn effort', 'off', 'OFF (blocked)', 'Effort tuning resumes once Claude is unblocked.'),
-      makeKnob('subagent-fanout', 'Subagent fan-out cap', 'off', 'OFF (blocked)', 'Subagents are paused while Claude is blocked.'),
-      makeKnob('context-gravity', 'Context gravity & /clear', 'off', 'Paused', 'Run a 6-bullet handoff + /clear before resuming Claude.', '/clear'),
-      makeKnob('cache-ttl', 'Cache TTL batching', 'off', 'Paused', 'Batch related turns inside the 5m/1h cache window once Claude is unblocked.'),
-      makeKnob('scoped-windows', 'Scoped weekly & /fast', 'off', 'Blocked · /fast OFF', 'Unblock Claude to monitor account-wide vs scoped weekly buckets.'),
+      makeKnob('model-tier', 'Mix big & fast models', 'off', 'OFF (blocked)', 'Claude is manually blocked — unblock before routing models here.', '/guard-block none'),
+      makeKnob('effort-level', 'Effort level', 'off', 'OFF (blocked)', 'Effort tuning resumes once Claude is unblocked.'),
+      makeKnob('subagent-fanout', 'Subagent limit', 'off', 'OFF (blocked)', 'Subagents are paused while Claude is blocked.'),
+      makeKnob('context-gravity', 'Keep context lean', 'off', 'Paused', 'Run a 6-bullet handoff + /clear before resuming Claude.', '/clear'),
+      makeKnob('cache-ttl', 'Prompt cache batching', 'off', 'Paused', 'Batch related turns inside the 5m/1h cache window once Claude is unblocked.'),
+      makeKnob('scoped-windows', 'Weekly caps & /fast', 'off', 'Blocked · /fast OFF', 'Unblock Claude to monitor account-wide vs model-specific weekly quotas.'),
     ];
   }
 
   if (utilizationState === 'unknown') {
     return [
-      makeKnob('model-tier', 'Model tier split', 'steady', 'Opus plans · Sonnet edits', 'Refresh Claude /usage to check Opus/Fable vs Sonnet headroom.', '/usage'),
-      makeKnob('effort-level', 'Per-turn effort', 'steady', 'medium / high', 'Default to medium/high until live allowance windows confirm surplus.', '/effort medium'),
-      makeKnob('subagent-fanout', 'Subagent fan-out cap', 'steady', 'Targeted (explicit files)', 'Each Claude sidechain builds a fresh context window — keep fan-out tight until /usage updates.'),
-      makeKnob('context-gravity', 'Context gravity & /clear', 'steady', '6-bullet handoff + /clear', 'Use a 6-bullet handoff + /clear at milestones to stay below 150k context.', '/clear'),
-      makeKnob('cache-ttl', 'Cache TTL batching', 'steady', 'Batch inside 5m/1h TTL', 'Group related edits inside the 5m/1h prompt cache window to sustain 90%+ cache-read reuse.'),
-      makeKnob('scoped-windows', 'Scoped weekly & /fast', 'steady', 'Check /usage · /fast OFF', 'Refresh /usage to compare account-wide weekly limits against scoped Opus/Fable buckets.', '/usage'),
+      makeKnob('model-tier', 'Mix big & fast models', 'steady', 'Opus plans · Sonnet edits', 'Refresh Claude /usage to check Opus/Fable vs Sonnet headroom.', '/usage'),
+      makeKnob('effort-level', 'Effort level', 'steady', 'medium / high', 'Default to medium/high until live allowance windows confirm surplus.', '/effort medium'),
+      makeKnob('subagent-fanout', 'Subagent limit', 'steady', 'Targeted (explicit files)', 'Each Claude sidechain builds a fresh context window — keep fan-out tight until /usage updates.'),
+      makeKnob('context-gravity', 'Keep context lean', 'steady', '6-bullet handoff + /clear', 'Use a 6-bullet handoff + /clear at milestones to stay below 150k context.', '/clear'),
+      makeKnob('cache-ttl', 'Prompt cache batching', 'steady', 'Batch inside 5m/1h TTL', 'Group related edits inside the 5m/1h prompt cache window to sustain 90%+ cache-read reuse.'),
+      makeKnob('scoped-windows', 'Weekly caps & /fast', 'steady', 'Check /usage · /fast OFF', 'Refresh /usage to compare account-wide weekly limits against model-specific Opus/Fable quotas.', '/usage'),
     ];
   }
 
   if (utilizationState === 'exhausted') {
     const modelKnob = agyCgRem !== null && agyCgRem >= 30
-      ? makeKnob('model-tier', 'Model tier split', 'off', 'Shift to AGY Claude/GPT', `Native Claude is exhausted (${span} to reset) — shift Opus/coding work to AGY's Claude/GPT lane (${Math.round(agyCgRem)}% left).`, '/model claude-opus-5-5-high')
+      ? makeKnob('model-tier', 'Mix big & fast models', 'off', 'Shift to AGY Claude/GPT', `Native Claude is exhausted (${span} to reset) — shift Opus/coding work to AGY's Claude/GPT quota (${Math.round(agyCgRem)}% left).`, '/model claude-opus-5-5-high')
       : codexRem !== null && codexRem >= 20
-        ? makeKnob('model-tier', 'Model tier split', 'off', `OFF · shift to Codex (${Math.round(codexRem)}%)`, `Native Claude is exhausted (${span} to reset) — overflow active coding to Codex (${Math.round(codexRem)}% left).`)
-        : makeKnob('model-tier', 'Model tier split', 'off', `OFF (wait ${span})`, `Native Claude is exhausted — hold until reset in ${span}.`, '/usage');
+        ? makeKnob('model-tier', 'Mix big & fast models', 'off', `OFF · shift to Codex (${Math.round(codexRem)}%)`, `Native Claude is exhausted (${span} to reset) — overflow active coding to Codex (${Math.round(codexRem)}% left).`)
+        : makeKnob('model-tier', 'Mix big & fast models', 'off', `OFF (wait ${span})`, `Native Claude is exhausted — hold until reset in ${span}.`, '/usage');
 
     const scopedKnob = scopedOpen
-      ? makeKnob('scoped-windows', 'Scoped weekly & /fast', 'off', `${scopedOpen.label} ${Math.round(scopedOpen.remainingPercent)}% (overall 0%)`, `${scopedOpen.label} still has ${Math.round(scopedOpen.remainingPercent)}% left, but account-wide weekly is capped at 0% (resets in ${span}) — keep /fast OFF when resuming.`, '/usage')
-      : makeKnob('scoped-windows', 'Scoped weekly & /fast', 'off', 'Weekly 0% · /fast OFF', `Account-wide weekly allowance is exhausted for ${span} — keep /fast OFF once it refills.`, '/usage');
+      ? makeKnob('scoped-windows', 'Weekly caps & /fast', 'off', `${scopedOpen.label} ${Math.round(scopedOpen.remainingPercent)}% (overall 0%)`, `${scopedOpen.label} still has ${Math.round(scopedOpen.remainingPercent)}% left, but account-wide weekly is capped at 0% (resets in ${span}) — keep /fast OFF when resuming.`, '/usage')
+      : makeKnob('scoped-windows', 'Weekly caps & /fast', 'off', 'Weekly 0% · /fast OFF', `Account-wide weekly allowance is exhausted for ${span} — keep /fast OFF once it refills.`, '/usage');
 
     return [
       modelKnob,
-      makeKnob('effort-level', 'Per-turn effort', 'off', 'OFF (exhausted)', `Native Claude is paused until the ${span} reset.`),
-      makeKnob('subagent-fanout', 'Subagent fan-out cap', 'off', 'OFF (exhausted)', `Pause sidechain fan-out until native Claude resets in ${span}.`),
-      makeKnob('context-gravity', 'Context gravity & /clear', 'off', '/clear before resume', `Prepare a 6-bullet handoff and /clear stale context before Claude unlocks in ${span}.`, '/clear'),
-      makeKnob('cache-ttl', 'Cache TTL batching', 'off', 'Queue batch for reset', `Cluster queued edits inside the 5m/1h cache window once Claude resets in ${span}.`),
+      makeKnob('effort-level', 'Effort level', 'off', 'OFF (exhausted)', `Native Claude is paused until the ${span} reset.`),
+      makeKnob('subagent-fanout', 'Subagent limit', 'off', 'OFF (exhausted)', `Pause sidechain fan-out until native Claude resets in ${span}.`),
+      makeKnob('context-gravity', 'Keep context lean', 'off', '/clear before resume', `Prepare a 6-bullet handoff and /clear stale context before Claude unlocks in ${span}.`, '/clear'),
+      makeKnob('cache-ttl', 'Prompt cache batching', 'off', 'Queue batch for reset', `Cluster queued edits inside the 5m/1h cache window once Claude resets in ${span}.`),
       scopedKnob,
     ];
   }
@@ -1349,7 +1417,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (utilizationState === 'surplus') {
     modelKnob = makeKnob(
       'model-tier',
-      'Model tier split',
+      'Mix big & fast models',
       'boost',
       'Opus / Fable',
       `${Math.round(remainingPercent)}% left (resets in ${span}) — use Opus/Fable for planning, deep review, and hard debugging.`,
@@ -1358,7 +1426,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'hot') {
     modelKnob = makeKnob(
       'model-tier',
-      'Model tier split',
+      'Mix big & fast models',
       'tighten',
       'Sonnet / Haiku only',
       agyCgRem !== null && agyCgRem >= 30
@@ -1369,7 +1437,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     modelKnob = makeKnob(
       'model-tier',
-      'Model tier split',
+      'Mix big & fast models',
       'steady',
       'Opus plans · Sonnet edits',
       `On pace (${Math.round(remainingPercent)}% left, resets in ${span}) — use Opus/Fable for plans & review, Sonnet for bounded execution.`,
@@ -1382,7 +1450,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (utilizationState === 'hot') {
     effortKnob = makeKnob(
       'effort-level',
-      'Per-turn effort',
+      'Effort level',
       'tighten',
       'medium',
       `Only ${Math.round(remainingPercent)}% left — hold per-turn effort at medium and avoid max thinking bursts.`,
@@ -1392,7 +1460,7 @@ function buildClaudeKnobs(summary, others, insights) {
     if (highEffort && !expiringSoon) {
       effortKnob = makeKnob(
         'effort-level',
-        'Per-turn effort',
+        'Effort level',
         'tighten',
         'medium / high (trim max)',
         `${Math.round(ins.effort)}% of 24h Claude tokens ran at max effort with ${span} left — keep routine turns at medium/high.`,
@@ -1401,7 +1469,7 @@ function buildClaudeKnobs(summary, others, insights) {
     } else {
       effortKnob = makeKnob(
         'effort-level',
-        'Per-turn effort',
+        'Effort level',
         'boost',
         'high / max',
         `${Math.round(remainingPercent)}% headroom (${span} to reset) — high and max effort are open for architecture and root-cause work.`,
@@ -1411,7 +1479,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (highEffort) {
     effortKnob = makeKnob(
       'effort-level',
-      'Per-turn effort',
+      'Effort level',
       'tighten',
       'medium (cut max)',
       `${Math.round(ins.effort)}% of 24h Claude tokens ran at max effort — step routine edits back to medium.`,
@@ -1420,7 +1488,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     effortKnob = makeKnob(
       'effort-level',
-      'Per-turn effort',
+      'Effort level',
       'steady',
       'medium / high',
       `On pace (${Math.round(remainingPercent)}% left) — run medium for execution and raise to high for design or reviews.`,
@@ -1433,7 +1501,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (utilizationState === 'hot') {
     subagentKnob = makeKnob(
       'subagent-fanout',
-      'Subagent fan-out cap',
+      'Subagent limit',
       'off',
       'OFF (single-owner only)',
       highSubagents
@@ -1443,7 +1511,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (highSubagents) {
     subagentKnob = makeKnob(
       'subagent-fanout',
-      'Subagent fan-out cap',
+      'Subagent limit',
       'tighten',
       `Single-owner · Sonnet/Haiku (${Math.round(ins.subagents)}%)`,
       `Subagents drove ${Math.round(ins.subagents)}% of 24h Claude tokens — each sidechain builds a fresh context window; prefer single-owner execution with explicit file lists and Sonnet/Haiku workers.`,
@@ -1452,7 +1520,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus') {
     subagentKnob = makeKnob(
       'subagent-fanout',
-      'Subagent fan-out cap',
+      'Subagent limit',
       'boost',
       'Parallel subagents OK',
       `${Math.round(remainingPercent)}% headroom supports parallel exploration and review subagents — still pass explicit file lists to keep sidechains lean.`
@@ -1460,7 +1528,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     subagentKnob = makeKnob(
       'subagent-fanout',
-      'Subagent fan-out cap',
+      'Subagent limit',
       'steady',
       '1–2 focused (Sonnet/Haiku)',
       'Keep routine edits single-owner; when fanning out, pass explicit file lists and pin workers to Sonnet or Haiku.'
@@ -1472,7 +1540,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (highContext) {
     contextKnob = makeKnob(
       'context-gravity',
-      'Context gravity & /clear',
+      'Keep context lean',
       'tighten',
       `6-bullet handoff + /clear (${Math.round(ins.context)}% >150k)`,
       `${Math.round(ins.context)}% of 24h Claude tokens ran above 150k context — write a 6-bullet handoff and run /clear at milestones to stop prompt drag.`,
@@ -1481,7 +1549,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'hot') {
     contextKnob = makeKnob(
       'context-gravity',
-      'Context gravity & /clear',
+      'Keep context lean',
       'tighten',
       'Aggressive /clear (<100k)',
       `Only ${Math.round(remainingPercent)}% left — run a 6-bullet handoff + /clear on every milestone so long threads do not drain your final quota.`,
@@ -1490,7 +1558,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus') {
     contextKnob = makeKnob(
       'context-gravity',
-      'Context gravity & /clear',
+      'Keep context lean',
       'steady',
       '/clear on topic switch',
       'Write a short 6-bullet handoff + /clear when switching unrelated topics to keep cache focused and avoid >150k drag.',
@@ -1499,7 +1567,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     contextKnob = makeKnob(
       'context-gravity',
-      'Context gravity & /clear',
+      'Keep context lean',
       'steady',
       '6-bullet handoff + /clear',
       'Run /clear at task milestones with a 6-bullet handoff to keep prompt context under 150k tokens.',
@@ -1512,7 +1580,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (lowCache) {
     cacheKnob = makeKnob(
       'cache-ttl',
-      'Cache TTL batching',
+      'Prompt cache batching',
       'tighten',
       `Batch 5m/1h TTL (${Math.round(ins.cache)}% reuse)`,
       `24h cache-read reuse is ${Math.round(ins.cache)}% (below 90% target) — batch related edits inside the 5m/1h cache window instead of repeatedly paying cache writes.`
@@ -1520,7 +1588,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (highCache) {
     cacheKnob = makeKnob(
       'cache-ttl',
-      'Cache TTL batching',
+      'Prompt cache batching',
       'boost',
       `${Math.round(ins.cache)}% reuse (5m/1h TTL)`,
       `Strong ${Math.round(ins.cache)}% cache-read reuse — keep batching follow-up turns within the 5m/1h cache window to avoid cold writes.`
@@ -1528,7 +1596,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'hot') {
     cacheKnob = makeKnob(
       'cache-ttl',
-      'Cache TTL batching',
+      'Prompt cache batching',
       'tighten',
       'Tight 5m/1h batches',
       `Headroom is tight (${Math.round(remainingPercent)}% left) — cluster related prompts inside the 5m/1h cache window to hold 90%+ cache-read reuse.`
@@ -1536,7 +1604,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     cacheKnob = makeKnob(
       'cache-ttl',
-      'Cache TTL batching',
+      'Prompt cache batching',
       'steady',
       ins.cache !== null ? `${Math.round(ins.cache)}% reuse · target 90%+` : 'Batch inside 5m/1h TTL',
       'Batch related edits inside the 5m/1h cache window to sustain 90%+ cache-read reuse instead of repeatedly paying cache writes.'
@@ -1549,7 +1617,7 @@ function buildClaudeKnobs(summary, others, insights) {
   if (scopedTight && accountWeekly && accountWeekly.remainingPercent >= 35) {
     scopedKnob = makeKnob(
       'scoped-windows',
-      'Scoped weekly & /fast',
+      'Weekly caps & /fast',
       'tighten',
       `${scopedTight.label} ${Math.round(scopedTight.remainingPercent)}% · Weekly ${acctPct}% · /fast OFF`,
       `${scopedTight.label} is down to ${Math.round(scopedTight.remainingPercent)}% even though account-wide weekly has ${acctPct}% left — shift routine turns to Sonnet and keep /fast OFF.`,
@@ -1558,7 +1626,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'hot' || highFast) {
     scopedKnob = makeKnob(
       'scoped-windows',
-      'Scoped weekly & /fast',
+      'Weekly caps & /fast',
       'tighten',
       scopedOpen ? `Weekly ${acctPct}% · ${scopedOpen.label} ${Math.round(scopedOpen.remainingPercent)}% · /fast OFF` : `Weekly ${acctPct}% · /fast OFF`,
       highFast
@@ -1569,7 +1637,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else if (utilizationState === 'surplus') {
     scopedKnob = makeKnob(
       'scoped-windows',
-      'Scoped weekly & /fast',
+      'Weekly caps & /fast',
       'boost',
       scopedOpen ? `Weekly ${acctPct}% · ${scopedOpen.label} ${Math.round(scopedOpen.remainingPercent)}%` : `Weekly ${acctPct}% · /fast targeted`,
       scopedOpen
@@ -1579,7 +1647,7 @@ function buildClaudeKnobs(summary, others, insights) {
   } else {
     scopedKnob = makeKnob(
       'scoped-windows',
-      'Scoped weekly & /fast',
+      'Weekly caps & /fast',
       'steady',
       scopedOpen ? `Weekly ${acctPct}% · ${scopedOpen.label} ${Math.round(scopedOpen.remainingPercent)}% · /fast OFF` : `Weekly ${acctPct}% · /fast OFF`,
       scopedOpen
@@ -1593,7 +1661,7 @@ function buildClaudeKnobs(summary, others, insights) {
 
 function buildClaudePlaybook(summary, others, insights) {
   const { utilizationState, remainingPercent, hoursLeft, projectedUnusedAtReset, bankedResets } = summary;
-  const agyCg = others.agy?.utilizationState !== 'blocked' && others.agy?._meta?.agyLanes?.cgFresh ? others.agy._meta.agyLanes.cgPrimary : null;
+  const agyCg = others.agy?.utilizationState !== 'blocked' && others.agy?._meta?.agyQuotas?.cgFresh ? others.agy._meta.agyQuotas.cgPrimary : null;
   const agyCgRem = agyCg && agyCg.remainingPercent > 0 ? agyCg.remainingPercent : null;
   const codexRem = !['exhausted', 'blocked'].includes(others.codex?.utilizationState) && others.codex?.remainingPercent !== null ? others.codex.remainingPercent : null;
   const subagentInsight = getInsightMetric(insights, 'claude', 'subagents');
@@ -1627,7 +1695,7 @@ function buildClaudePlaybook(summary, others, insights) {
     const commands = [];
     if (agyCgRem !== null && agyCgRem >= 30) {
       badges.push(`Shift to AGY Claude/GPT (${Math.round(agyCgRem)}%)`);
-      guidance.push(`Shift Opus/coding work to AGY's Claude/GPT lane (${Math.round(agyCgRem)}% left) right now.`);
+      guidance.push(`AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (${Math.round(agyCgRem)}% left) while native Claude resets.`);
       commands.push('/model claude-opus-5-5-high');
     } else if (codexRem !== null && codexRem >= 20) {
       badges.push(`Shift to Codex (${Math.round(codexRem)}%)`);
@@ -1644,7 +1712,7 @@ function buildClaudePlaybook(summary, others, insights) {
     return {
       mode: 'pause',
       headline: agyCgRem !== null && agyCgRem >= 30
-        ? `Claude exhausted (${span} to reset) — shift Opus/coding to AGY Claude/GPT lane (${Math.round(agyCgRem)}% left)`
+        ? `Claude exhausted (${span} to reset) — use AGY's Claude/GPT quota (${Math.round(agyCgRem)}% left)`
         : `Claude exhausted — hold until reset in ${span}`,
       badges,
       guidance,
@@ -1676,7 +1744,7 @@ function buildClaudePlaybook(summary, others, insights) {
       `Claude is tight (${Math.round(remainingPercent)}% left, resets in ${span}) — turn off subagent fan-out, run /clear aggressively, and stick to Sonnet/Haiku for small checks.`,
     ];
     if (agyCgRem !== null && agyCgRem >= 30) {
-      guidance.push(`Shift heavy Opus/coding work to AGY's Claude/GPT lane (${Math.round(agyCgRem)}% left) instead of burning Claude's last ${Math.round(remainingPercent)}%.`);
+      guidance.push(`Shift heavy Opus/coding work to AGY's Claude/GPT quota (${Math.round(agyCgRem)}% left) instead of burning Claude's last ${Math.round(remainingPercent)}%.`);
     } else if (codexRem !== null && codexRem >= 25) {
       guidance.push(`Shift heavy coding work to Codex (${Math.round(codexRem)}% left) until Claude resets.`);
     }
@@ -1709,6 +1777,203 @@ function buildClaudePlaybook(summary, others, insights) {
     commands: ['/model sonnet', '/clear'],
     knobs,
   };
+}
+
+function buildCustomKnobs(summary) {
+  const { label, utilizationState, remainingPercent, hoursLeft, notes } = summary;
+  const span = formatSpan(hoursLeft);
+  const expiringSoon = Number.isFinite(hoursLeft) && hoursLeft <= 48;
+
+  if (utilizationState === 'unknown') {
+    return [
+      makeKnob('workload-share', 'Workload share', 'steady', 'Update reading', `Refresh ${label} in custom-providers.json so load-balancing uses current quota.`),
+      makeKnob('model-choice', 'Model choice', 'steady', 'Default model', `Confirm remaining quota on ${label} before starting heavy runs.`),
+      makeKnob('reading-freshness', 'Quota check-in', 'tighten', 'Refresh reading', `Last reading is stale or past reset — update custom-providers.json after checking ${label}'s usage page.`),
+    ];
+  }
+  if (utilizationState === 'exhausted') {
+    return [
+      makeKnob('workload-share', 'Workload share', 'off', `OFF (wait ${span})`, `${label} is at 0% — shift work to another subscription until it resets in ${span}.`),
+      makeKnob('model-choice', 'Model choice', 'off', 'Paused until reset', `Pause ${label} until its quota refills in ${span}.`),
+      makeKnob('reading-freshness', 'Quota check-in', 'steady', `Resets in ${span}`, `${notes ? `${notes} — ` : ''}Confirm the refill in custom-providers.json after reset.`),
+    ];
+  }
+  if (utilizationState === 'surplus') {
+    return [
+      makeKnob(
+        'workload-share',
+        'Workload share',
+        'boost',
+        expiringSoon ? 'Put first before reset' : 'Take heavy tasks',
+        expiringSoon
+          ? `${Math.round(remainingPercent)}% left expires in ${span} — route active coding to ${label} first so paid quota does not go unused.`
+          : `${Math.round(remainingPercent)}% headroom (${span} to reset) — good candidate for heavy feature work and reviews.`
+      ),
+      makeKnob('model-choice', 'Model choice', 'boost', 'Flagship models OK', `Plenty of headroom on ${label} — use top-tier models freely before reset.`),
+      makeKnob('reading-freshness', 'Quota check-in', 'steady', `Updated · resets in ${span}`, `${notes ? `${notes} — ` : ''}Update custom-providers.json after heavy sessions to keep load-balancing accurate.`),
+    ];
+  }
+  if (utilizationState === 'hot') {
+    return [
+      makeKnob('workload-share', 'Workload share', 'tighten', 'Light edits only', `Only ${Math.round(remainingPercent)}% left (${span} to reset) — shift heavy coding to another subscription.`),
+      makeKnob('model-choice', 'Model choice', 'tighten', 'Fast / lightweight models', `Step down to faster, lighter models on ${label} until the ${span} reset.`),
+      makeKnob('reading-freshness', 'Quota check-in', 'steady', `Updated · resets in ${span}`, `${notes ? `${notes} — ` : ''}Update custom-providers.json after the ${span} reset.`),
+    ];
+  }
+  return [
+    makeKnob('workload-share', 'Workload share', 'steady', 'Steady everyday use', `${Math.round(remainingPercent)}% left with ${span} to reset — keep ${label} in normal rotation.`),
+    makeKnob('model-choice', 'Model choice', 'steady', 'Mix big & fast models', `Save flagship models on ${label} for planning and debugging; use faster models for routine edits.`),
+    makeKnob('reading-freshness', 'Quota check-in', 'steady', `Updated · resets in ${span}`, `${notes ? `${notes} — ` : ''}Update custom-providers.json after heavy sessions to keep load-balancing accurate.`),
+  ];
+}
+
+function buildCustomPlaybook(summary) {
+  const { label, utilizationState, remainingPercent, hoursLeft, projectedUnusedAtReset, notes } = summary;
+  const span = formatSpan(hoursLeft);
+  const expiringSoon = Number.isFinite(hoursLeft) && hoursLeft <= 48;
+  const knobs = buildCustomKnobs(summary);
+  const baseBadges = ['Custom plan'];
+  if (notes) baseBadges.push(notes);
+
+  if (utilizationState === 'unknown') {
+    return {
+      mode: 'pause',
+      headline: `Refresh ${label} reading in custom-providers.json`,
+      badges: [...baseBadges, 'Needs update'],
+      guidance: [`Update ${label}'s remaining percentage and reset time in custom-providers.json to include it in active load-balancing.`],
+      commands: [],
+      knobs,
+    };
+  }
+  if (utilizationState === 'exhausted') {
+    return {
+      mode: 'pause',
+      headline: `${label} exhausted — wait ${span} for reset`,
+      badges: [...baseBadges, 'Exhausted', `Resets in ${span}`],
+      guidance: [`Shift work to another ready subscription while ${label} resets in ${span}.`],
+      commands: [],
+      knobs,
+    };
+  }
+  if (utilizationState === 'surplus') {
+    const badges = [...baseBadges, expiringSoon ? `Expires in ${span}` : `Resets in ${span}`];
+    if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25) badges.push(`~${Math.round(projectedUnusedAtReset)}% unused risk`);
+    const guidance = [
+      expiringSoon
+        ? `${label} has ${Math.round(remainingPercent)}% left resetting in ${span} — put active coding work there first so paid quota is not left unspent.`
+        : `${label} has ${Math.round(remainingPercent)}% left (${span} to reset) — safe to route heavy coding and reviews there.`,
+    ];
+    return {
+      mode: 'accelerate',
+      headline: expiringSoon
+        ? `${label} surplus expiring in ${span} (${Math.round(remainingPercent)}% left) — use it first`
+        : `${label} has strong headroom (${Math.round(remainingPercent)}% left) — route heavy tasks there`,
+      badges,
+      guidance,
+      commands: [],
+      knobs,
+    };
+  }
+  if (utilizationState === 'hot') {
+    return {
+      mode: 'conserve',
+      headline: `${label} low (${Math.round(remainingPercent)}% left, resets in ${span}) — save for quick edits`,
+      badges: [...baseBadges, 'Conserve', `Resets in ${span}`],
+      guidance: [`Only ${Math.round(remainingPercent)}% remains on ${label} — shift heavy coding to another subscription until the ${span} reset.`],
+      commands: [],
+      knobs,
+    };
+  }
+  return {
+    mode: 'steady',
+    headline: `${label} on pace (${Math.round(remainingPercent)}% left) — normal rotation`,
+    badges: [...baseBadges, `Resets in ${span}`],
+    guidance: [`${label} has ${Math.round(remainingPercent)}% left with ${span} until reset — keep using it steadily alongside your other plans.`],
+    commands: [],
+    knobs,
+  };
+}
+
+function summarizeCustomProvider(entry, reservePercent, now) {
+  const resetMs = Date.parse(entry.resetAt);
+  const observedMs = Date.parse(entry.observedAt);
+  const hoursLeft = Math.max(0, round1((resetMs - now) / 3600000));
+  const ageHours = Math.max(0, (now - observedMs) / 3600000);
+  const maxFreshHours = entry.windowMinutes <= 600 ? Math.max(1, entry.windowMinutes / 60) : 72;
+  const expired = resetMs <= now;
+  const stale = ageHours > maxFreshHours;
+  const remainingRaw = round1(clampPct(entry.remainingPercent));
+  const usedPercent = round1(clampPct(100 - remainingRaw));
+  const usableRaw = round1(Math.max(0, remainingRaw - reservePercent));
+  const status = expired ? 'verify-reset' : stale ? 'stale' : remainingRaw <= 0 ? 'depleted' : usableRaw <= 0 ? 'reserve' : 'ready';
+  const hasFresh = !expired && !stale;
+  const winLabel = entry.windowMinutes >= 28800 ? 'Monthly quota' : entry.windowMinutes >= 1440 ? 'Weekly quota' : 'Session quota';
+
+  const win = {
+    windowId: 'custom:primary',
+    modelFamily: null,
+    label: winLabel,
+    remainingPercent: remainingRaw,
+    usedPercent,
+    hoursLeft,
+    resetAt: entry.resetAt,
+    status,
+    applies: true,
+    windowMinutes: entry.windowMinutes,
+    slopePercentPerHour: null,
+    depletionHours: null,
+    usablePercent: usableRaw,
+  };
+
+  const remainingPercent = hasFresh ? remainingRaw : null;
+  const usablePercent = hasFresh ? usableRaw : null;
+  const targetPercentPerDay = hasFresh ? calcTargetPerDay(win, reservePercent) : null;
+  const projectedUnusedAtReset = hasFresh ? calcProjectedUnused(win) : null;
+  const utilizationState = classifyUtilization({
+    status,
+    remainingPercent: remainingPercent ?? 0,
+    usablePercent: usablePercent ?? 0,
+    hoursLeft,
+    projectedUnusedAtReset,
+    primaryWin: hasFresh ? win : null,
+    reservePercent,
+  });
+
+  const summary = {
+    provider: entry.id,
+    id: entry.id,
+    label: entry.label,
+    custom: true,
+    notes: entry.notes || null,
+    windowMinutes: entry.windowMinutes,
+    observedAt: entry.observedAt,
+    status,
+    utilizationState,
+    remainingPercent,
+    usablePercent,
+    resetAt: entry.resetAt,
+    hoursLeft,
+    burnPercentPerHour: null,
+    targetPercentPerDay,
+    projectedUnusedAtReset,
+    windows: [
+      {
+        windowId: win.windowId,
+        modelFamily: null,
+        label: win.label,
+        remainingPercent: win.remainingPercent,
+        usedPercent: win.usedPercent,
+        hoursLeft: win.hoursLeft,
+        resetAt: win.resetAt,
+        status: win.status,
+        applies: true,
+      },
+    ],
+    bankedResets: { availableCount: null, usableCount: null, status: 'unknown', action: null, nextExpiryAt: null, message: null },
+    _meta: { primaryWin: win, weeklyWin: win, agyQuotas: null, allWindows: [win] },
+  };
+  summary.playbook = buildCustomPlaybook(summary);
+  return summary;
 }
 
 function rankProviders(summaries) {
@@ -1759,7 +2024,10 @@ function rankProviders(summaries) {
     }
     // Exhausted / unknown / blocked: earliest unlock first.
     if (ha !== hb) return ha - hb;
-    return SUBSCRIPTION_IDS.indexOf(a.provider) - SUBSCRIPTION_IDS.indexOf(b.provider);
+    const ia = SUBSCRIPTION_IDS.indexOf(a.provider);
+    const ib = SUBSCRIPTION_IDS.indexOf(b.provider);
+    if (ia !== -1 || ib !== -1) return (ia === -1 ? 100 : ia) - (ib === -1 ? 100 : ib);
+    return a.provider.localeCompare(b.provider);
   });
 }
 
@@ -1777,7 +2045,7 @@ function findNextUnlock(summaries) {
         windowId: w.windowId,
         resetAt: w.resetAt,
         hoursLeft: w.hoursLeft,
-        label: `${SHORT_LABELS[s.provider]} ${w.label} resets in ${formatSpan(w.hoursLeft)}`,
+        label: `${shortLabel(s)} ${w.label} resets in ${formatSpan(w.hoursLeft)}`,
         priority: constrained && isDepletedOrLow ? 0 : constrained ? 1 : 2,
       });
     }
@@ -1806,51 +2074,54 @@ function buildAlerts(summaries, byId, strategy) {
       const expiringSoon = Number.isFinite(s.hoursLeft) && s.hoursLeft <= 48;
       const unused = s.projectedUnusedAtReset;
       if (expiringSoon || (unused !== null && unused >= 25)) {
-        const cmd = s.provider === 'agy' ? '/swarm' : s.provider === 'codex' ? '/fast' : '/model opus';
+        const cmd = s.provider === 'agy' ? '/swarm' : s.provider === 'codex' ? '/fast' : s.provider === 'claude' ? '/model opus' : null;
+        const name = shortLabel(s);
         alerts.push({
           kind: 'surplus',
           severity: 'opportunity',
           provider: s.provider,
           title: expiringSoon
-            ? `${SHORT_LABELS[s.provider]} surplus expiring in ${formatSpan(s.hoursLeft)}`
-            : `${SHORT_LABELS[s.provider]} has high unused headroom (~${Math.round(unused)}% projected unused)`,
+            ? `${name} surplus expiring in ${formatSpan(s.hoursLeft)}`
+            : `${name} has high unused headroom (~${Math.round(unused)}% projected unused)`,
           detail: s.provider === 'codex'
             ? `${Math.round(s.remainingPercent)}% remaining with ${formatSpan(s.hoursLeft)} left — turn /fast ON and run high/xhigh effort on Sol/Astra to capture full value.`
             : s.provider === 'agy'
               ? `${Math.round(s.remainingPercent)}% remaining on AGY — launch /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen.`
-              : `${Math.round(s.remainingPercent)}% remaining on Claude — use Opus/Fable and parallel subagents before reset.`,
+              : s.provider === 'claude'
+                ? `${Math.round(s.remainingPercent)}% remaining on Claude — use Opus/Fable and parallel subagents before reset.`
+                : `${Math.round(s.remainingPercent)}% remaining on ${name} with ${formatSpan(s.hoursLeft)} left — shift coding work there so paid quota does not expire unused.`,
           command: cmd,
         });
       }
     }
   }
 
-  // 2. AGY Claude/GPT lane hidden-value opportunity
-  const agyLanes = agy?._meta?.agyLanes;
-  if (agy && agy.utilizationState !== 'blocked' && agyLanes?.cgFresh && agyLanes.cgPrimary.remainingPercent >= 50) {
-    const cgRem = Math.round(agyLanes.cgPrimary.remainingPercent);
+  // 2. AGY Claude/GPT separate quota opportunity
+  const agyQuotas = agy?._meta?.agyQuotas;
+  if (agy && agy.utilizationState !== 'blocked' && agyQuotas?.cgFresh && agyQuotas.cgPrimary.remainingPercent >= 50) {
+    const cgRem = Math.round(agyQuotas.cgPrimary.remainingPercent);
     const nativeTight = ['exhausted', 'hot'].includes(claude?.utilizationState) || ['exhausted', 'hot'].includes(codex?.utilizationState);
     if (nativeTight || cgRem >= 80) {
       alerts.push({
-        kind: 'lane-opportunity',
+        kind: 'quota-opportunity',
         severity: 'opportunity',
         provider: 'agy',
-        title: `AGY Claude/GPT lane is ${cgRem}% free`,
+        title: `AGY Claude/GPT quota is ${cgRem}% free`,
         detail: nativeTight
-          ? `Native ${claude?.utilizationState === 'exhausted' ? 'Claude is exhausted' : 'Claude/Codex are tight'}, while AGY's separate Claude/GPT bucket still has ${cgRem}% remaining.`
-          : `AGY's separate Claude/GPT bucket is almost untouched (${cgRem}% left) alongside your Gemini quota.`,
+          ? `AGY tracks Gemini and Claude/GPT separately — native ${claude?.utilizationState === 'exhausted' ? 'Claude is exhausted' : 'Claude/Codex are tight'}, while AGY's Claude/GPT quota still has ${cgRem}% left.`
+          : `AGY tracks Gemini and Claude/GPT separately — AGY's Claude/GPT quota is almost untouched (${cgRem}% left) alongside your Gemini quota.`,
         command: '/model claude-opus-5-5-high',
       });
     }
   }
 
   // 3. AGY /swarm ready (when not already covered by expiring surplus)
-  if (agy && agy.utilizationState === 'surplus' && !alerts.some((a) => a.provider === 'agy' && a.kind === 'surplus') && agyLanes?.geminiFresh && agyLanes.geminiPrimary.remainingPercent >= 50) {
+  if (agy && agy.utilizationState === 'surplus' && !alerts.some((a) => a.provider === 'agy' && a.kind === 'surplus') && agyQuotas?.geminiFresh && agyQuotas.geminiPrimary.remainingPercent >= 50) {
     alerts.push({
       kind: 'swarm-ready',
       severity: 'opportunity',
       provider: 'agy',
-      title: `AGY Gemini ready for /swarm (${Math.round(agyLanes.geminiPrimary.remainingPercent)}% left)`,
+      title: `AGY Gemini ready for /swarm (${Math.round(agyQuotas.geminiPrimary.remainingPercent)}% left)`,
       detail: 'Plenty of Gemini weekly & session headroom — run 3–4 parallel /swarm workers + verifier on Neon or Hydrogen.',
       command: '/swarm',
     });
@@ -1872,13 +2143,14 @@ function buildAlerts(summaries, byId, strategy) {
   for (const s of summaries) {
     const usable = s.bankedResets.usableCount || 0;
     if (usable > 0 && (['exhausted', 'hot'].includes(s.utilizationState) || s.bankedResets.action === 'consider-reset')) {
+      const name = shortLabel(s);
       alerts.push({
         kind: 'banked-reset',
         severity: s.utilizationState === 'exhausted' ? 'opportunity' : 'info',
         provider: s.provider,
-        title: `${SHORT_LABELS[s.provider]} has ${usable} banked reset credit${usable === 1 ? '' : 's'}`,
+        title: `${name} has ${usable} banked reset credit${usable === 1 ? '' : 's'}`,
         detail: s.utilizationState === 'exhausted'
-          ? `Redeem in ${SHORT_LABELS[s.provider]} /usage to unlock immediately, or wait ${formatSpan(s.hoursLeft)} to save the credit.`
+          ? `Redeem in ${name} /usage to unlock immediately, or wait ${formatSpan(s.hoursLeft)} to save the credit.`
           : `Banked reset available if current ${Math.round(s.remainingPercent ?? 0)}% runs dry before reset.`,
         command: '/usage',
       });
@@ -1892,7 +2164,7 @@ function buildAlerts(summaries, byId, strategy) {
         kind: 'exhausted',
         severity: strategy === 'wait' ? 'critical' : 'warn',
         provider: s.provider,
-        title: `${SHORT_LABELS[s.provider]} exhausted (resets in ${formatSpan(s.hoursLeft)})`,
+        title: `${shortLabel(s)} exhausted (resets in ${formatSpan(s.hoursLeft)})`,
         detail: (s.playbook.guidance || []).slice(0, 2).join(' ') || s.playbook.headline,
         command: s.playbook.commands[0] || null,
       });
@@ -1902,13 +2174,16 @@ function buildAlerts(summaries, byId, strategy) {
   // 7. Stale / unknown alerts
   for (const s of summaries) {
     if (s.utilizationState === 'unknown') {
+      const name = shortLabel(s);
       alerts.push({
         kind: 'stale',
         severity: 'info',
         provider: s.provider,
-        title: `${SHORT_LABELS[s.provider]} allowance needs a fresh reading`,
-        detail: `No fresh ${SHORT_LABELS[s.provider]} reading is available; refresh collectors before routing automatically.`,
-        command: 'npm run check -- --live',
+        title: `${name} allowance needs a fresh reading`,
+        detail: s.custom
+          ? `Last ${name} reading is stale or past reset — update custom-providers.json to include it in load-balancing.`
+          : `No fresh ${name} reading is available; refresh collectors before routing automatically.`,
+        command: s.custom ? null : 'npm run check -- --live',
       });
     }
   }
@@ -1927,24 +2202,24 @@ function buildQuickCommands(ranked, byId) {
   const agy = byId.agy;
   const codex = byId.codex;
   const claude = byId.claude;
-  const agyLanes = agy?._meta?.agyLanes;
+  const agyQuotas = agy?._meta?.agyQuotas;
 
   for (const s of ranked) {
     if (s.provider === 'agy' && s.utilizationState === 'surplus') {
-      if (agyLanes?.geminiFresh && agyLanes.geminiPrimary.remainingPercent >= 50) {
+      if (agyQuotas?.geminiFresh && agyQuotas.geminiPrimary.remainingPercent >= 50) {
         push({
           tool: 'agy',
           label: 'Launch AGY /swarm',
           command: '/swarm',
-          why: `Gemini has ${Math.round(agyLanes.geminiPrimary.remainingPercent)}% left — run 3–4 workers + verifier`,
+          why: `Gemini has ${Math.round(agyQuotas.geminiPrimary.remainingPercent)}% left — run 3–4 workers + verifier`,
         });
       }
-      if (agyLanes?.cgFresh && agyLanes.cgPrimary.remainingPercent >= 40 && (['exhausted', 'hot'].includes(claude?.utilizationState) || ['exhausted', 'hot'].includes(codex?.utilizationState))) {
+      if (agyQuotas?.cgFresh && agyQuotas.cgPrimary.remainingPercent >= 40 && (['exhausted', 'hot'].includes(claude?.utilizationState) || ['exhausted', 'hot'].includes(codex?.utilizationState))) {
         push({
           tool: 'agy',
-          label: 'Tap AGY Claude/GPT lane',
+          label: 'Use AGY Claude/GPT',
           command: '/model claude-opus-5-5-high',
-          why: `AGY Claude/GPT bucket is ${Math.round(agyLanes.cgPrimary.remainingPercent)}% free`,
+          why: `AGY's separate Claude/GPT quota is ${Math.round(agyQuotas.cgPrimary.remainingPercent)}% free`,
         });
       }
     } else if (s.provider === 'codex' && s.utilizationState === 'surplus') {
@@ -2004,17 +2279,18 @@ function buildQuickCommands(ranked, byId) {
     });
   }
 
+  const coreRanked = ranked.filter((r) => SUBSCRIPTION_IDS.includes(r.provider));
   push({
     tool: 'pi',
     label: 'Auto-order Pi Guard',
     command: '/guard-order auto',
-    why: `Applies ${ranked.map((r) => SHORT_LABELS[r.provider]).join(' > ')} priority`,
+    why: `Applies ${coreRanked.map((r) => shortLabel(r)).join(' > ')} priority`,
   });
   push({
     tool: 'cli',
     label: 'Live check-in',
     command: 'npm run check',
-    why: 'Instant terminal cockpit across AGY, Codex, and Claude',
+    why: 'Instant terminal cockpit across your AI subscriptions',
   });
 
   return cmds;
@@ -2028,23 +2304,23 @@ function buildHeadline(strategy, primary, secondary, byId, nextUnlock) {
   if (strategy === 'wait' || !primary) {
     const withCredit = Object.values(byId).find((s) => s.utilizationState === 'exhausted' && (s.bankedResets.usableCount || 0) > 0);
     if (withCredit) {
-      return `All subscriptions exhausted — redeem ${SHORT_LABELS[withCredit.provider]} banked reset in /usage${nextUnlock ? ` or wait ${formatSpan(nextUnlock.hoursLeft)}` : ''}`;
+      return `All subscriptions exhausted — redeem ${shortLabel(withCredit)} banked reset in /usage${nextUnlock ? ` or wait ${formatSpan(nextUnlock.hoursLeft)}` : ''}`;
     }
     if (nextUnlock) {
-      return `All subscriptions unavailable — wait ${formatSpan(nextUnlock.hoursLeft)} for ${SHORT_LABELS[nextUnlock.provider]} reset`;
+      return `All subscriptions unavailable — wait ${formatSpan(nextUnlock.hoursLeft)} for ${shortLabel(nextUnlock.provider, byId)} reset`;
     }
     return 'No fresh subscription allowances available — refresh readings with npm run check -- --live';
   }
 
   const parts = [];
   if (primary.provider === 'agy') {
-    const lanes = agy._meta.agyLanes || {};
-    const gRem = lanes.geminiFresh ? Math.round(lanes.geminiPrimary.remainingPercent) : null;
-    const cgRem = lanes.cgFresh ? Math.round(lanes.cgPrimary.remainingPercent) : null;
+    const quotas = agy._meta.agyQuotas || {};
+    const gRem = quotas.geminiFresh ? Math.round(quotas.geminiPrimary.remainingPercent) : null;
+    const cgRem = quotas.cgFresh ? Math.round(quotas.cgPrimary.remainingPercent) : null;
     if (primary.utilizationState === 'surplus' && gRem !== null && gRem >= 50) {
       parts.push(`Run AGY /swarm (${gRem}% Gemini${cgRem !== null && cgRem >= 40 ? ` · ${cgRem}% Claude/GPT open` : ''})`);
     } else if (cgRem !== null && cgRem >= 30 && (gRem === null || gRem < 25)) {
-      parts.push(`Use AGY Claude/GPT lane (${cgRem}% left)`);
+      parts.push(`Use AGY Claude/GPT (${cgRem}% left)`);
     } else {
       parts.push(`Lead with AGY (${Math.round(primary.remainingPercent ?? 0)}% left)`);
     }
@@ -2065,6 +2341,15 @@ function buildHeadline(strategy, primary, secondary, byId, nextUnlock) {
     } else {
       parts.push(`Lead with Claude (${Math.round(primary.remainingPercent)}% left) — Opus plan / Sonnet exec`);
     }
+  } else {
+    const expiring = Number.isFinite(primary.hoursLeft) && primary.hoursLeft <= 48;
+    if (primary.utilizationState === 'surplus') {
+      parts.push(`Use ${primary.label} ${expiring ? `first (${Math.round(primary.remainingPercent)}% left, resets in ${formatSpan(primary.hoursLeft)})` : `(${Math.round(primary.remainingPercent)}% left)`}`);
+    } else if (primary.utilizationState === 'hot') {
+      parts.push(`${primary.label} tight (${Math.round(primary.remainingPercent)}% left) — keep tasks small`);
+    } else {
+      parts.push(`Lead with ${primary.label} (${Math.round(primary.remainingPercent)}% left)`);
+    }
   }
 
   if (codex && primary.provider !== 'codex' && codex.utilizationState === 'hot') {
@@ -2073,7 +2358,7 @@ function buildHeadline(strategy, primary, secondary, byId, nextUnlock) {
   if (claude && primary.provider !== 'claude' && claude.utilizationState === 'exhausted') {
     parts.push(`hold Claude (${formatSpan(claude.hoursLeft)} to reset)`);
   } else if (secondary && secondary.utilizationState === 'surplus' && secondary.provider !== 'codex') {
-    parts.push(`${SHORT_LABELS[secondary.provider]} ready (${Math.round(secondary.remainingPercent ?? 0)}%)`);
+    parts.push(`${shortLabel(secondary)} ready (${Math.round(secondary.remainingPercent ?? 0)}%)`);
   }
 
   return parts.join(' · ');
@@ -2081,15 +2366,20 @@ function buildHeadline(strategy, primary, secondary, byId, nextUnlock) {
 
 function buildOptimizationPlan(plan, insights = null, now = Date.now()) {
   const reservePercent = Number.isFinite(plan?.policy?.reservePercent) ? plan.policy.reservePercent : 10;
-  const rawSummaries = SUBSCRIPTION_IDS.map((id) => summarizeProvider(plan, id, reservePercent));
-  const byId = Object.fromEntries(rawSummaries.map((s) => [s.provider, s]));
+  const coreSummaries = SUBSCRIPTION_IDS.map((id) => summarizeProvider(plan, id, reservePercent));
+  const byId = Object.fromEntries(coreSummaries.map((s) => [s.provider, s]));
 
   // Attach context-aware playbooks (each provider sees the health of the others).
   byId.agy.playbook = buildAgyPlaybook(byId.agy, byId, insights);
   byId.codex.playbook = buildCodexPlaybook(byId.codex, insights, now);
   byId.claude.playbook = buildClaudePlaybook(byId.claude, byId, insights);
 
-  const ranked = rankProviders(rawSummaries);
+  const validCustom = sanitizeCustomProviders(plan?.customProviders, now);
+  const customSummaries = validCustom.map((entry) => summarizeCustomProvider(entry, reservePercent, now));
+  for (const cs of customSummaries) byId[cs.provider] = cs;
+
+  const allSummaries = [...coreSummaries, ...customSummaries];
+  const ranked = rankProviders(allSummaries);
   const recommendedOrder = ranked.map((s) => s.provider);
   const usable = ranked.filter((s) => ['surplus', 'on-pace', 'hot'].includes(s.utilizationState));
   const primary = usable[0] || null;
@@ -2102,12 +2392,13 @@ function buildOptimizationPlan(plan, insights = null, now = Date.now()) {
     else strategy = 'conserve';
   }
 
-  const nextUnlock = findNextUnlock(rawSummaries);
+  const nextUnlock = findNextUnlock(allSummaries);
   const alerts = buildAlerts(ranked, byId, strategy);
   const quickCommands = buildQuickCommands(ranked, byId);
   const headline = buildHeadline(strategy, primary, secondary, byId, nextUnlock);
 
   const providers = ranked.map(({ _meta, ...clean }) => clean);
+  const customProviders = providers.filter((p) => p.custom);
 
   return {
     generatedAt: new Date(now).toISOString(),
@@ -2118,9 +2409,10 @@ function buildOptimizationPlan(plan, insights = null, now = Date.now()) {
     nextUnlock,
     alerts,
     providers,
+    customProviders,
     recommendedOrder,
     quickCommands,
-    note: 'Deterministic multi-subscription pacing from live provider allowance windows. Allowances never pool across subscriptions; confirm resets with a fresh reading.',
+    note: 'Deterministic multi-subscription pacing from live provider allowance windows. Allowances never combine across subscriptions; confirm resets with a fresh reading.',
   };
 }
 

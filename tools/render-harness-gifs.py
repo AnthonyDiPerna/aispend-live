@@ -4,7 +4,7 @@ Design system:
   - 1000x560 obsidian canvas (#090b0e), airy Ghostty / Claude Code / AGY CLI feel
   - Real bottom interactive prompt box with live typing + blinking thin caret
   - Unobtrusive 1-line live status footer directly beneath the prompt bar
-  - True drawn pixel graphics (smooth pill gauges, vector icons, subtle accent bars)
+  - True drawn pixel graphics (smooth pill gauges, vector icons, crisp 1px rounded cards)
   - Zero ASCII block bars, zero text walls, zero tofu glyphs
 
 Outputs:
@@ -330,6 +330,15 @@ def draw_bar(
     img.paste(bar, (x, y), bar)
 
 
+NUDGE_STYLES: dict[str, tuple[str, str]] = {
+    MINT: (MINT_BG, MINT_DIM),
+    SKY: (SKY_BG, SKY_DIM),
+    VIOLET: (VIOLET_BG, VIOLET_DIM),
+    AMBER: (AMBER_BG, AMBER_DIM),
+    CORAL: (CORAL_BG, CORAL_DIM),
+}
+
+
 def draw_nudge(
     img: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -339,9 +348,16 @@ def draw_nudge(
     spans: Sequence[Span],
     size: int = 14,
 ) -> None:
-    """Unobtrusive 1-line optimizer tip with whisper-thin 2px left accent bar."""
-    draw.rounded_rectangle((x, y - 1, x + 2, y + 20), radius=1, fill=accent)
-    draw_spans(img, draw, x + 14, y, spans, size=size)
+    """Clean 1-line optimizer callout with uniform subtle 1px rounded border."""
+    fill_col, border_col = NUDGE_STYLES.get(accent, (SURFACE, BORDER))
+    draw.rounded_rectangle(
+        (x, y - 8, WIDTH - PAD_X, y + 26),
+        radius=8,
+        fill=fill_col,
+        outline=border_col,
+        width=1,
+    )
+    draw_spans(img, draw, x + 20, y, spans, size=size)
 
 
 def draw_committed_prompt(
@@ -376,12 +392,9 @@ def draw_subtle_card(
     y1: int,
     fill: str = SURFACE,
     outline: str = BORDER,
-    accent_left: str | None = None,
     radius: int = 10,
 ) -> None:
     draw.rounded_rectangle((x0, y0, x1, y1), radius=radius, fill=fill, outline=outline, width=1)
-    if accent_left:
-        draw.rounded_rectangle((x0 + 1, y0 + 10, x0 + 3, y1 - 10), radius=1, fill=accent_left)
 
 
 def draw_mini_gauge_col(
@@ -455,13 +468,6 @@ def create_terminal_frame(
         outline=border_col,
         width=1,
     )
-    # Subtle 2px accent indicator on left of prompt box when actively typing
-    if prompt_active:
-        draw.rounded_rectangle(
-            (PROMPT_X0 + 1, PROMPT_Y0 + 11, PROMPT_X0 + 3, PROMPT_Y1 - 11),
-            radius=1,
-            fill=accent,
-        )
 
     # Prompt chevron + typed text + sleek vertical bar caret
     py = PROMPT_Y0 + 18
@@ -585,19 +591,19 @@ class GifTimeline:
 
 
 # =============================================================================
-# GIF 1: Antigravity (AGY) — /swarm + Dual Pools
+# GIF 1: Antigravity (AGY) — /swarm + Separate Quotas
 # =============================================================================
 def build_agy_swarm() -> tuple[GifTimeline, list[int]]:
     tl = GifTimeline()
     cmd = '/swarm refactor auth middleware and add tests'
 
     footer_before = [
-        Span('', MINT, icon='dot', icon_size=10), Span(' AGY 72% · C/G 97%   ', MUTED),
+        Span('', MINT, icon='dot', icon_size=10), Span(' AGY Gemini 72% · Claude/GPT 97%   ', MUTED),
         Span('', AMBER, icon='ring', icon_size=10), Span(' Codex 5% (11h)   ', MUTED),
         Span('', CORAL, icon='cross', icon_size=10), Span(' Claude 0% (42h)', MUTED),
     ]
     footer_after = [
-        Span('', MINT, icon='dot', icon_size=10), Span(' AGY Gem 70% · C/G 96%   ', INK_SOFT),
+        Span('', MINT, icon='dot', icon_size=10), Span(' AGY Gemini 70% · Claude/GPT 96%   ', INK_SOFT),
         Span('', AMBER, icon='ring', icon_size=10), Span(' Codex 5%   ', MUTED),
         Span('', CORAL, icon='cross', icon_size=10), Span(' Claude 0% (untouched)', MUTED),
     ]
@@ -618,7 +624,7 @@ def build_agy_swarm() -> tuple[GifTimeline, list[int]]:
 
         img, draw = create_terminal_frame(
             title='antigravity',
-            subtitle='/swarm + dual pools',
+            subtitle='/swarm · Gemini + Claude/GPT quotas',
             right_label='~/aispend-live',
             accent=VIOLET if not done_all else MINT,
             prompt_text=prompt_text,
@@ -636,7 +642,7 @@ def build_agy_swarm() -> tuple[GifTimeline, list[int]]:
             # Airy quiet landing canvas while the human types in the bottom prompt bar
             draw_spans(
                 img, draw, PAD_X, 82,
-                [Span('', VIOLET, icon='spark', icon_size=14), Span('  Antigravity CLI', INK, bold=True), Span('  ·  Dual-pool optimizer active', MUTED)],
+                [Span('', VIOLET, icon='spark', icon_size=14), Span('  Antigravity CLI', INK, bold=True), Span('  ·  Gemini + Claude/GPT quotas ready', MUTED)],
                 size=15,
             )
             col_w = 282
@@ -652,7 +658,7 @@ def build_agy_swarm() -> tuple[GifTimeline, list[int]]:
             return img
 
         # Submitted prompt cleanly at top
-        draw_committed_prompt(img, draw, PAD_X, 64, VIOLET, cmd, right_note='dual pools', right_color=DIM)
+        draw_committed_prompt(img, draw, PAD_X, 64, VIOLET, cmd, right_note='separate AGY quotas', right_color=DIM)
 
         if show_header:
             # Clean 3-gauge visual strip
@@ -691,7 +697,7 @@ def build_agy_swarm() -> tuple[GifTimeline, list[int]]:
                 hdr_spans = [
                     Span('', VIOLET, icon=f'spin:{spin % 8}', icon_size=13),
                     Span('  Swarm active', INK, bold=True),
-                    Span('  ·  parallel dual-pool execution', MUTED),
+                    Span('  ·  Gemini + Claude/GPT quotas in parallel', MUTED),
                 ]
             draw_spans(img, draw, PAD_X + 20, 222, hdr_spans, size=13)
             draw.line((PAD_X + 20, 250, WIDTH - PAD_X - 20, 250), fill=DIVIDER, width=1)
@@ -815,7 +821,7 @@ def build_codex_fast() -> tuple[GifTimeline, list[int]]:
         draw_bar(img, PAD_X, 92, WIDTH - PAD_X * 2, 7, 68, MINT)
 
         draw_nudge(
-            img, draw, PAD_X, 118, MINT,
+            img, draw, PAD_X, 122, MINT,
             [
                 Span('', MINT, icon='spark', icon_size=13),
                 Span('  Surplus → ', INK_SOFT),
@@ -827,10 +833,10 @@ def build_codex_fast() -> tuple[GifTimeline, list[int]]:
         )
 
         if submitted:
-            draw_committed_prompt(img, draw, PAD_X, 174, SKY, cmd_a)
+            draw_committed_prompt(img, draw, PAD_X, 176, SKY, cmd_a)
 
         if run_pct >= 0:
-            draw_subtle_card(draw, PAD_X, 224, WIDTH - PAD_X, 344, fill=SURFACE, outline=BORDER, accent_left=SKY if not done else MINT)
+            draw_subtle_card(draw, PAD_X, 224, WIDTH - PAD_X, 344, fill=SURFACE, outline=MINT_DIM if done else BORDER)
             # Row 1: mode + smooth live bar
             draw_spans(
                 img, draw, PAD_X + 20, 244,
@@ -913,7 +919,7 @@ def build_codex_fast() -> tuple[GifTimeline, list[int]]:
         draw_bar(img, PAD_X, 92, WIDTH - PAD_X * 2, 7, 5, AMBER)
 
         draw_nudge(
-            img, draw, PAD_X, 118, AMBER,
+            img, draw, PAD_X, 122, AMBER,
             [
                 Span('', AMBER, icon='spark', icon_size=13),
                 Span('  Tight → ', INK_SOFT),
@@ -926,11 +932,11 @@ def build_codex_fast() -> tuple[GifTimeline, list[int]]:
         )
 
         if done_b1:
-            draw_committed_prompt(img, draw, PAD_X, 174, AMBER, cmd_b1, right_note='standard (1x)', right_color=MINT, right_icon='check')
+            draw_committed_prompt(img, draw, PAD_X, 176, AMBER, cmd_b1, right_note='standard (1x)', right_color=MINT, right_icon='check')
 
         if done_b2:
             draw_committed_prompt(img, draw, PAD_X, 222, AMBER, cmd_b2)
-            draw_subtle_card(draw, PAD_X, 268, WIDTH - PAD_X, 360, fill=SURFACE, outline=BORDER, accent_left=MINT)
+            draw_subtle_card(draw, PAD_X, 268, WIDTH - PAD_X, 360, fill=SURFACE, outline=MINT_DIM)
             draw_spans(
                 img, draw, PAD_X + 20, 286,
                 [
@@ -1003,7 +1009,7 @@ def build_claude_tiers() -> tuple[GifTimeline, list[int]]:
         footer = [
             Span('', AMBER, icon='ring', icon_size=10), Span(' Claude weekly 22% (42h)   ', MUTED),
             Span('', bar_col, icon='dot', icon_size=10), Span(f' ctx {ctx_k}k / 200k   ', INK_SOFT),
-            Span('', VIOLET, icon='dot', icon_size=10), Span(' AGY C/G 97%', MUTED),
+            Span('', VIOLET, icon='dot', icon_size=10), Span(' AGY Claude/GPT 97%', MUTED),
         ]
         hint = '↵ enter' if (prompt_active and prompt_text in (cmd_c1, cmd_c2)) else ''
 
@@ -1105,16 +1111,16 @@ def build_claude_tiers() -> tuple[GifTimeline, list[int]]:
             progress=progress,
         )
 
-        # Clean 2-bar pool contrast strip
+        # Clean 2-bar quota contrast strip
         col_w = 442
         draw_mini_gauge_col(img, draw, PAD_X, 66, col_w, 'Claude Weekly', '0% · resets 42h', 0, CORAL, 'native quota exhausted')
-        draw_mini_gauge_col(img, draw, PAD_X + col_w + 44, 66, col_w, 'AGY Claude/GPT', '97% · resets 6d', 97, VIOLET, 'overflow pool ready')
+        draw_mini_gauge_col(img, draw, PAD_X + col_w + 44, 66, col_w, 'AGY Claude/GPT', '97% · resets 6d', 97, VIOLET, 'overflow quota ready')
 
         if submitted:
             draw_committed_prompt(img, draw, PAD_X, 166, CORAL, cmd_b)
 
             # Clean 2-line optimizer nudge card
-            draw_subtle_card(draw, PAD_X, 218, WIDTH - PAD_X, 336, fill=SURFACE, outline=BORDER, accent_left=VIOLET)
+            draw_subtle_card(draw, PAD_X, 218, WIDTH - PAD_X, 336, fill=SURFACE, outline=VIOLET_DIM)
             draw_spans(
                 img, draw, PAD_X + 20, 240,
                 [
@@ -1130,13 +1136,16 @@ def build_claude_tiers() -> tuple[GifTimeline, list[int]]:
                 [
                     Span('', VIOLET, icon='spark', icon_size=14),
                     Span('  Overflow ready → ', INK),
-                    Span('AGY Claude/GPT lane (97% left)', VIOLET, bold=True),
+                    Span("AGY's Claude/GPT quota (97% left)", VIOLET, bold=True),
                 ],
                 size=15,
             )
             draw_nudge(
                 img, draw, PAD_X, 366, VIOLET,
-                [Span('Continue in Antigravity on the same model tier · $0 extra API spend', MUTED)],
+                [
+                    Span('', VIOLET, icon='spark', icon_size=12),
+                    Span('  Continue in Antigravity on the same model tier · $0 extra API spend', MUTED),
+                ],
                 size=13,
             )
 
@@ -1237,7 +1246,7 @@ def build_pi_guard() -> tuple[GifTimeline, list[int]]:
         draw_committed_prompt(img, draw, PAD_X, 64, MINT, cmd1, right_note='0ms · $0', right_color=MINT)
 
         draw_nudge(
-            img, draw, PAD_X, 108, MINT,
+            img, draw, PAD_X, 110, MINT,
             [
                 Span('', MINT, icon='check', icon_size=13),
                 Span('  Order: ', MUTED),
@@ -1564,7 +1573,7 @@ def build_guard_walkthrough() -> tuple[GifTimeline, list[int]]:
         )
 
         # Clean 2-step handoff card
-        draw_subtle_card(draw, PAD_X, 166, WIDTH - PAD_X, 362, fill=SURFACE, outline=BORDER, accent_left=MINT if stage >= 2 else AMBER)
+        draw_subtle_card(draw, PAD_X, 166, WIDTH - PAD_X, 362, fill=SURFACE, outline=MINT_DIM if stage >= 2 else BORDER)
 
         if stage >= 1:
             draw.line((PAD_X + 27, 212, PAD_X + 27, 248), fill='#2c3947', width=2)

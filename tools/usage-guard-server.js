@@ -3,7 +3,7 @@ const path = require('node:path');
 const os = require('node:os');
 const http = require('node:http');
 const {randomUUID} = require('node:crypto');
-const {initialState, cleanPolicy, mergeObservations, buildPlan, decide, recoveryPlan, PROVIDERS} = require('./usage-guard');
+const {initialState, cleanPolicy, cleanCustomProvider, cleanCustomProviders, MAX_CUSTOM_PROVIDERS, mergeObservations, buildPlan, decide, recoveryPlan, PROVIDERS} = require('./usage-guard');
 const {createCollector,fetchClaudeUsage,fetchCodexUsage,fetchAgyUsage,readStatusFile}=require('./usage-collectors');
 const {accounting,checkApiBudget}=require('./guard-accounting');
 const {buildAdvice,applyAdvice,defaultBindings}=require('./guard-advisor');
@@ -80,13 +80,75 @@ function scanCodexLimits(root, now = Date.now()) {
   return rows;
 }
 
+function readCustomProvidersFile(filePath, now = Date.now(), { strict = false } = {}) {
+  if (!filePath || !fs.existsSync(filePath)) return { exists: false, mtimeMs: -1, list: [] };
+  const stat = fs.statSync(filePath);
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+  } catch {
+    if (strict) throw new Error('Custom providers file is not valid JSON');
+    return { exists: true, mtimeMs: stat.mtimeMs, list: [] };
+  }
+  const raw = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.customProviders)
+      ? parsed.customProviders
+      : Array.isArray(parsed?.providers)
+        ? parsed.providers
+        : null;
+  if (!Array.isArray(raw)) {
+    if (strict) throw new Error('Custom providers file must contain a JSON array');
+    return { exists: true, mtimeMs: stat.mtimeMs, list: [] };
+  }
+  if (strict) return { exists: true, mtimeMs: stat.mtimeMs, list: cleanCustomProviders(raw, now) };
+  const list = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (list.length >= MAX_CUSTOM_PROVIDERS) break;
+    try {
+      const clean = cleanCustomProvider(item, now);
+      if (!seen.has(clean.id)) { seen.add(clean.id); list.push(clean); }
+    } catch {}
+  }
+  return { exists: true, mtimeMs: stat.mtimeMs, list };
+}
+
+function writeCustomProvidersFile(filePath, list) {
+  if (!filePath) return -1;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temp = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(list, null, 2), { mode: 0o600 });
+  fs.renameSync(temp, filePath);
+  return fs.statSync(filePath).mtimeMs;
+}
+
 function createGuardServer(options={}) {
   const now=options.now || Date.now;
   const stateDir=options.stateDir || process.env.AI_SPEND_GUARD_DIR || path.join(os.homedir(),'.aispend-live','guard');
   const stateFile=path.join(stateDir,'state.json');
+  const customProvidersFile=options.demo?null:(options.customProvidersFile || process.env.AI_SPEND_CUSTOM_PROVIDERS || path.join(stateDir,'custom-providers.json'));
+  let customProvidersMtime=-1;
   fs.mkdirSync(stateDir,{recursive:true});
   let state=fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):options.demo?demoState(now()):initialState();
   cleanPolicy(state.policy);
+  const syncCustomProviders=(t = now())=>{
+    if(!customProvidersFile) return Array.isArray(state.customProviders)?state.customProviders:[];
+    if(!fs.existsSync(customProvidersFile)){
+      if(customProvidersMtime!==-1){state.customProviders=[];customProvidersMtime=-1;}
+      return Array.isArray(state.customProviders)?state.customProviders:[];
+    }
+    try {
+      const mtime=fs.statSync(customProvidersFile).mtimeMs;
+      if(mtime!==customProvidersMtime){
+        const loaded=readCustomProvidersFile(customProvidersFile,t,{strict:false});
+        state.customProviders=loaded.list;
+        customProvidersMtime=loaded.mtimeMs;
+      }
+    } catch {}
+    return Array.isArray(state.customProviders)?state.customProviders:[];
+  };
+  syncCustomProviders(now());
   const leases=new Map(Object.entries(state.pendingRequests || {})), models=new Map((Array.isArray(state.models)?state.models:[]).map(m=>[m.provider+":"+m.id,m])); // seeded from the last save so a restart mid-session keeps every discovered model
   let lastSyncAt=null, syncError=null;
   const collectors={};
@@ -126,7 +188,9 @@ function createGuardServer(options={}) {
   const windowsView=()=>{const t=now();const active=[...windows.entries()].filter(([,v])=>t-v<=WINDOW_MS);const slots=cleanPolicy(state.policy).maxConcurrentRequests;const inFlight=[...leases.values()].filter(l=>l.expiresAt>t).length;
     return {active:active.length,slots,inFlight,waiting:Math.max(0,active.filter(([id])=>state.tasks[id]?.status==='pause').length),ids:active.map(([id])=>id.slice(0,8))};};
   const publicState=()=>{
-    const t=now(), plan=buildPlan(state,t);
+    const t=now();
+    syncCustomProviders(t);
+    const plan=buildPlan(state,t);
     return {demo:Boolean(options.demo),...plan,optimizer:buildOptimizationPlan(plan,state.insights || null,t),windows:windowsView(),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
       accounting:accounting(state,leases,t),impact:impactReport(state),learning:learningView(state,t),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,t),advisor:state.advisor || null,
       models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
@@ -163,10 +227,13 @@ function createGuardServer(options={}) {
       if(req.method==='GET' && url.pathname==='/health') return reply(res,200,{ok:true,name:'ai-spend-guard',demo:Boolean(options.demo)});
       if(req.method==='GET' && url.pathname==='/api/state'){const t=url.searchParams.get('task');if(t && /^[0-9a-f]{8,64}$/.test(t))touchWindow(t);return reply(res,200,publicState());}
       if(req.method==='GET' && url.pathname==='/api/checkin'){
-        const t=now(), plan=buildPlan(state,t);
+        const t=now();
+        syncCustomProviders(t);
+        const plan=buildPlan(state,t);
         return reply(res,200,{
           generatedAt:plan.generatedAt,
           recommendedProvider:plan.recommendedProvider,
+          customProviders:plan.customProviders,
           optimizer:buildOptimizationPlan(plan,state.insights || null,t),
           windows:windowsView(),
           collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),
@@ -217,7 +284,34 @@ function createGuardServer(options={}) {
         const model=models.get(`${data.provider}:${data.model}`);
         if(!model || model.group!==data.group) throw new Error('Select an authenticated model discovered by the Pi extension');
         state.bindings[data.group]={provider:data.provider,model:data.model};event('binding',`${data.group} model selected.`);save();
-      } else if(url.pathname==='/api/sync') { sync();await refreshCollectors();
+      } else if(url.pathname==='/api/custom-providers') {
+        if(options.demo) return reply(res,403,{error:'Demo cannot modify custom providers'});
+        const t=now();
+        const current=syncCustomProviders(t).slice();
+        let next;
+        if(data.action==='remove' || typeof data.remove==='string') {
+          const removeId=String(data.action==='remove'?data.id:data.remove);
+          if(!/^[a-z0-9-]{2,24}$/.test(removeId)) throw new Error('Invalid custom provider id');
+          next=current.filter(item=>item.id!==removeId);
+          event('custom-providers',`Removed custom subscription ${removeId}.`);
+        } else if(Array.isArray(data.customProviders) || Array.isArray(data.providers)) {
+          next=cleanCustomProviders(data.customProviders || data.providers,t);
+          event('custom-providers',`Saved ${next.length} custom subscription${next.length===1?'':'s'}.`);
+        } else {
+          const rawEntry=data.provider && typeof data.provider==='object'?data.provider:data;
+          const clean=cleanCustomProvider(rawEntry,t);
+          const idx=current.findIndex(item=>item.id===clean.id);
+          if(idx>=0) { current[idx]=clean; next=current; }
+          else {
+            if(current.length>=MAX_CUSTOM_PROVIDERS) throw new Error(`Up to ${MAX_CUSTOM_PROVIDERS} custom providers are supported`);
+            next=[...current,clean];
+          }
+          event('custom-providers',`Saved custom subscription ${clean.label}.`);
+        }
+        state.customProviders=next;
+        customProvidersMtime=writeCustomProvidersFile(customProvidersFile,next);
+        save();
+      } else if(url.pathname==='/api/sync') { sync();syncCustomProviders(now());await refreshCollectors();
       } else if(url.pathname==='/api/native-event') {
         if(options.demo)return reply(res,403,{error:'Demo cannot guard native requests'});
         safeTaskId(data.taskId);const result=nativeEvent(state,data,now());save();return reply(res,200,result);
@@ -384,4 +478,4 @@ if(require.main===module) {
   const server=createGuardServer({stateDir,demo,sync:!flag('--no-sync')});
   server.listen(port,'127.0.0.1',()=>console.log(`AI Spend Guard${demo?' DEMO':''}: http://127.0.0.1:${port}`));
 }
-module.exports={createGuardServer,scanCodexLimits,codexObservations,demoState,demoModels};
+module.exports={createGuardServer,scanCodexLimits,codexObservations,demoState,demoModels,readCustomProvidersFile,writeCustomProvidersFile};

@@ -1,4 +1,4 @@
-/* AI Spend Live 0.7.1 — Quiet obsidian monochrome. Start once, optimize every AI plan. */
+/* AI Spend Live 0.7.2 — Quiet obsidian monochrome. Get the most out of your AI subscriptions. */
 :root {
   color-scheme: dark;
   --bg: #07090c;
@@ -115,10 +115,18 @@ h3 {
 }
 .lead {
   margin: 0 auto;
-  max-width: 580px;
+  max-width: 640px;
   color: var(--muted);
   font-size: 16px;
   line-height: 1.6;
+}
+.lead code {
+  color: var(--ink);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
 }
 .start-bar {
   margin: 24px auto 12px;
@@ -360,6 +368,60 @@ h3 {
   font-size: 11.5px;
 }
 
+/* Lightweight "Works with other tools too" note under walkthrough */
+.other-tools-card {
+  margin-top: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.other-tools-copy {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.other-tools-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.other-tools-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.other-tools-copy code {
+  color: #cbd5e1;
+  font-size: 11.5px;
+}
+.other-tools-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: #0a0d12;
+  max-width: 100%;
+  min-width: 0;
+}
+.other-tools-cmd code {
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
 /* Sections */
 .section {
   padding: 52px 0;
@@ -547,11 +609,63 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 12px 16px;
   margin-bottom: 16px;
 }
 .sim-head p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+.sim-head-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.sim-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #0a0d12;
+  color: var(--muted);
+  font: 500 11.5px/1.3 var(--mono);
+  white-space: nowrap;
+}
+.sim-panel[data-autodemo="running"] .sim-status {
+  border-color: rgba(74, 222, 128, 0.34);
+  background: rgba(74, 222, 128, 0.06);
+  color: #cbd5e1;
+}
+.sim-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mint);
+  flex-shrink: 0;
+  animation: simPulse 1.8s ease-in-out infinite;
+}
+@keyframes simPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sim-status-dot { animation: none; }
+}
+.sim-replay-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--mint);
+  font: 550 11px/1.3 var(--mono);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.sim-replay-btn:hover {
+  border-color: var(--mint);
+  background: rgba(74, 222, 128, 0.12);
+}
 .sim-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .preset-btn {
   min-height: 32px;
@@ -900,8 +1014,9 @@ h3 {
 .pace-row strong { color: var(--amber); font-family: var(--mono); }
 .action-note {
   padding: 10px 12px;
-  border-left: 2px solid var(--mint);
-  background: #0a0d12;
+  border: 1px solid rgba(74, 222, 128, 0.24);
+  border-radius: 6px;
+  background: rgba(74, 222, 128, 0.05);
   color: #cbd5e1;
   font-size: 12.5px;
   margin-top: 10px;
@@ -1028,6 +1143,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .knob-spec-row { grid-template-columns: 1fr; gap: 2px; }
   .section { padding: 38px 0; }
   .sim-panel { padding: 16px; }
+  .sim-head-controls { align-items: flex-start; width: 100%; }
+  .sim-status { white-space: normal; }
+  .other-tools-card { padding: 14px 16px; }
+  .other-tools-cmd { width: 100%; justify-content: space-between; }
   .demo-card { padding: 14px; }
   .demo-tab { padding: 0 11px; font-size: 12px; }
   .trend { gap: 4px; }

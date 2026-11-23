@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 'use strict';
-// Fast multi-subscription check-in CLI for Claude, Codex, and Antigravity (AGY).
+// Fast multi-subscription check-in CLI for Claude, Codex, Antigravity (AGY), and custom plans.
 // Tries the local Guard controller first (<100ms); falls back automatically to direct
 // read-only live collectors so `node tools/checkin-cli.js` always works standalone.
 
-const { initialState, mergeObservations, buildPlan } = require('./usage-guard');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { initialState, mergeObservations, buildPlan, cleanCustomProvider, cleanCustomProviders, MAX_CUSTOM_PROVIDERS } = require('./usage-guard');
 const { fetchClaudeUsage, fetchCodexUsage, fetchAgyUsage } = require('./usage-collectors');
 const { buildOptimizationPlan, formatSpan } = require('./subscription-optimizer');
 
@@ -13,6 +16,7 @@ const DEFAULT_URL = 'http://127.0.0.1:9021';
 function parseArgs(argv = process.argv.slice(2)) {
   const opts = {
     url: process.env.AI_SPEND_GUARD_URL || DEFAULT_URL,
+    customFile: null,
     live: false,
     json: false,
     watchSeconds: null,
@@ -41,6 +45,13 @@ function parseArgs(argv = process.argv.slice(2)) {
       opts.url = argv[++i];
     } else if (arg.startsWith('--url=')) {
       opts.url = arg.slice('--url='.length);
+    } else if (arg === '--custom') {
+      if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('--custom requires a JSON file path');
+      opts.customFile = argv[++i];
+    } else if (arg.startsWith('--custom=')) {
+      const file = arg.slice('--custom='.length).trim();
+      if (!file) throw new Error('--custom requires a JSON file path');
+      opts.customFile = file;
     } else if (arg === '--watch') {
       const next = argv[i + 1];
       if (next && /^\d+(?:\.\d+)?$/.test(next)) {
@@ -67,6 +78,7 @@ function usageText() {
     '',
     'Options:',
     '  --url <guardUrl>    Guard controller URL (default: http://127.0.0.1:9021)',
+    '  --custom <file>     Load extra subscriptions from a custom-providers.json file',
     '  --live              Poll Claude, Codex, and AGY collectors directly (read-only)',
     '  --json              Emit machine-readable JSON (no ANSI colors)',
     '  --watch [seconds]   Refresh continuously (default: 60s, min: 5s)',
@@ -78,6 +90,52 @@ function usageText() {
   ].join('\n');
 }
 
+function loadCustomProviders(options = {}) {
+  const now = options.now ?? Date.now();
+  if (Array.isArray(options.customProviders)) {
+    return cleanCustomProviders(options.customProviders, now);
+  }
+  const explicitFile = options.customFile || null;
+  const stateDir = options.stateDir || process.env.AI_SPEND_GUARD_DIR || path.join(os.homedir(), '.aispend-live', 'guard');
+  const filePath = explicitFile || process.env.AI_SPEND_CUSTOM_PROVIDERS || path.join(stateDir, 'custom-providers.json');
+  if (!fs.existsSync(filePath)) {
+    if (explicitFile) throw new Error('Custom providers file not found');
+    return [];
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+  } catch {
+    if (explicitFile) throw new Error('Custom providers file is not valid JSON');
+    return [];
+  }
+  const raw = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.customProviders)
+      ? parsed.customProviders
+      : Array.isArray(parsed?.providers)
+        ? parsed.providers
+        : null;
+  if (!Array.isArray(raw)) {
+    if (explicitFile) throw new Error('Custom providers file must contain a JSON array');
+    return [];
+  }
+  if (explicitFile) return cleanCustomProviders(raw, now);
+  const result = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (result.length >= MAX_CUSTOM_PROVIDERS) break;
+    try {
+      const clean = cleanCustomProvider(item, now);
+      if (!seen.has(clean.id)) {
+        seen.add(clean.id);
+        result.push(clean);
+      }
+    } catch {}
+  }
+  return result;
+}
+
 function validateGuardUrl(rawUrl) {
   const parsed = new URL(rawUrl);
   if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
@@ -86,7 +144,7 @@ function validateGuardUrl(rawUrl) {
   return parsed;
 }
 
-async function fetchFromController(guardUrl, { fetchImpl = fetch, timeoutMs = 1500, now = Date.now() } = {}) {
+async function fetchFromController(guardUrl, { fetchImpl = fetch, timeoutMs = 1500, now = Date.now(), customFile = null, customProviders = undefined } = {}) {
   const base = validateGuardUrl(guardUrl);
   const tryEndpoint = async (pathname) => {
     const res = await fetchImpl(new URL(pathname, base), {
@@ -101,21 +159,39 @@ async function fetchFromController(guardUrl, { fetchImpl = fetch, timeoutMs = 15
     return res.json();
   };
 
+  const hasCustomOverride = Boolean(customFile) || Array.isArray(customProviders);
+  const overrideCustom = hasCustomOverride ? loadCustomProviders({ customFile, customProviders, now }) : null;
+
   let data;
-  try {
-    data = await tryEndpoint('/api/checkin');
-  } catch (err) {
-    if (err && err.status === 404) {
-      const state = await tryEndpoint('/api/state');
-      data = {
-        generatedAt: state.generatedAt || new Date(now).toISOString(),
-        recommendedProvider: state.recommendedProvider || null,
-        optimizer: state.optimizer || buildOptimizationPlan(state, state.insights || null, now),
-        windows: state.windows || null,
-        collectors: state.collectors || {},
-      };
-    } else {
-      throw err;
+  if (hasCustomOverride) {
+    const state = await tryEndpoint('/api/state');
+    const mergedPlan = { ...state, customProviders: overrideCustom };
+    const optimizer = buildOptimizationPlan(mergedPlan, state.insights || null, now);
+    data = {
+      generatedAt: state.generatedAt || new Date(now).toISOString(),
+      recommendedProvider: state.recommendedProvider || optimizer.primaryProvider || null,
+      customProviders: overrideCustom,
+      optimizer,
+      windows: state.windows || null,
+      collectors: state.collectors || {},
+    };
+  } else {
+    try {
+      data = await tryEndpoint('/api/checkin');
+    } catch (err) {
+      if (err && err.status === 404) {
+        const state = await tryEndpoint('/api/state');
+        data = {
+          generatedAt: state.generatedAt || new Date(now).toISOString(),
+          recommendedProvider: state.recommendedProvider || null,
+          customProviders: state.customProviders || [],
+          optimizer: state.optimizer || buildOptimizationPlan(state, state.insights || null, now),
+          windows: state.windows || null,
+          collectors: state.collectors || {},
+        };
+      } else {
+        throw err;
+      }
     }
   }
 
@@ -123,6 +199,7 @@ async function fetchFromController(guardUrl, { fetchImpl = fetch, timeoutMs = 15
     source: 'controller',
     generatedAt: data.generatedAt || new Date(now).toISOString(),
     recommendedProvider: data.recommendedProvider ?? data.optimizer?.primaryProvider ?? null,
+    customProviders: data.customProviders || data.optimizer?.customProviders || [],
     optimizer: data.optimizer,
     windows: data.windows || null,
     collectors: data.collectors || {},
@@ -134,8 +211,12 @@ async function collectLive({
   fetchClaude = () => fetchClaudeUsage({ now }),
   fetchCodex = () => fetchCodexUsage({ now }),
   fetchAgy = () => fetchAgyUsage({ now }),
+  customFile = null,
+  stateDir = null,
+  customProviders = undefined,
 } = {}) {
   const state = initialState();
+  state.customProviders = loadCustomProviders({ customFile, stateDir, customProviders, now });
   const collectors = {};
   const entries = [
     ['claude', fetchClaude],
@@ -181,6 +262,7 @@ async function collectLive({
     source: 'live',
     generatedAt: plan.generatedAt,
     recommendedProvider: optimizer.primaryProvider,
+    customProviders: plan.customProviders,
     optimizer,
     windows: null,
     collectors,
@@ -189,12 +271,18 @@ async function collectLive({
 
 async function fetchCheckin(options = {}) {
   const now = options.now ?? Date.now();
+  // Validate explicit --custom file early so bad custom files fail loudly instead of silently falling back.
+  if (options.customFile) {
+    loadCustomProviders({ customFile: options.customFile, now });
+  }
   if (!options.live) {
     try {
       return await fetchFromController(options.url || DEFAULT_URL, {
         fetchImpl: options.fetchImpl || fetch,
         timeoutMs: options.timeoutMs ?? 1500,
         now,
+        customFile: options.customFile || null,
+        customProviders: options.customProviders,
       });
     } catch {
       // Automatically fall back to direct read-only live collectors when Guard isn't running.
@@ -205,6 +293,9 @@ async function fetchCheckin(options = {}) {
     fetchClaude: options.fetchClaude,
     fetchCodex: options.fetchCodex,
     fetchAgy: options.fetchAgy,
+    customFile: options.customFile || null,
+    stateDir: options.stateDir || null,
+    customProviders: options.customProviders,
   });
 }
 
@@ -285,6 +376,9 @@ function renderTerminal(data, { color = false, knobs = 'default', compact = fals
   lines.push(`${strategyBadge(opt.strategy, p)} ${p.bold(opt.headline || 'No optimizer verdict available')}`);
 
   const orderNames = { claude: 'Claude', codex: 'Codex', agy: 'AGY' };
+  for (const prov of opt.providers || []) {
+    if (!orderNames[prov.provider]) orderNames[prov.provider] = prov.label || prov.provider;
+  }
   const orderStr = (opt.recommendedOrder || []).map((id) => orderNames[id] || id).join(' > ');
   const metaParts = [];
   if (orderStr) metaParts.push(`Order: ${p.bold(orderStr)}`);
@@ -295,7 +389,9 @@ function renderTerminal(data, { color = false, knobs = 'default', compact = fals
   for (const prov of opt.providers || []) {
     const collector = data.collectors?.[prov.provider];
     const pctText = prov.remainingPercent === null ? '?' : `${Math.round(prov.remainingPercent)}% left`;
-    const headParts = [p.bold(prov.label), stateBadge(prov.utilizationState, p), pctText];
+    const headParts = [p.bold(prov.label)];
+    if (prov.custom) headParts.push(p.dim('(custom)'));
+    headParts.push(stateBadge(prov.utilizationState, p), pctText);
     if (prov.hoursLeft !== null) headParts.push(p.dim(`resets in ${formatSpan(prov.hoursLeft)}`));
     if (prov.burnPercentPerHour !== null && prov.burnPercentPerHour > 0) headParts.push(p.dim(`-${prov.burnPercentPerHour}%/h`));
     if (prov.targetPercentPerDay !== null && prov.utilizationState !== 'exhausted') headParts.push(p.dim(`safe ${prov.targetPercentPerDay}%/day`));
@@ -305,6 +401,7 @@ function renderTerminal(data, { color = false, knobs = 'default', compact = fals
     if ((prov.bankedResets?.usableCount || 0) > 0) {
       headParts.push(p.magenta(`${prov.bankedResets.usableCount} banked reset`));
     }
+    if (prov.notes) headParts.push(p.dim(`· ${prov.notes}`));
     lines.push(headParts.join('  '));
 
     if (prov.windows && prov.windows.length) {
@@ -434,4 +531,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseArgs, fetchFromController, collectLive, fetchCheckin, renderTerminal, asciiBar, usageText };
+module.exports = { parseArgs, loadCustomProviders, fetchFromController, collectLive, fetchCheckin, renderTerminal, asciiBar, usageText };

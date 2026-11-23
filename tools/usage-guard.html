@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="application-version" content="0.7.1">
+<meta name="application-version" content="0.7.2">
 <title>AI Spend Guard — Plan through your next reset</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2307090c'/%3E%3Cpath d='M8 24V16h4v8m4 0V8h4v16' stroke='%234ade80' stroke-width='2.5'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="usage-guard.css?v=0.7.1">
+<link rel="stylesheet" href="usage-guard.css?v=0.7.2">
 </head>
 <body><main>
-<header><a class="brand" href="/"><span class="brand-mark">AI</span> AI Spend <span class="tag">/ Guard 0.4.1</span></a><nav class="topnav" aria-label="Main"><a href="#playbook">Playbook</a><a href="#walkthrough">Walkthrough</a><a href="#timeline">Resets</a><a class="optional" href="#settings">Settings</a></nav></header>
+<header><a class="brand" href="/"><span class="brand-mark">AI</span> AI Spend <span class="tag">/ Guard 0.4.2</span></a><nav class="topnav" aria-label="Main"><a href="#playbook">Playbook</a><a href="#walkthrough">Walkthrough</a><a href="#timeline">Resets</a><a class="optional" href="#settings">Settings</a></nav></header>
 <div id="demoBanner" class="banner hidden">Demo data. This server cannot authorize model requests. Change the simulator clock without spending tokens.</div>
 <div class="intro"><h1>Make every allowance last through the week.</h1>
-<p class="lead">Reads Antigravity, Codex, and Claude locally, shows every tuning lever, and routes around resets automatically when connected to Pi.</p>
+<p class="lead">Load-balances Antigravity, Codex, Claude, and optional custom subscriptions locally, shows every tuning lever, and routes around resets automatically when connected to Pi.</p>
 <div class="toolbar"><button id="sync" class="secondary">Refresh allowances</button> <span id="updated" class="caption">Connecting…</span></div>
 </div><div id="error" class="banner error hidden" role="alert"></div>
 
@@ -33,10 +33,10 @@
 <section class="section walkthrough-hero" id="walkthrough">
 <div class="walkthrough-head">
 <div><h2>See it work</h2><p class="caption">Type <code>/guard</code> once — Guard checks all three allowances, trims oversized output, stops loops, and switches plans before a quota wall.</p></div>
-<a href="guard-walkthrough.gif?v=0.7.1" class="secondary" target="_blank" rel="noopener">Open full GIF ↗</a>
+<a href="guard-walkthrough.gif?v=0.7.2" class="secondary" target="_blank" rel="noopener">Open full GIF ↗</a>
 </div>
 <div class="walkthrough-stage">
-<a href="guard-walkthrough.gif?v=0.7.1" target="_blank" rel="noopener"><img src="guard-walkthrough.gif?v=0.7.1" alt="Animated terminal walkthrough showing /guard checking AGY, Codex, and Claude quotas, trimming a 42KB tool output, blocking a repeated loop, saving a handoff, and failing over to the next ready subscription." width="1000" height="560"></a>
+<a href="guard-walkthrough.gif?v=0.7.2" target="_blank" rel="noopener"><img src="guard-walkthrough.gif?v=0.7.2" alt="Animated terminal walkthrough showing /guard checking AGY, Codex, and Claude quotas, trimming a 42KB tool output, blocking a repeated loop, saving a handoff, and failing over to the next ready subscription." width="1000" height="560"></a>
 </div>
 <div class="walkthrough-foot">
 <div class="walkthrough-cmds">
@@ -117,7 +117,7 @@ function failure(error){$('error').textContent=error.message;$('error').classLis
 async function copyChip(cmd,btn){if(!cmd)return;try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(cmd);else{const ta=document.createElement('textarea');ta.value=cmd;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}if(btn){const orig=btn.dataset.orig||btn.textContent;btn.dataset.orig=orig;btn.classList.add('copied');btn.textContent='Copied ✓';clearTimeout(btn._t);btn._t=setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig;},1200);}}catch{}}
 document.addEventListener('click',event=>{const chip=event.target.closest('[data-copy]');if(chip)copyChip(chip.getAttribute('data-copy'),chip);});
 function bankedOf(p,data){if(typeof p.bankedResets==='number'&&Number.isFinite(p.bankedResets))return p.bankedResets;if(p.bankedResets&&typeof p.bankedResets==='object'){const v=p.bankedResets.usableCount??p.bankedResets.availableCount;if(typeof v==='number'&&Number.isFinite(v))return v;}const c=(data.resetCredits||[]).find(x=>x.provider===p.provider);return typeof c?.usableCount==='number'?c.usableCount:typeof c?.availableCount==='number'?c.availableCount:null;}
-function laneName(w){if(w.label)return w.label;const fam=String(w.modelFamily||'').toLowerCase(),id=String(w.windowId||'').toLowerCase();const f=fam==='claude-gpt'?'Claude / GPT':fam==='gemini-argon'?'Gemini Argon':fam==='gemini'?'Gemini':fam==='fable'?'Fable':fam||'All models';const s=id.includes('session')||w.windowMinutes===300?'5h Session':id.includes('weekly')||w.windowMinutes>=1440?'Weekly':id||'Window';return f+' · '+s;}
+function windowName(w){if(w.label)return w.label;const fam=String(w.modelFamily||'').toLowerCase(),id=String(w.windowId||'').toLowerCase();const f=fam==='claude-gpt'?'Claude / GPT':fam==='gemini-argon'?'Gemini Argon':fam==='gemini'?'Gemini':fam==='fable'?'Fable':fam||'All models';const s=id.includes('session')||w.windowMinutes===300?'5h Session':id.includes('weekly')||w.windowMinutes>=1440?'Weekly':id||'Window';return f+' · '+s;}
 function knobStateKey(s){const k=String(s||'steady').toLowerCase();return ['boost','steady','tighten','off'].includes(k)?k:'steady';}
 function renderPlaybook(data){
 const opt=data.optimizer;
@@ -161,12 +161,12 @@ $('optimizerCards').innerHTML=ordered.map(p=>{
   const rem=p.remainingPercent!=null&&Number.isFinite(Number(p.remainingPercent))?Number(p.remainingPercent):null;
   const fill=rem!=null?Math.max(0,Math.min(100,rem)):0;
   const tone=rem!=null?(rem<=10?'opt-fill-crit':rem<=25?'opt-fill-warn':'opt-fill-'+p.provider):'';
-  const lanes=(p.windows||[]).map(w=>{
+  const winRows=(p.windows||[]).map(w=>{
     const wRem=w.remainingPercent!=null&&Number.isFinite(Number(w.remainingPercent))?Number(w.remainingPercent):(w.usedPercent!=null?Math.max(0,100-Number(w.usedPercent)):null);
     const wFill=wRem!=null?Math.max(0,Math.min(100,wRem)):0;
     const fam=String(w.modelFamily||'').toLowerCase();
-    const laneCls=fam==='claude-gpt'?'opt-lane-cg':fam.includes('gemini')?'opt-lane-gem':'';
-    return '<div class="opt-lane '+laneCls+'"><div class="row"><span class="caption">'+esc(laneName(w))+': </span><strong>'+(wRem!=null?pct(wRem)+' left':'—')+'</strong></div><div class="meter opt-meter"><span class="'+(wRem!=null&&wRem<=10?'opt-fill-crit':wRem!=null&&wRem<=25?'opt-fill-warn':'opt-fill-'+(fam==='claude-gpt'?'claude':p.provider))+'" style="width:'+wFill+'%"></span></div><div class="row"><span class="caption">'+(w.resetAt?'Reset: '+date(w.resetAt):'Reset: unknown')+'</span> <span class="caption mono">· '+esc(spanHours(w.hoursLeft,w.resetAt))+'</span></div></div>';
+    const winCls=fam==='claude-gpt'?'opt-win-cg':fam.includes('gemini')?'opt-win-gem':'';
+    return '<div class="opt-window '+winCls+'"><div class="row"><span class="caption">'+esc(windowName(w))+': </span><strong>'+(wRem!=null?pct(wRem)+' left':'—')+'</strong></div><div class="meter opt-meter"><span class="'+(wRem!=null&&wRem<=10?'opt-fill-crit':wRem!=null&&wRem<=25?'opt-fill-warn':'opt-fill-'+(fam==='claude-gpt'?'claude':p.provider))+'" style="width:'+wFill+'%"></span></div><div class="row"><span class="caption">'+(w.resetAt?'Reset: '+date(w.resetAt):'Reset: unknown')+'</span> <span class="caption mono">· '+esc(spanHours(w.hoursLeft,w.resetAt))+'</span></div></div>';
   }).join('')||'<p class="caption">No windows measured yet.</p>';
   const stats=[
     ['Reset',spanHours(p.hoursLeft,p.resetAt)],
@@ -182,7 +182,7 @@ $('optimizerCards').innerHTML=ordered.map(p=>{
     '<div class="opt-rem"><strong class="mono">'+(rem!=null?pct(rem):'—')+'</strong> <span class="caption">'+(p.usablePercent!=null?'· '+pct(p.usablePercent)+' usable':'· '+esc(p.status||''))+(banked!=null&&p.provider!=='codex'?' · '+banked+' banked':'')+'</span></div>'+
     '<div class="meter"><span class="'+tone+'" style="width:'+fill+'%"></span></div>'+
     '<div class="opt-stats">'+stats+'</div>'+
-    '<div class="opt-lanes">'+lanes+'</div>'+
+    '<div class="opt-windows">'+winRows+'</div>'+
     '<div class="opt-pb"><div class="row"><strong>'+esc(pb.headline||'Playbook')+'</strong> <span class="status opt-state-'+esc(pbMode)+'">'+esc(pbMode)+'</span></div>'+
     knobs+
     ((pb.commands||[]).length?'<div class="opt-chips">'+pb.commands.map(c=>'<button type="button" class="cmd-chip" data-copy="'+esc(c)+'">'+esc(c)+'</button>').join(' ')+'</div>':'')+
@@ -199,7 +199,7 @@ $('providers').innerHTML=data.providers.map(p=>{
 const c=data.collectors?.[p.provider];
 return '<article class="card"><div class="cardhead"><h3>'+names[p.provider]+'</h3> <span class="status '+esc(p.status)+'">'+esc(p.status.replace('-',' '))+'</span></div><p class="caption" style="margin-top:8px">'+esc(p.message)+'</p>'+
 (c?'<div class="collector caption">'+esc(c.status)+' · '+(c.lastSuccessAt?'checked '+date(c.lastSuccessAt):'awaiting first reading')+(c.error?'<br>'+esc(c.error):'')+(c.nextAttemptAt?'<br>Next check: '+date(c.nextAttemptAt):'')+'</div>':'')+
-p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(laneName(w))+': </span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset: '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read: '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
+p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(windowName(w))+': </span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset: '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read: '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
 (p.provider!=='api' && !p.windows.length?'<div class="window caption">No measured allowance yet.</div>':'')+
 '<details class="binding"><summary>'+(data.demo?'Try example models':p.configured?'Model selected · change':'Connect a model')+'</summary><label>'+(data.demo?'Example model':'Preferred Pi model')+'<select data-bind="'+p.provider+'"><option value="">'+(data.demo?'Select an example model':esc(p.binding?.model||'No connected model yet'))+'</option>'+(data.models||[]).filter(m=>m.group===p.provider).map(m=>'<option value="'+esc(m.provider+'|'+m.id)+'"'+(p.binding?.provider===m.provider && p.binding?.model===m.id?' selected':'')+'>'+esc(m.label||m.id)+'</option>').join('')+'</select></label><p class="caption">'+(data.demo?'Illustrative choices only. Your real model list comes from Pi.':p.configured?'Selected for guarded requests.':p.provider==='agy'?'Allowance monitoring is separate; routing needs a compatible Pi connector.':'Sign in with /login in Pi, then run /guard. Available subscription models are selected automatically.')+'</p></details></article>';
 }).join('');renderLive(data);renderImpact(data);renderContinuity(data);

@@ -251,3 +251,80 @@ run().catch(error=>{console.error(error);process.exitCode=1;});
   await new Promise(r=>server.close(r));
   console.log('Model fallback passed');
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// Custom provider validation, disk ingestion, API upsert/remove, demo 403, and zero-PII enforcement.
+(async()=>{
+  const {cleanCustomProvider,cleanCustomProviders,PROVIDERS,cleanPolicy}=require('./usage-guard');
+  const {createGuardServer}=require('./usage-guard-server');
+  const t0=Date.parse('2026-11-23T00:00:00Z'), hr=3600000;
+  const iso=ms=>new Date(ms).toISOString();
+
+  // Built-in Pi routing contracts remain intact.
+  assert.deepEqual(PROVIDERS,['claude','codex','agy','api']);
+  assert.deepEqual(cleanPolicy().providerOrder,['claude','codex','agy']);
+  assert.throws(()=>cleanPolicy({providerOrder:['claude','codex','agy','cursor']}));
+
+  const cursor={id:'cursor',label:'Cursor Pro',remainingPercent:80,resetAt:iso(t0+18*hr),windowMinutes:43200,observedAt:iso(t0-60000),notes:'500 fast reqs'};
+  const copilot={id:'copilot',label:'GitHub Copilot',remainingPercent:10,resetAt:iso(t0+48*hr),windowMinutes:43200,observedAt:iso(t0-60000)};
+  assert.equal(cleanCustomProvider(cursor,t0).id,'cursor');
+  assert.equal(cleanCustomProviders([cursor,copilot],t0).length,2);
+
+  // Reject invalid IDs, built-in collisions, out-of-range percentages, bad dates, PII/paths/secrets, and >12 providers.
+  assert.throws(()=>cleanCustomProvider({...cursor,id:'a'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,id:'Cursor'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,id:'../cursor'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,id:'claude'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,remainingPercent:-1},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,remainingPercent:101},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,remainingPercent:NaN},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,resetAt:'tomorrow'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,observedAt:iso(t0+hr)},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,label:'C:\\Users\\dev\\cursor'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,label:'/Users/dev/cursor'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,notes:'dev@example.com'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,notes:'ghp_1234567890abcdef'},t0));
+  assert.throws(()=>cleanCustomProvider({...cursor,secretToken:'abc123'},t0));
+  assert.throws(()=>cleanCustomProviders([cursor,cursor],t0));
+  assert.throws(()=>cleanCustomProviders(Array.from({length:13},(_,i)=>({...cursor,id:`plan-${i}`})),t0));
+
+  // Disk ingestion from <stateDir>/custom-providers.json + /api/custom-providers + /api/checkin + demo 403.
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guard-custom-'));
+  fs.writeFileSync(path.join(dir,'custom-providers.json'),JSON.stringify([cursor],null,2));
+  const server=createGuardServer({stateDir:dir,sync:false,now:()=>t0});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port;
+  const post=async(route,body)=>{const r=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
+  try{
+    const initialCheckin=await (await fetch(base+'/api/checkin')).json();
+    assert.equal(initialCheckin.customProviders.length,1,'loads <stateDir>/custom-providers.json on startup');
+    assert.equal(initialCheckin.customProviders[0].id,'cursor');
+    assert.equal(initialCheckin.optimizer.primaryProvider,'cursor');
+    assert.ok(!JSON.stringify(initialCheckin).includes(dir),'no stateDir path in /api/checkin');
+
+    const added=await post('/api/custom-providers',{provider:copilot});
+    assert.equal(added.status,200);
+    assert.equal(added.data.customProviders.length,2);
+    const updated=await post('/api/custom-providers',{provider:{...cursor,remainingPercent:64}});
+    assert.equal(updated.status,200);
+    assert.equal(updated.data.customProviders.find(p=>p.id==='cursor').remainingPercent,64);
+    const bad=await post('/api/custom-providers',{provider:{...cursor,notes:'sk-1234567890abcdef'}});
+    assert.equal(bad.status,400);
+    const removed=await post('/api/custom-providers',{action:'remove',id:'copilot'});
+    assert.equal(removed.status,200);
+    assert.equal(removed.data.customProviders.length,1);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'custom-providers.json'),'utf8')).length,1);
+  } finally {await new Promise(r=>server.close(r));}
+
+  const demoDir=fs.mkdtempSync(path.join(os.tmpdir(),'guard-custom-demo-'));
+  const demo=createGuardServer({stateDir:demoDir,demo:true,sync:false,now:()=>t0});
+  await new Promise(r=>demo.listen(0,'127.0.0.1',r));
+  try{
+    const res=await fetch(`http://127.0.0.1:${demo.address().port}/api/custom-providers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:cursor})});
+    assert.equal(res.status,403,'demo mode rejects /api/custom-providers writes');
+  } finally {
+    await new Promise(r=>demo.close(r));
+    fs.rmSync(dir,{recursive:true,force:true});
+    fs.rmSync(demoDir,{recursive:true,force:true});
+  }
+  console.log('Custom provider validation, persistence, /api/checkin, and demo isolation passed');
+})().catch(e=>{console.error(e);process.exit(1);});

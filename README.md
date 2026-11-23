@@ -1,11 +1,12 @@
 # AI Spend Live
 
-**Release 0.7.1** expands AI Spend Live's **native-first Multi-Subscription Command Center** across **Claude**, **Codex**, and **Antigravity (AGY)** with **6 live per-harness tuning knobs** per subscription (beyond `/swarm` and `/fast`), permanent cache-busted Guard UI styling, and real local usage telemetry. Measure real usage across all three subscriptions — including AGY `transcript.jsonl` + `/swarm` workers, Codex `/fast` (`service_tier`) + reasoning effort, and Claude tiers/subagents — then run `npm run check` in any terminal for a 1-second verdict on every lever to pull next.
+**Release 0.7.2** helps you **get the most out of your AI subscriptions** — load-balancing work across **Claude**, **Codex**, **Antigravity (AGY)**, and **optional custom tools** (Cursor, GitHub Copilot, Windsurf, Gemini CLI, OpenCode, or any custom plan) with **6 live per-harness tuning knobs** per subscription, plain-English recommendations, and real local usage telemetry. Measure real usage locally — including AGY `transcript.jsonl` + `/swarm` workers, Codex `/fast` (`service_tier`) + reasoning effort, and Claude tiers/subagents — then run `npm run check` in any terminal for a 1-second verdict on when to push `/swarm` or `/fast`, when to step down, and how to avoid leaving paid quota unspent.
 
 - **Full per-harness tuning knobs (6 live levers per subscription)**:
-  - **Antigravity (AGY)**: `/swarm` sizing, Gemini vs Claude/GPT dual-pool arbitrage, per-worker model tiering (`Neon` + `Hydrogen`/`Flash`), model effort suffix (`-xhigh`/`-high`/`-medium`), 5h burst window guard, and `/compact` + `/goal` surplus scheduling.
-  - **Codex CLI**: `/fast` speed tier (2x priority / 8x ultrafast vs standard), reasoning effort, model stepping (`Sol`/`Astra` -> `Terra`/`Luna`), `272k` long-context cliff guard, subagent/auto-review routing, and banked reset inventory + prefix cache hygiene.
-  - **Claude Code**: Opus/Fable vs Sonnet/Haiku tier split (or AGY Claude/GPT overflow at 0%), per-turn effort level, subagent fan-out cap (reacting to 24h sidechain share), context gravity & `/clear` (reacting to >150k turns), cache TTL batching, and scoped vs account-wide weekly tracking.
+  - **Antigravity (AGY)**: `/swarm` sizing, separate Gemini & Claude/GPT quotas, mixing big & fast models (`Neon` + `Hydrogen`/`Flash`), effort level (`-xhigh`/`-high`/`-medium`), 5-hour burst limit, and keeping context lean + `/goal` surplus scheduling.
+  - **Codex CLI**: `/fast` speed tier (2x priority / 8x ultrafast vs standard), effort level, model stepping (`Sol`/`Astra` -> `Terra`/`Luna`), `272k` long-context cliff guard, subagent/auto-review routing, and banked reset inventory + prefix cache hygiene.
+  - **Claude Code**: Opus/Fable vs Sonnet/Haiku tier split (or AGY's separate Claude/GPT quota at 0%), effort level, subagent fan-out cap (reacting to 24h sidechain share), keeping context lean with `/clear` (reacting to >150k turns), cache TTL batching, and scoped vs account-wide weekly tracking.
+- **Works with other tools too**: track **Cursor, GitHub Copilot, Windsurf, Gemini CLI, OpenCode, or any custom subscription** alongside Claude, Codex, and AGY via `custom-providers.json` (`AI_SPEND_CUSTOM_PROVIDERS` or `npm run check -- --custom custom-providers.json`) plus optional normalized JSONL imports (`AI_SPEND_IMPORT`).
 - **Optional Pi Guard routing**: keep working across subscriptions automatically inside Pi with `pi-guard` (`/guard`, `/guard-check`, `/guard-order auto`, `/guard-rule`, `/guard-block`), work modes, tool archiving + loop recovery, silent refusal fallback, and unattended watchdog recovery.
 
 See the [release history](CHANGELOG.md), [Pi setup and work modes](integrations/pi/README.md), [native hooks](integrations/native/README.md), and [recorded Pi walkthrough](public/guard-walkthrough.gif).
@@ -31,9 +32,9 @@ npm run guard
   - **Claude**: `~/.claude/projects` JSONL logs + `~/.claude/sessions/*.json` live status + subagent sidechains, capturing effort (`record.effort` / `output_config.effort`), `speed`/`service_tier`, and thinking tokens.
   - **Codex**: `~/.codex/sessions` (or `CODEX_HOME`) streaming JSONL rollouts (handles multi-GB files), `session_index.jsonl`, and `state_5.sqlite` recovery, capturing `thread_settings_applied` `/fast` (`priority` / `ultrafast`), reasoning effort, and `cache_write_input_tokens`.
   - **Antigravity (AGY)**: `~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl`, `swarm/members.json`, `subagents/*.json`, and read-only `conversation_summaries.db`, with accurate disjoint token math (`input + cache_read + output`) and effort-suffix extraction (`-xhigh`, `-high`, `-medium`).
-  - **Normalized import**: optional JSON/JSONL import via `AI_SPEND_IMPORT_ROOT` or `AI_SPEND_IMPORT`.
+  - **Custom subscriptions & normalized imports**: add **Cursor, GitHub Copilot, Windsurf, Gemini CLI, OpenCode, or any other plan** to live load-balancing via `~/.aispend-live/guard/custom-providers.json` (or `AI_SPEND_CUSTOM_PROVIDERS` / `npm run check -- --custom <file>`), and optional JSON/JSONL usage import via `AI_SPEND_IMPORT_ROOT` or `AI_SPEND_IMPORT`.
 - **Multi-Subscription Value Optimizer (`tools/subscription-optimizer.js`)**:
-  - Evaluates Claude, Codex, and Antigravity (both **Gemini** and **Claude/GPT** lanes) plus banked reset credits and 24-hour usage insights.
+  - Evaluates Claude, Codex, Antigravity (both **Gemini** and **Claude/GPT** quotas), and any custom subscriptions in `custom-providers.json`, plus banked reset credits and 24-hour usage insights.
   - Classifies each subscription (`surplus`, `on-pace`, `hot`, `exhausted`, `blocked`) with safe daily burn targets (`%/day`), next unlock countdowns, and per-tool tactical playbooks (`/swarm` sizing, `/fast` ON/OFF + effort, model tiers, and copyable commands).
   - Powers `npm run check`, the local dashboard cockpit, the Guard controller UI, and the static browser playground (`public/guard.html`).
 - **Model coverage without a whitelist wall**: known API prices are shown where verified, while newer or unpriced models (such as `claude-fable-5-2`, `gpt-6.2-*`, `gemini-4-neon`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-4-hydrogen`, `gemini-3.8-flash`) stay in totals with an explicit “pricing not configured” state rather than fabricated dollars.
@@ -119,7 +120,7 @@ npm run dashboard
 
 ## Prompt And Token Pacing
 
-- **Maximize expiring surplus intentionally**: when an Antigravity lane (`Gemini` or `Claude/GPT`) or Codex weekly window has heavy headroom before reset, use `/swarm` or `/fast` deliberately instead of letting paid allowance expire unused.
+- **Maximize expiring surplus intentionally**: when an Antigravity quota (`Gemini` or `Claude/GPT`), Codex weekly window, or custom subscription has heavy headroom before reset, push `/swarm`, `/fast`, or parallel tasks deliberately instead of letting paid allowance expire unused.
 - **Protect tight windows early**: turn Codex `/fast` OFF below 20% remaining, keep frontier models (`GPT-6 Astra`, `GPT-6.1/6.2 Sol`, `Claude Fable`, `Claude Opus`) for architecture and review gates, and step down to `Terra`/`Luna`, `Sonnet`/`Haiku`, or `Hydrogen`/`Flash` for bounded execution.
 - **Keep context compact**: high cache reuse still burns rolling allowances when giant threads replay every turn. Use `/clear` or compact handoffs when a task changes direction.
 

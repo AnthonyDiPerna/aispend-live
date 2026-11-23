@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="application-version" content="0.7.1" />
+  <meta name="application-version" content="0.7.2" />
   <title>AI Spend Local Dashboard — Multi-Subscription Command Center</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2307090b'/%3E%3Cpath d='M7 24V15h4v9m4 0V11h4v13m4 0V7h4v17' stroke='%2349c58f' stroke-width='2.5'/%3E%3C/svg%3E" />
   <style>
@@ -505,14 +505,14 @@
     .sub-meta-cell strong.surplus-val { color: var(--green); }
     .sub-meta-cell strong.hot-val { color: var(--gold); }
 
-    /* Window Lanes inside Subscription Card (Critical for AGY Gemini + Claude/GPT!) */
-    .lane-list {
+    /* Quota Windows inside Subscription Card (AGY Gemini + Claude/GPT) */
+    .quota-list {
       display: grid;
       gap: 7px;
       padding-top: 8px;
       border-top: 1px solid rgba(255, 255, 255, 0.07);
     }
-    .lane-row {
+    .quota-row {
       display: grid;
       gap: 4px;
       padding: 7px 8px;
@@ -520,32 +520,32 @@
       background: rgba(255, 255, 255, 0.025);
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
-    .lane-row.lane-claude-gpt {
+    .quota-row.quota-claude-gpt {
       border-color: rgba(73, 197, 143, 0.24);
       background: rgba(73, 197, 143, 0.045);
     }
-    .lane-row.lane-gemini {
+    .quota-row.quota-gemini {
       border-color: rgba(167, 139, 250, 0.24);
       background: rgba(167, 139, 250, 0.045);
     }
-    .lane-top {
+    .quota-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
       font-size: 11.5px;
     }
-    .lane-name {
+    .quota-name {
       font-weight: 700;
       color: var(--text);
       min-width: 0;
       overflow-wrap: anywhere;
     }
-    .lane-val {
+    .quota-val {
       font: 800 12px/1.2 var(--mono);
       white-space: nowrap;
     }
-    .lane-foot {
+    .quota-foot {
       display: flex;
       justify-content: space-between;
       gap: 8px;
@@ -1200,9 +1200,9 @@
         <div>
           <div class="brand-title-row">
             <h1>AI Spend Command Center</h1>
-            <span class="ver-pill">v0.7.1 · Local</span>
+            <span class="ver-pill">v0.7.2 · Local</span>
           </div>
-          <div class="caption">Claude · Codex · Antigravity — live multi-subscription optimizer, per-harness tuning knobs, /swarm &amp; /fast telemetry</div>
+          <div class="caption">Claude · Codex · Antigravity · Custom — live multi-subscription load balancer, per-harness tuning knobs, /swarm &amp; /fast telemetry</div>
         </div>
       </div>
       <div class="controls">
@@ -1714,7 +1714,7 @@
       return "BALANCED";
     }
 
-    function laneLabel(win) {
+    function windowLabel(win) {
       if (win.label) return win.label;
       const fam = String(win.modelFamily || "").toLowerCase();
       const id = String(win.windowId || "").toLowerCase();
@@ -1729,11 +1729,11 @@
       return `${famText} · ${scope}`;
     }
 
-    function laneClass(win) {
+    function windowClass(win) {
       const fam = String(win.modelFamily || "").toLowerCase();
       const id = String(win.windowId || "").toLowerCase();
-      if (fam === "claude-gpt" || id.includes("claude-gpt")) return "lane-claude-gpt";
-      if (fam.includes("gemini") || id.includes("gemini")) return "lane-gemini";
+      if (fam === "claude-gpt" || id.includes("claude-gpt")) return "quota-claude-gpt";
+      if (fam.includes("gemini") || id.includes("gemini")) return "quota-gemini";
       return "";
     }
 
@@ -1745,7 +1745,7 @@
       return providerKey(provider);
     }
 
-    function laneBarColor(provider, win, rem) {
+    function windowBarColor(provider, win, rem) {
       const n = Number(rem ?? 0);
       if (n <= 10) return colors.red;
       if (n <= 25) return colors.gold;
@@ -1779,7 +1779,7 @@
           return {
             windowId: w.windowId || "window",
             modelFamily: w.modelFamily || "",
-            label: laneLabel(w),
+            label: windowLabel(w),
             remainingPercent: rem,
             usedPercent: Number(w.usedPercent ?? (100 - rem)),
             hoursLeft: hrs,
@@ -1829,7 +1829,7 @@
         providers: provs,
         recommendedOrder: order,
         quickCommands: [{ tool: "CLI", label: "Run check-in", command: "npm run check -- --live", why: "Print full multi-subscription verdict in terminal" }],
-        note: "Upgrade Guard controller to v0.7.1 for full optimizer playbooks and tuning knobs.",
+        note: "Upgrade Guard controller to v0.7.2 for full optimizer playbooks and tuning knobs.",
       };
     }
 
@@ -1910,29 +1910,29 @@
         const wins = Array.isArray(p.windows) ? p.windows : [];
         const pbMode = String(pb.mode || "steady").toLowerCase();
 
-        const lanesHtml = wins.length
-          ? `<div class="lane-list">${wins.map((w) => {
+        const windowsHtml = wins.length
+          ? `<div class="quota-list">${wins.map((w) => {
               const wRem = w.remainingPercent != null && Number.isFinite(Number(w.remainingPercent))
                 ? Number(w.remainingPercent)
                 : (w.usedPercent != null ? Math.max(0, 100 - Number(w.usedPercent)) : null);
               const fillPct = wRem != null ? Math.max(0, Math.min(100, wRem)) : 0;
-              const barColor = laneBarColor(p.provider, w, wRem);
+              const barColor = windowBarColor(p.provider, w, wRem);
               const countdown = formatCountdown(w.hoursLeft, w.resetAt);
               return `
-                <div class="lane-row ${laneClass(w)}">
-                  <div class="lane-top">
-                    <span class="lane-name">${escapeHtml(laneLabel(w))}</span>
-                    <span class="lane-val tabular" style="color:${barColor}">${wRem != null ? pctExact(wRem) + " left" : "unknown"}</span>
+                <div class="quota-row ${windowClass(w)}">
+                  <div class="quota-top">
+                    <span class="quota-name">${escapeHtml(windowLabel(w))}</span>
+                    <span class="quota-val tabular" style="color:${barColor}">${wRem != null ? pctExact(wRem) + " left" : "unknown"}</span>
                   </div>
                   <div class="mini-meter"><span style="width:${fillPct}%;background:${barColor}"></span></div>
-                  <div class="lane-foot">
+                  <div class="quota-foot">
                     <span>${w.resetAt ? escapeHtml(safeDate(w.resetAt)) : "Reset unknown"}</span>
                     <span class="tabular">${escapeHtml(countdown)}</span>
                   </div>
                 </div>
               `;
             }).join("")}</div>`
-          : `<div class="lane-list"><div class="caption">No measured allowance windows yet.</div></div>`;
+          : `<div class="quota-list"><div class="caption">No measured allowance windows yet.</div></div>`;
 
         const pbBadges = (Array.isArray(pb.badges) ? pb.badges : []).map((b) => `<span class="pb-badge">${escapeHtml(b)}</span>`).join("");
         const pbKnobs = (Array.isArray(pb.knobs) && pb.knobs.length)
@@ -2003,7 +2003,7 @@
               </div>
             </div>
 
-            ${lanesHtml}
+            ${windowsHtml}
 
             <div class="playbook-box">
               <div class="playbook-head">

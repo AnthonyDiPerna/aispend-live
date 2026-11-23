@@ -10,7 +10,7 @@ const policy=fs.readFileSync(path.join(__dirname,'usage-guard.js'),'utf8')
   .replace(/function signature\(value\)[^\n]*/, '')
   .replace('module.exports =','globalThis.GuardPolicy =').replace('trimToolOutput, signature,','trimToolOutput,');
 const adapter=`
-const {initialState,cleanPolicy,buildPlan,mergeObservations}=GuardPolicy;
+const {initialState,cleanPolicy,buildPlan,mergeObservations,cleanCustomProvider,cleanCustomProviders}=GuardPolicy;
 const {buildAdvice,applyAdvice}=GuardAdvice;
 const {buildOptimizationPlan}=GuardOptimizer;
 ${demoState.toString()}
@@ -40,6 +40,12 @@ async function playgroundApi(route,body){
     playgroundState.resetCreditReports ||= {};playgroundState.resetCreditReports[body.provider]={source:'manual',observedAt:new Date().toISOString(),scope:body.scope,availableCount:body.count,credits:Array.from({length:body.count},()=>({status:'available',expiresAt:expiry,expiryKnown:Boolean(expiry)}))};
   }
   else if(route==='/api/observations')playgroundState.observations=mergeObservations(playgroundState.observations,body.observations.map(o=>({...o,source:'demo'})));
+  else if(route==='/api/custom-providers'){
+    const list=Array.isArray(playgroundState.customProviders)?[...playgroundState.customProviders]:[];
+    if(body&&(body.action==='remove'||body.remove)){const id=String(body.id||body.remove||'').trim().toLowerCase();playgroundState.customProviders=list.filter(c=>c.id!==id);}
+    else if(body&&Array.isArray(body.customProviders)){playgroundState.customProviders=cleanCustomProviders(body.customProviders);}
+    else{const item=cleanCustomProvider(body&&body.provider?body.provider:body);const idx=list.findIndex(c=>c.id===item.id);if(idx>=0)list[idx]=item;else list.push(item);playgroundState.customProviders=cleanCustomProviders(list);}
+  }
   else throw Error('Public playground: model connections and requests are available only in the local controller.');
   applyAdvice(playgroundState);
   return playgroundView();

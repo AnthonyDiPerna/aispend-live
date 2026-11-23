@@ -1,4 +1,4 @@
-/* AI Spend Guard 0.4.1 (AI Spend Live 0.7.1) — Quiet, airy dark obsidian UI */
+/* AI Spend Guard 0.4.2 (AI Spend Live 0.7.2) — Quiet, airy dark obsidian UI */
 :root{
   color-scheme:dark;
   --paper:#07090c;
@@ -310,16 +310,15 @@ label input,label select{margin-top:6px}
   justify-content:space-between;
   gap:8px;
   padding:12px 14px;
-  border:1px solid var(--line);
-  border-left:2px solid var(--cyan);
+  border:1px solid rgba(56,189,248,.26);
   border-radius:6px;
-  background:#0a0d12;
+  background:rgba(56,189,248,.05);
   min-width:0;
 }
 .opt-alert strong{display:block;font-size:12.5px;line-height:1.35;margin-bottom:2px;color:var(--ink)}
-.opt-alert-opp{border-left-color:var(--teal)}
-.opt-alert-warn{border-left-color:var(--gold)}
-.opt-alert-crit{border-left-color:var(--copper)}
+.opt-alert-opp{border-color:rgba(74,222,128,.28);background:rgba(74,222,128,.05)}
+.opt-alert-warn{border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.055)}
+.opt-alert-crit{border-color:rgba(248,113,113,.32);background:rgba(248,113,113,.06)}
 
 /* 3-Column Playbook Subscription Cards */
 .opt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
@@ -366,16 +365,16 @@ label input,label select{margin-top:6px}
 .opt-stats .caption{display:block;font-size:10.5px;color:var(--dim)}
 .opt-stats strong{display:block;font-size:12.5px;margin-top:1px;color:var(--ink);overflow-wrap:anywhere}
 
-.opt-lanes{display:grid;gap:7px;padding-top:10px;border-top:1px solid var(--line)}
-.opt-lane{
+.opt-windows{display:grid;gap:7px;padding-top:10px;border-top:1px solid var(--line)}
+.opt-window{
   padding:7px 9px;
   border:1px solid var(--line);
   border-radius:5px;
   background:var(--panel);
   min-width:0;
 }
-.opt-lane-gem{border-color:rgba(74,222,128,.22)}
-.opt-lane-cg{border-color:rgba(167,139,250,.22)}
+.opt-win-gem{border-color:rgba(74,222,128,.22)}
+.opt-win-cg{border-color:rgba(167,139,250,.22)}
 
 .opt-pb{
   margin-top:auto;
@@ -522,7 +521,7 @@ details.drawer>summary:hover{color:var(--teal)}
 .insight strong{font:19px var(--mono);display:inline-block;margin-right:10px;color:var(--ink)}
 .insight span{font-size:12.5px}
 .insight p{margin-top:5px}
-.collector{border-left:2px solid var(--line-strong);padding-left:10px;margin-top:12px}
+.collector{border:1px solid var(--line);border-radius:6px;background:#0a0d12;padding:8px 10px;margin-top:12px}
 .inactive-window{opacity:.58}
 
 .grid{

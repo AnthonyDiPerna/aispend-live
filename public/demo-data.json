@@ -1,6 +1,6 @@
 {
   "schema": "ai-spend-live-public-demo/v1",
-  "releaseVersion": "0.7.1",
+  "releaseVersion": "0.7.2",
   "generatedOn": "2026-11-23",
   "period": "Recent 30-day example",
   "privacy": "Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.",
@@ -20,23 +20,23 @@
     },
     {
       "source": "Antigravity JSONL / SQLite",
-      "files": 108,
-      "events": 7085,
-      "sessions": 99
+      "files": 112,
+      "events": 7478,
+      "sessions": 103
     }
   ],
   "totals": {
-    "tokens": 36599370361,
-    "turns": 139937,
-    "sessions": 2661,
+    "tokens": 36713031016,
+    "turns": 140330,
+    "sessions": 2665,
     "breakdownUnknownTokens": 122353269,
-    "cacheReuse": 0.9827336519641143,
+    "cacheReuse": 0.9827023389501972,
     "cacheReuseScope": "known token breakdown only",
     "estimatedApiUsd": 10167.150116830118,
-    "inputTokens": 318179432,
-    "cachedInputTokens": 35754475313,
+    "inputTokens": 321270777,
+    "cachedInputTokens": 35864237024,
     "cacheWriteTokens": 310016431,
-    "outputTokens": 94345916,
+    "outputTokens": 95153515,
     "estimatedInputUsd": 8731.41804773,
     "estimatedOutputUsd": 1435.7320691
   },
@@ -47,7 +47,7 @@
       "model": "claude-opus-5-5",
       "tokens": 20872289277,
       "turns": 53883,
-      "share": 0.5702909386452546,
+      "share": 0.5685253627766009,
       "inputTokens": 110194,
       "cachedInputTokens": 20583423250,
       "outputTokens": 45715550,
@@ -64,7 +64,7 @@
       "model": "claude-fable-5-2",
       "tokens": 4296297351,
       "turns": 11457,
-      "share": 0.11738719296597792,
+      "share": 0.11702377145400007,
       "inputTokens": 25242,
       "cachedInputTokens": 4231561337,
       "outputTokens": 14046911,
@@ -81,7 +81,7 @@
       "model": "gpt-5.6-luna",
       "tokens": 2822739898,
       "turns": 19761,
-      "share": 0.07712536773604961,
+      "share": 0.07688659366669602,
       "inputTokens": 44738637,
       "cachedInputTokens": 2770773248,
       "outputTokens": 7228013,
@@ -98,7 +98,7 @@
       "model": "gpt-6-astra",
       "tokens": 2273339397,
       "turns": 14217,
-      "share": 0.062114166844314145,
+      "share": 0.061921866271658424,
       "inputTokens": 31229454,
       "cachedInputTokens": 2121090304,
       "outputTokens": 6230588,
@@ -115,10 +115,27 @@
       "model": "gpt-6.2-sol",
       "tokens": 1056863251,
       "turns": 7184,
-      "share": 0.028876541879698157,
+      "share": 0.028787142378394356,
       "inputTokens": 10170416,
       "cachedInputTokens": 1045287424,
       "outputTokens": 1405411,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-neon-xhigh",
+      "provider": "agy",
+      "model": "gemini-4-neon-xhigh",
+      "tokens": 1030540360,
+      "turns": 3784,
+      "share": 0.028070151972766223,
+      "inputTokens": 50461076,
+      "cachedInputTokens": 972563453,
+      "outputTokens": 7515831,
       "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
       "estimatedInputUsd": null,
@@ -132,7 +149,7 @@
       "model": "codex-auto-review",
       "tokens": 1015019228,
       "turns": 14033,
-      "share": 0.027733242894298436,
+      "share": 0.02764738295668483,
       "inputTokens": 102793364,
       "cachedInputTokens": 904942848,
       "outputTokens": 1373062,
@@ -144,29 +161,12 @@
       "pricingKnown": true
     },
     {
-      "key": "agy:gemini-4-neon-xhigh",
-      "provider": "agy",
-      "model": "gemini-4-neon-xhigh",
-      "tokens": 916879705,
-      "turns": 3391,
-      "share": 0.025051789032333183,
-      "inputTokens": 47369731,
-      "cachedInputTokens": 862801742,
-      "outputTokens": 6708232,
-      "cacheWriteTokens": 0,
-      "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": null,
-      "estimatedOutputUsd": null,
-      "estimatedApiUsd": null,
-      "pricingKnown": false
-    },
-    {
       "key": "codex:gpt-6.1-sol",
       "provider": "codex",
       "model": "gpt-6.1-sol",
       "tokens": 779395207,
       "turns": 3809,
-      "share": 0.02129531735962642,
+      "share": 0.021229388732854276,
       "inputTokens": 9915758,
       "cachedInputTokens": 767314944,
       "outputTokens": 2164505,
@@ -183,7 +183,7 @@
       "model": "gpt-6.2-astra",
       "tokens": 705822497,
       "turns": 4033,
-      "share": 0.019285099444008986,
+      "share": 0.019225394293715323,
       "inputTokens": 6753679,
       "cachedInputTokens": 698478464,
       "outputTokens": 590354,
@@ -200,7 +200,7 @@
       "model": "claude-fable-5-1",
       "tokens": 657877460,
       "turns": 2125,
-      "share": 0.01797510321929005,
+      "share": 0.017919453714221763,
       "inputTokens": 25714,
       "cachedInputTokens": 642516089,
       "outputTokens": 3030252,
@@ -217,7 +217,7 @@
       "model": "gemini-4-carbon-high",
       "tokens": 279609263,
       "turns": 967,
-      "share": 0.007639728777901311,
+      "share": 0.007616076778791236,
       "inputTokens": 20823378,
       "cachedInputTokens": 257203140,
       "outputTokens": 1582745,
@@ -234,7 +234,7 @@
       "model": "gemini-4-neon-high",
       "tokens": 185431398,
       "turns": 606,
-      "share": 0.005066518799940729,
+      "share": 0.0050508332564311205,
       "inputTokens": 10494455,
       "cachedInputTokens": 173874980,
       "outputTokens": 1061963,
@@ -251,7 +251,7 @@
       "model": "gpt-6-sol",
       "tokens": 181242992,
       "turns": 1427,
-      "share": 0.004952079508808466,
+      "share": 0.004936748260338734,
       "inputTokens": 1286024,
       "cachedInputTokens": 179475840,
       "outputTokens": 481128,
@@ -268,7 +268,7 @@
       "model": "gemini-4-argon-high",
       "tokens": 172595775,
       "turns": 621,
-      "share": 0.0047158126846880595,
+      "share": 0.004701212899713472,
       "inputTokens": 8974347,
       "cachedInputTokens": 162967171,
       "outputTokens": 654257,
@@ -285,7 +285,7 @@
       "model": "gemini-4-neon-medium",
       "tokens": 106584810,
       "turns": 485,
-      "share": 0.0029122033780552667,
+      "share": 0.002903187425564209,
       "inputTokens": 9996680,
       "cachedInputTokens": 96152705,
       "outputTokens": 435425,
@@ -302,7 +302,7 @@
       "model": "gemini-4-argon-medium",
       "tokens": 83374752,
       "turns": 527,
-      "share": 0.00227803787818283,
+      "share": 0.0022709852521755622,
       "inputTokens": 4770290,
       "cachedInputTokens": 78193915,
       "outputTokens": 410547,
@@ -319,7 +319,7 @@
       "model": "claude-sonnet-5-5",
       "tokens": 73259404,
       "turns": 450,
-      "share": 0.002001657495126327,
+      "share": 0.0019954605210360495,
       "inputTokens": 946,
       "cachedInputTokens": 68689984,
       "outputTokens": 561592,
@@ -336,7 +336,7 @@
       "model": "gpt-5.6-sol",
       "tokens": 56702972,
       "turns": 462,
-      "share": 0.001549288182848693,
+      "share": 0.001544491708551335,
       "inputTokens": 1710394,
       "cachedInputTokens": 54510464,
       "outputTokens": 194927,
@@ -353,7 +353,7 @@
       "model": "gemini-3.8-flash-medium",
       "tokens": 27878828,
       "turns": 258,
-      "share": 0.0007617297162496396,
+      "share": 0.0007593714609902423,
       "inputTokens": 2532248,
       "cachedInputTokens": 25193555,
       "outputTokens": 153025,
@@ -370,7 +370,7 @@
       "model": "gemini-4-hydrogen-tiered-xhigh",
       "tokens": 19896408,
       "turns": 83,
-      "share": 0.000543627057070945,
+      "share": 0.0005419440304814086,
       "inputTokens": 1657544,
       "cachedInputTokens": 18118876,
       "outputTokens": 119988,
@@ -387,7 +387,7 @@
       "model": "unknown",
       "tokens": 9018539,
       "turns": 81,
-      "share": 0.0002464124084935102,
+      "share": 0.0002456495350675243,
       "inputTokens": 1829990,
       "cachedInputTokens": 7088989,
       "outputTokens": 99560,
@@ -404,7 +404,7 @@
       "model": "claude-opus-5-5-medium",
       "tokens": 3919206,
       "turns": 27,
-      "share": 0.00010708397334005164,
+      "share": 0.00010675244978525365,
       "inputTokens": 312933,
       "cachedInputTokens": 3591252,
       "outputTokens": 15021,
@@ -421,7 +421,7 @@
       "model": "unknown",
       "tokens": 1367077,
       "turns": 2,
-      "share": 0.00003735247318507824,
+      "share": 0.00003723683286744183,
       "inputTokens": 0,
       "cachedInputTokens": 0,
       "outputTokens": 0,
@@ -438,7 +438,7 @@
       "model": "gpt-6-luna",
       "tokens": 1149250,
       "turns": 7,
-      "share": 0.000031400813420130085,
+      "share": 0.00003130359897277734,
       "inputTokens": 459601,
       "cachedInputTokens": 685952,
       "outputTokens": 3697,
@@ -455,7 +455,7 @@
       "model": "claude-opus-5-5-high",
       "tokens": 553485,
       "turns": 6,
-      "share": 0.000015122801144956014,
+      "share": 0.000015075982142656222,
       "inputTokens": 99428,
       "cachedInputTokens": 401156,
       "outputTokens": 52901,
@@ -472,7 +472,7 @@
       "model": "gemini-4-hydrogen-tiered-high",
       "tokens": 217517,
       "turns": 31,
-      "share": 0.000005943189673879865,
+      "share": 0.000005924790026331614,
       "inputTokens": 83220,
       "cachedInputTokens": 110291,
       "outputTokens": 24006,
@@ -489,7 +489,7 @@
       "model": "gpt-6.1-terra",
       "tokens": 36861,
       "turns": 2,
-      "share": 0.0000010071484737693408,
+      "share": 0.0000010040304213491802,
       "inputTokens": 11334,
       "cachedInputTokens": 25088,
       "outputTokens": 439,
@@ -506,7 +506,7 @@
       "model": "gemini-3.8-flash-high",
       "tokens": 8553,
       "turns": 2,
-      "share": 2.3369254486175558e-7,
+      "share": 2.3296905113262087e-7,
       "inputTokens": 4431,
       "cachedInputTokens": 2305,
       "outputTokens": 1817,
@@ -551,8 +551,8 @@
     },
     {
       "period": "Day 7",
-      "tokens": 92753085,
-      "turns": 448
+      "tokens": 206413740,
+      "turns": 841
     }
   ],
   "dailyByModel": [
@@ -869,7 +869,7 @@
       "model": "gemini-4-neon-xhigh",
       "date": "2026-11-23",
       "period": "Day 7",
-      "tokens": 87183447
+      "tokens": 200844102
     },
     {
       "key": "claude:claude-fable-5-1",
@@ -896,16 +896,16 @@
   "pacing": {
     "fiveHour": {
       "status": "unset",
-      "usedTokens": 41688228,
-      "projectedTokens": 208441140,
-      "measuredTokensPerHour": 41688228,
+      "usedTokens": 155348883,
+      "projectedTokens": 715498020,
+      "measuredTokensPerHour": 143099604,
       "hasLocalBudget": false
     },
     "weekly": {
       "status": "unset",
-      "usedTokens": 16748808875,
-      "projectedTokens": 16748808875,
-      "measuredTokensPerHour": 41688228,
+      "usedTokens": 16824686815,
+      "projectedTokens": 24040733472,
+      "measuredTokensPerHour": 143099604,
       "hasLocalBudget": false
     }
   },
@@ -928,16 +928,16 @@
     }
   ],
   "subagents": {
-    "tokens": 30276592663,
-    "share": 0.8272435390107831,
-    "sessions": 2609
+    "tokens": 30374811046,
+    "share": 0.8273577584145062,
+    "sessions": 2613
   },
   "speedStats": {
     "fastTokens": 3668435080,
     "ultrafastTokens": 0,
     "standardTokens": 31002613773,
-    "unknownSpeedTokens": 1928321508,
-    "fastShare": 0.10023219098624318,
+    "unknownSpeedTokens": 2041982163,
+    "fastShare": 0.09992188001043144,
     "fastTurns": 27859,
     "ultrafastTurns": 0,
     "byProvider": {
@@ -966,11 +966,11 @@
   },
   "swarmStats": {
     "swarmCount": 3,
-    "swarmWorkerSessions": 66,
-    "swarmWorkerTokens": 606927783,
-    "swarmShareOfAgy": 0.33606780556454735,
-    "subagentTokens": 677877339,
-    "totalAgyTokens": 1805968239
+    "swarmWorkerSessions": 70,
+    "swarmWorkerTokens": 705146166,
+    "swarmShareOfAgy": 0.3673346281690215,
+    "subagentTokens": 776095722,
+    "totalAgyTokens": 1919628894
   },
   "workflow": [
     {
@@ -1001,12 +1001,17 @@
     {
       "severity": "high",
       "title": "Subagent token share",
-      "detail": "2609 subagent sessions used 30.28B tokens (83% of range, ~$7092.49)."
+      "detail": "2613 subagent sessions used 30.37B tokens (83% of range, ~$7092.49)."
     },
     {
       "severity": "high",
       "title": "24 hour burn pace",
-      "detail": "808.3M tokens in the last 24 hours, about 33.7M tokens/hour on average."
+      "detail": "909.2M tokens in the last 24 hours, about 37.9M tokens/hour on average."
+    },
+    {
+      "severity": "high",
+      "title": "Current hour is spiking",
+      "detail": "The last hour used 143.1M tokens, well above the 24 hour average pace."
     },
     {
       "severity": "high",
@@ -1022,9 +1027,20 @@
   "recommendations": [
     {
       "severity": "high",
+      "title": "Pause the current spike",
+      "target": "Last-hour usage",
+      "detail": "The last hour used 143.1M tokens, above the 24 hour average pace.",
+      "steps": [
+        "Stop broad follow-up prompts until you know which session or subagent swarm caused the spike.",
+        "Open Largest Turns, find the matching session, and split the next ask by file group or failing command.",
+        "Do not use /fast or xhigh/ultra effort again until the write set and acceptance test are explicit."
+      ]
+    },
+    {
+      "severity": "high",
       "title": "Trim subagent fan-out",
-      "target": "2609 subagent sessions (83% of tokens)",
-      "detail": "Subagents consumed 30.28B tokens in this range. Each spawned subagent builds its own context window.",
+      "target": "2613 subagent sessions (83% of tokens)",
+      "detail": "Subagents consumed 30.37B tokens in this range. Each spawned subagent builds its own context window.",
       "steps": [
         "Keep routine multi-file changes with one implementation owner.",
         "Pass subagents exact file paths and line ranges instead of letting every worker search the repo.",

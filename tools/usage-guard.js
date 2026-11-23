@@ -31,6 +31,71 @@ const DEFAULT_POLICY = Object.freeze({
   contextAdvisoryProviders: ['antigravity', 'antigravity-acp'],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
+const MAX_CUSTOM_PROVIDERS = 12;
+const RESERVED_CUSTOM_IDS = new Set(PROVIDERS);
+const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+const UNSAFE_TEXT_RE = /[A-Za-z]:\\|\\\\[A-Za-z0-9._-]+\\|(?:^|[\s"'(])(?:~\/|\/(?:Users|home|var|tmp|etc|opt|mnt|Volumes|root|proc)\/)|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|https?:\/\/[^/\s]+:[^/\s]+@|\b(?:sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{10,}|gho_[A-Za-z0-9]{10,}|github_pat_[A-Za-z0-9_]{10,}|AIza[0-9A-Za-z_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|Bearer\s+\S{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b|[\x00-\x1f\x7f]/i;
+const FORBIDDEN_CUSTOM_KEY_RE = /(?:secret|token|apikey|api_key|password|passwd|auth|cookie|email|filepath|file_path|homedir|prompt)/i;
+
+function cleanCustomProvider(input, now = Date.now()) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Custom provider must be an object');
+  for (const key of Object.keys(input)) {
+    if (FORBIDDEN_CUSTOM_KEY_RE.test(key)) throw new Error('Custom provider entries must not contain credentials, emails, or file paths');
+  }
+  const id = typeof input.id === 'string' ? input.id : '';
+  if (!/^[a-z0-9-]{2,24}$/.test(id)) throw new Error('Custom provider id must be 2-24 lowercase letters, digits, or hyphens');
+  if (RESERVED_CUSTOM_IDS.has(id)) throw new Error('Custom provider id cannot reuse built-in provider id');
+  if (typeof input.label !== 'string') throw new Error('Custom provider label is required');
+  const label = input.label.trim();
+  if (label.length < 1 || label.length > 48) throw new Error('Custom provider label must be 1-48 characters');
+  if (UNSAFE_TEXT_RE.test(label)) throw new Error('Custom provider label must not contain file paths, emails, or secrets');
+  const rem = input.remainingPercent;
+  if (typeof rem !== 'number' || !Number.isFinite(rem) || rem < 0 || rem > 100) throw new Error('Custom provider remainingPercent must be a number between 0 and 100');
+  if (typeof input.resetAt !== 'string' || !ISO_TS_RE.test(input.resetAt.trim())) throw new Error('Custom provider resetAt must be a valid ISO timestamp');
+  const resetMs = Date.parse(input.resetAt);
+  if (!Number.isFinite(resetMs)) throw new Error('Custom provider resetAt must be a valid ISO timestamp');
+  let observedMs = now;
+  if (input.observedAt !== undefined) {
+    if (typeof input.observedAt !== 'string' || !ISO_TS_RE.test(input.observedAt.trim())) throw new Error('Custom provider observedAt must be a valid ISO timestamp');
+    observedMs = Date.parse(input.observedAt);
+    if (!Number.isFinite(observedMs) || observedMs > now + 60000) throw new Error('Custom provider observedAt cannot be invalid or in the future');
+  }
+  const windowMinutes = input.windowMinutes === undefined ? 43200 : input.windowMinutes;
+  if (typeof windowMinutes !== 'number' || !Number.isFinite(windowMinutes) || windowMinutes < 5 || windowMinutes > 525600) {
+    throw new Error('Custom provider windowMinutes must be between 5 and 525600');
+  }
+  let notes = null;
+  if (input.notes !== undefined && input.notes !== null && input.notes !== '') {
+    if (typeof input.notes !== 'string') throw new Error('Custom provider notes must be a string');
+    const trimmed = input.notes.trim();
+    if (trimmed.length > 80) throw new Error('Custom provider notes must be 80 characters or fewer');
+    if (UNSAFE_TEXT_RE.test(trimmed)) throw new Error('Custom provider notes must not contain file paths, emails, or secrets');
+    notes = trimmed;
+  }
+  return {
+    id,
+    label,
+    remainingPercent: Math.round(rem * 10) / 10,
+    resetAt: new Date(resetMs).toISOString(),
+    windowMinutes: Math.round(windowMinutes),
+    observedAt: new Date(observedMs).toISOString(),
+    ...(notes ? { notes } : {}),
+  };
+}
+
+function cleanCustomProviders(list, now = Date.now()) {
+  if (!Array.isArray(list)) throw new Error('Custom providers must be an array');
+  if (list.length > MAX_CUSTOM_PROVIDERS) throw new Error(`Up to ${MAX_CUSTOM_PROVIDERS} custom providers are supported`);
+  const seen = new Set();
+  const result = [];
+  for (const item of list) {
+    const clean = cleanCustomProvider(item, now);
+    if (seen.has(clean.id)) throw new Error(`Duplicate custom provider id: ${clean.id}`);
+    seen.add(clean.id);
+    result.push(clean);
+  }
+  return result;
+}
 const LIMITS = {
   reservePercent: [0, 50], freshnessMinutes: [5, 1440],
   maxRequestsPerTask: [1, 1000], maxTokensPerTask: [10000, 100000000],
@@ -239,7 +304,18 @@ function buildPlan(state, now = Date.now()) {
   const pressure=ready.length>0 && ready[0].provider!=='api' && ready[0].status!=='ready';
   // A provider is available only after ALL its constrained windows can reset.
   const resetCandidates = providers.map(p=>({provider:p.provider, resetAt:p.windows.some(w=>w.applies) ? new Date(Math.max(...p.windows.filter(w=>w.applies).map(w=>Date.parse(w.resetAt)))).toISOString() : null}));
-  return {generatedAt:new Date(now).toISOString(), configuredPolicy:policy,policy:effectivePolicy(policy,pressure), providers,bridge,
+  const customProviders = [];
+  if (Array.isArray(state.customProviders)) {
+    const seenCustom = new Set();
+    for (const entry of state.customProviders) {
+      if (customProviders.length >= MAX_CUSTOM_PROVIDERS) break;
+      try {
+        const clean = cleanCustomProvider(entry, now);
+        if (!seenCustom.has(clean.id)) { seenCustom.add(clean.id); customProviders.push(clean); }
+      } catch {}
+    }
+  }
+  return {generatedAt:new Date(now).toISOString(), configuredPolicy:policy,policy:effectivePolicy(policy,pressure), providers, customProviders, bridge,
     resetCredits:providers.filter(p=>p.provider!=='api').map(p=>resetCreditPlan(state,p.provider,p.windows,policy,now)),
     recommendedProvider:ready[0]?.provider || null,
     resetTimeline:plans.map(w=>({provider:w.provider, windowId:w.windowId, resetAt:w.resetAt, status:w.status, hoursLeft:w.hoursLeft})).sort((a,b)=>Date.parse(a.resetAt)-Date.parse(b.resetAt)),
@@ -314,4 +390,4 @@ function trimToolOutput(content, maxChars, archivePath) {
 function signature(value) { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0,24); }
 function initialState() { return {version:1, policy:{...DEFAULT_POLICY}, observations:[], bindings:{}, tasks:{}, events:[]}; }
 
-module.exports = {DEFAULT_POLICY, PROVIDERS, cleanPolicy, observation, mergeObservations, buildPlan, decide, recoveryPlan, trimToolOutput, signature, initialState};
+module.exports = {DEFAULT_POLICY, PROVIDERS, MAX_CUSTOM_PROVIDERS, cleanPolicy, cleanCustomProvider, cleanCustomProviders, observation, mergeObservations, buildPlan, decide, recoveryPlan, trimToolOutput, signature, initialState};

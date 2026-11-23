@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="application-version" content="0.7.1">
-  <meta name="description" content="AI Spend Live 0.7.1 reads your Antigravity, Codex, and Claude allowances locally — then shows or automates the best move across all 6 tuning knobs per harness.">
-  <title>AI Spend Live — Start once, optimize every AI plan</title>
+  <meta name="application-version" content="0.7.2">
+  <meta name="description" content="AI Spend Live 0.7.2 load-balances work across Claude, Codex, Antigravity, and other tools locally — know when to push /swarm or /fast, when to step down, and never leave paid quota unspent.">
+  <title>AI Spend Live — Get the most out of your AI subscriptions</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307090c'/%3E%3Cpath d='M14 46V32h8v14m6 0V22h8v24m6 0V12h8v34' stroke='%234ade80' stroke-width='6'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="design.css?v=0.7.1">
+  <link rel="stylesheet" href="design.css?v=0.7.2">
 </head>
 <body>
   <div class="shell">
     <nav>
-      <a class="brand" href="/"><span class="mark">AI</span> AI Spend Live <span class="ver-pill">v0.7.1</span></a>
+      <a class="brand" href="/"><span class="mark">AI</span> AI Spend Live <span class="ver-pill">v0.7.2</span></a>
       <div class="navlinks">
         <a href="#harnesses">Walkthrough</a>
         <a href="#optimizer">Live Check-In</a>
@@ -25,14 +25,14 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <h1>Start it once. Optimize every AI plan.</h1>
-          <p class="lead">Reads your Antigravity, Codex, and Claude allowances locally &mdash; then shows (or automates) the best move.</p>
+          <h1>Get the most out of your AI subscriptions.</h1>
+          <p class="lead">Load-balance work across Claude, Codex, Antigravity, and other tools &mdash; know when to push <code>/swarm</code> or <code>/fast</code>, when to step down, and never leave paid quota unspent.</p>
           <div class="start-bar">
             <div class="start-cmd">
               <code><span class="t-prompt">$</span>npm install &amp;&amp; npm run check</code>
               <button class="copy-btn" type="button" data-copy="npm install && npm run check">Copy</button>
             </div>
-            <a class="button primary" href="ai-spend-live-0.7.1-source.zip" data-track-download="ai-spend-live-0.7.1-source.zip">Download v0.7.1</a>
+            <a class="button primary" href="ai-spend-live-0.7.2-source.zip" data-track-download="ai-spend-live-0.7.2-source.zip">Download v0.7.2</a>
             <a class="button" href="guard.html">Guard Playground &nearr;</a>
           </div>
           <p class="note">Local Node 22+ tool. Zero accounts, cookies, proxies, or prompt telemetry ever leave your machine.</p>
@@ -60,17 +60,17 @@
           <div class="harness-panel" role="tabpanel" id="panel-agy" aria-labelledby="tab-agy" data-harness-panel="agy">
             <div class="gif-stage">
               <div class="gif-stage-bar">
-                <span>Antigravity (AGY) &middot; <code>/swarm</code> &amp; dual Gemini + Claude/GPT pools</span>
-                <a href="demo-agy-swarm.gif?v=0.7.1" target="_blank" rel="noopener">Open GIF &nearr;</a>
+                <span>Antigravity (AGY) &middot; <code>/swarm</code> &amp; separate Gemini + Claude/GPT quotas</span>
+                <a href="demo-agy-swarm.gif?v=0.7.2" target="_blank" rel="noopener">Open GIF &nearr;</a>
               </div>
-              <a class="gif-frame" href="demo-agy-swarm.gif?v=0.7.1" target="_blank" rel="noopener">
-                <img src="demo-agy-swarm.gif?v=0.7.1" width="1000" height="560" alt="Animated terminal typing /swarm in Antigravity with live Gemini and Claude/GPT quota bars and worker progress" decoding="async">
+              <a class="gif-frame" href="demo-agy-swarm.gif?v=0.7.2" target="_blank" rel="noopener">
+                <img src="demo-agy-swarm.gif?v=0.7.2" width="1000" height="560" alt="Animated terminal typing /swarm in Antigravity with live Gemini and Claude/GPT quota bars and worker progress" decoding="async">
               </a>
             </div>
 
             <div class="cmd-bar-grid">
               <div class="cmd-bar-item">
-                <span class="cmd-bar-label">1. Check all 3 plans live</span>
+                <span class="cmd-bar-label">1. Check all plans live</span>
                 <div class="cmd-code-row"><code class="cmd-code">npm run check</code><button class="copy-btn" type="button" data-copy="npm run check">Copy</button></div>
               </div>
               <div class="cmd-bar-item">
@@ -89,12 +89,12 @@
                 <span class="note">Reads <code>~/.gemini/antigravity-cli</code> &amp; live <code>agy --print /usage</code> automatically</span>
               </div>
               <div class="knobs-table">
-                <div class="knob-spec-row"><span class="knob-spec-name">Dual-Pool Arbitrage</span><span class="knob-spec-desc">Tracks <code>Gemini</code> and <code>Claude/GPT</code> buckets separately so AGY absorbs Opus/coding overflow when native Claude is capped.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Per-Worker Tiering</span><span class="knob-spec-desc">Pairs a <code>Neon</code> coordinator with <code>Hydrogen</code> or <code>Flash</code> workers to keep parallel output fast without draining short windows.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Effort Suffix</span><span class="knob-spec-desc">Steps model suffixes from <code>-xhigh</code> (surplus) to <code>-high</code> (steady) or <code>-medium</code> when weekly or 5h pressure rises.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">5-Hour Burst Guard</span><span class="knob-spec-desc">Watches <code>gemini:session</code> &amp; <code>claude-gpt:session</code> separately so a 4-worker <code>/swarm</code> never trips the 5h wall early.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Context Hygiene</span><span class="knob-spec-desc">Flags bloated &gt;150k threads from 24h logs and recommends <code>/compact</code> or a fresh thread before replay drag compounds.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Surplus Scheduling</span><span class="knob-spec-desc">Spins up 3&ndash;4 worker <code>/swarm</code> or overnight <code>/goal</code> runs ahead of weekly reset so paid headroom never expires unused.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">AGY Claude/GPT quota</span><span class="knob-spec-desc">Tracks <code>Gemini</code> and <code>Claude/GPT</code> quotas separately so AGY absorbs Opus/coding overflow when native Claude is capped.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Mix big &amp; fast models</span><span class="knob-spec-desc">Pairs a <code>Neon</code> coordinator with <code>Hydrogen</code> or <code>Flash</code> workers to keep parallel output fast without draining short windows.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Effort level</span><span class="knob-spec-desc">Steps model suffixes from <code>-xhigh</code> (surplus) to <code>-high</code> (steady) or <code>-medium</code> when weekly or 5h pressure rises.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">5-hour burst limit</span><span class="knob-spec-desc">Watches <code>gemini:session</code> &amp; <code>claude-gpt:session</code> separately so a 4-worker <code>/swarm</code> never trips the 5h wall early.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Keep context lean</span><span class="knob-spec-desc">Flags bloated &gt;150k threads from 24h logs and recommends <code>/compact</code> or a fresh thread before replay drag compounds.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Surplus scheduling</span><span class="knob-spec-desc">Spins up 3&ndash;4 worker <code>/swarm</code> or overnight <code>/goal</code> runs ahead of weekly reset so paid headroom never expires unused.</span></div>
               </div>
             </div>
           </div>
@@ -104,16 +104,16 @@
             <div class="gif-stage">
               <div class="gif-stage-bar">
                 <span>Codex CLI &middot; <code>/fast</code>, effort &amp; banked resets</span>
-                <a href="demo-codex-fast.gif?v=0.7.1" target="_blank" rel="noopener">Open GIF &nearr;</a>
+                <a href="demo-codex-fast.gif?v=0.7.2" target="_blank" rel="noopener">Open GIF &nearr;</a>
               </div>
-              <a class="gif-frame" href="demo-codex-fast.gif?v=0.7.1" target="_blank" rel="noopener">
-                <img src="demo-codex-fast.gif?v=0.7.1" width="1000" height="560" alt="Animated terminal typing /fast on surplus and /fast off plus /model gpt-6.1-terra when Codex weekly headroom gets tight" decoding="async">
+              <a class="gif-frame" href="demo-codex-fast.gif?v=0.7.2" target="_blank" rel="noopener">
+                <img src="demo-codex-fast.gif?v=0.7.2" width="1000" height="560" alt="Animated terminal typing /fast on surplus and /fast off plus /model gpt-6.1-terra when Codex weekly headroom gets tight" decoding="async">
               </a>
             </div>
 
             <div class="cmd-bar-grid">
               <div class="cmd-bar-item">
-                <span class="cmd-bar-label">1. Check all 3 plans live</span>
+                <span class="cmd-bar-label">1. Check all plans live</span>
                 <div class="cmd-code-row"><code class="cmd-code">npm run check</code><button class="copy-btn" type="button" data-copy="npm run check">Copy</button></div>
               </div>
               <div class="cmd-bar-item">
@@ -147,16 +147,16 @@
             <div class="gif-stage">
               <div class="gif-stage-bar">
                 <span>Claude Code &middot; model tiers, <code>/clear</code> &amp; AGY overflow</span>
-                <a href="demo-claude-tiers.gif?v=0.7.1" target="_blank" rel="noopener">Open GIF &nearr;</a>
+                <a href="demo-claude-tiers.gif?v=0.7.2" target="_blank" rel="noopener">Open GIF &nearr;</a>
               </div>
-              <a class="gif-frame" href="demo-claude-tiers.gif?v=0.7.1" target="_blank" rel="noopener">
-                <img src="demo-claude-tiers.gif?v=0.7.1" width="1000" height="560" alt="Animated terminal running /compact and /model sonnet in Claude Code to drop context from 148k to 12k, then routing overflow to AGY Claude/GPT lane at 0%" decoding="async">
+              <a class="gif-frame" href="demo-claude-tiers.gif?v=0.7.2" target="_blank" rel="noopener">
+                <img src="demo-claude-tiers.gif?v=0.7.2" width="1000" height="560" alt="Animated terminal running /compact and /model sonnet in Claude Code to drop context from 148k to 12k, then routing overflow to AGY's separate Claude/GPT quota at 0%" decoding="async">
               </a>
             </div>
 
             <div class="cmd-bar-grid">
               <div class="cmd-bar-item">
-                <span class="cmd-bar-label">1. Check all 3 plans live</span>
+                <span class="cmd-bar-label">1. Check all plans live</span>
                 <div class="cmd-code-row"><code class="cmd-code">npm run check</code><button class="copy-btn" type="button" data-copy="npm run check">Copy</button></div>
               </div>
               <div class="cmd-bar-item">
@@ -175,10 +175,10 @@
                 <span class="note">Reads <code>~/.claude/projects</code> JSONL, sidechains &amp; live OAuth usage</span>
               </div>
               <div class="knobs-table">
-                <div class="knob-spec-row"><span class="knob-spec-name">Model Tier Split</span><span class="knob-spec-desc">Keeps <code>Opus</code> / <code>Fable</code> for plans and reviews, shifts edits to <code>Sonnet</code> / <code>Haiku</code>, or overflows to AGY Claude/GPT at 0%.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Model Tier Split</span><span class="knob-spec-desc">Keeps <code>Opus</code> / <code>Fable</code> for plans and reviews, shifts edits to <code>Sonnet</code> / <code>Haiku</code>, or overflows to AGY's separate Claude/GPT quota at 0%.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Effort Level</span><span class="knob-spec-desc">Scales per-turn reasoning from <code>high</code> / <code>max</code> in surplus down to <code>medium</code> as weekly cushion narrows.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Subagent Fan-Out Cap</span><span class="knob-spec-desc">Reacts to 24h sidechain share (&gt;35% &rarr; tighten to single-owner execution), since each sidechain builds a fresh window.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Context Gravity (/clear)</span><span class="knob-spec-desc">Reacts to 24h &gt;150k context turns &mdash; triggers a 6-bullet handoff + <code>/clear</code> between milestones.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Keep context lean</span><span class="knob-spec-desc">Reacts to 24h &gt;150k context turns &mdash; triggers a 6-bullet handoff + <code>/clear</code> between milestones.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Cache TTL Batching</span><span class="knob-spec-desc">Batches related edits inside the warm 5m/1h cache window to keep 90%+ cache-read reuse instead of rewriting cache.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Scoped vs Account Weekly</span><span class="knob-spec-desc">Tracks <code>weekly:fable</code> / <code>opus</code> beside account-wide <code>weekly</code> and keeps <code>/fast</code> off under quota pressure.</span></div>
               </div>
@@ -190,10 +190,10 @@
             <div class="gif-stage">
               <div class="gif-stage-bar">
                 <span>Pi Guard &middot; optional cross-plan auto-router &amp; watchdog</span>
-                <a href="demo-pi-guard.gif?v=0.7.1" target="_blank" rel="noopener">Open GIF &nearr;</a>
+                <a href="demo-pi-guard.gif?v=0.7.2" target="_blank" rel="noopener">Open GIF &nearr;</a>
               </div>
-              <a class="gif-frame" href="demo-pi-guard.gif?v=0.7.1" target="_blank" rel="noopener">
-                <img src="demo-pi-guard.gif?v=0.7.1" width="1000" height="560" alt="Animated terminal typing plain-English routing in Pi Guard and watching automatic failover and handoff save" decoding="async">
+              <a class="gif-frame" href="demo-pi-guard.gif?v=0.7.2" target="_blank" rel="noopener">
+                <img src="demo-pi-guard.gif?v=0.7.2" width="1000" height="560" alt="Animated terminal typing plain-English routing in Pi Guard and watching automatic failover and handoff save" decoding="async">
               </a>
             </div>
 
@@ -222,12 +222,23 @@
                 <div class="knob-spec-row"><span class="knob-spec-name">Task Routing Rules</span><span class="knob-spec-desc"><code>/guard-rule</code> or plain English (<code>"use agy then codex"</code>) steers routing locally in 0ms with zero model tokens.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Work Modes</span><span class="knob-spec-desc">Switch <code>continuous</code>, <code>preserve</code>, or <code>max</code> to tighten context ceilings, output caps, and reasoning effort on the fly.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Tool Archive &amp; Loops</span><span class="knob-spec-desc">Trims oversized tool output before replay, trips repeated failing calls, and allows one bounded repair attempt.</span></div>
-                <div class="knob-spec-row"><span class="knob-spec-name">Silent Refusal Fallback</span><span class="knob-spec-desc">Detects quota-wall text replies, marks the bucket exhausted, and automatically fails over to the next open model or plan.</span></div>
+                <div class="knob-spec-row"><span class="knob-spec-name">Silent Refusal Fallback</span><span class="knob-spec-desc">Detects quota-wall text replies, marks the quota exhausted, and automatically fails over to the next open model or plan.</span></div>
                 <div class="knob-spec-row"><span class="knob-spec-name">Unattended Watchdog</span><span class="knob-spec-desc"><code>npm run guard:watch</code> restarts a dead controller, refreshes stale quotas, and resumes stalled overnight runs from handoffs.</span></div>
               </div>
             </div>
           </div>
         </div>
+
+        <aside class="other-tools-card" aria-label="Works with other AI tools">
+          <div class="other-tools-copy">
+            <div class="other-tools-title"><span class="state-tag state-balanced">Extensible</span> Works with other tools too</div>
+            <p>Beyond automatic local readers for Claude, Codex, and Antigravity, plug in <strong>Cursor, GitHub Copilot, Windsurf, Gemini CLI, OpenCode, or any custom subscription</strong> via <code>custom-providers.json</code> (live load-balancing &amp; check-ins) plus optional normalized JSONL imports (<code>AI_SPEND_IMPORT</code>).</p>
+          </div>
+          <div class="other-tools-cmd">
+            <code>npm run check -- --custom custom-providers.json</code>
+            <button class="copy-btn" type="button" data-copy="npm run check -- --custom custom-providers.json">Copy</button>
+          </div>
+        </aside>
       </section>
 
       <!-- Section 2: Compact Live Snapshot + Interactive Simulator -->
@@ -257,17 +268,23 @@
         <pre class="guard-footer" id="guardFooter" aria-label="Pi Guard footer">Guard · loading live snapshot…</pre>
         <p class="note" id="guardSnapshotNote">Sanitized snapshot exported with <code>npm run guard:snapshot</code>: percentages, tuning knobs, counters, and model IDs only.</p>
 
-        <div class="sim-panel" id="simulator">
+        <div class="sim-panel" id="simulator" data-autodemo="paused">
           <div class="sim-head">
             <div>
               <h3>Interactive Check-In Simulator</h3>
-              <p>Drag remaining quota or reset hours to see live priority order and all 6 tuning knobs react in real time.</p>
+              <p>Watch how load-balancing shifts across four real scenarios, or drag any slider to test your own mix.</p>
             </div>
-            <div class="sim-presets" role="group" aria-label="Simulator scenarios">
-              <button class="preset-btn active" type="button" data-preset="tonight">Real night mix</button>
-              <button class="preset-btn" type="button" data-preset="surplus">Codex surplus</button>
-              <button class="preset-btn" type="button" data-preset="fresh">Fresh week</button>
-              <button class="preset-btn" type="button" data-preset="crunch">Crunch mode</button>
+            <div class="sim-head-controls">
+              <div class="sim-status" id="simAutoStatus" aria-live="off">
+                <span class="sim-status-dot" aria-hidden="true"></span>
+                <span>Auto-demo &middot; drag any slider to take control</span>
+              </div>
+              <div class="sim-presets" role="group" aria-label="Simulator scenarios">
+                <button class="preset-btn active" type="button" data-preset="agy">AGY surplus</button>
+                <button class="preset-btn" type="button" data-preset="codex">Codex expiring</button>
+                <button class="preset-btn" type="button" data-preset="claude">Claude reset</button>
+                <button class="preset-btn" type="button" data-preset="tight">All tight</button>
+              </div>
             </div>
           </div>
 
@@ -275,11 +292,11 @@
             <div class="sim-col col-agy">
               <div class="sim-col-title"><span><i class="dot dot-agy"></i> Antigravity</span><span class="state-tag" id="simAgyBadge">surplus</span></div>
               <label class="slider-field">
-                <span class="slider-label"><span>Gemini lane</span><strong id="simAgyGemVal">73%</strong></span>
-                <input id="simAgyGem" type="range" min="0" max="100" value="73">
+                <span class="slider-label"><span>Gemini quota</span><strong id="simAgyGemVal">72%</strong></span>
+                <input id="simAgyGem" type="range" min="0" max="100" value="72">
               </label>
               <label class="slider-field">
-                <span class="slider-label"><span>Claude / GPT lane</span><strong id="simAgyCgVal">97%</strong></span>
+                <span class="slider-label"><span>AGY Claude/GPT quota</span><strong id="simAgyCgVal">97%</strong></span>
                 <input id="simAgyCg" type="range" min="0" max="100" value="97">
               </label>
               <label class="slider-field">
@@ -289,14 +306,14 @@
             </div>
 
             <div class="sim-col col-codex">
-              <div class="sim-col-title"><span><i class="dot dot-codex"></i> Codex</span><span class="state-tag" id="simCodexBadge">hot</span></div>
+              <div class="sim-col-title"><span><i class="dot dot-codex"></i> Codex</span><span class="state-tag" id="simCodexBadge">exhausted</span></div>
               <label class="slider-field">
                 <span class="slider-label"><span>Weekly remaining</span><strong id="simCodexRemVal">5%</strong></span>
                 <input id="simCodexRem" type="range" min="0" max="100" value="5">
               </label>
               <label class="slider-field">
-                <span class="slider-label"><span>Reset in</span><strong id="simCodexHrsVal">16h</strong></span>
-                <input id="simCodexHrs" type="range" min="1" max="168" value="16">
+                <span class="slider-label"><span>Reset in</span><strong id="simCodexHrsVal">11h</strong></span>
+                <input id="simCodexHrs" type="range" min="1" max="168" value="11">
               </label>
             </div>
 
@@ -307,8 +324,8 @@
                 <input id="simClaudeRem" type="range" min="0" max="100" value="0">
               </label>
               <label class="slider-field">
-                <span class="slider-label"><span>Reset in</span><strong id="simClaudeHrsVal">48h (2.0d)</strong></span>
-                <input id="simClaudeHrs" type="range" min="1" max="168" value="48">
+                <span class="slider-label"><span>Reset in</span><strong id="simClaudeHrsVal">42h</strong></span>
+                <input id="simClaudeHrs" type="range" min="1" max="168" value="42">
               </label>
             </div>
           </div>
@@ -483,12 +500,12 @@
       <!-- Section 4: Downloads -->
       <section class="section" id="install">
         <div class="download-grid">
-          <a class="download-card featured" href="ai-spend-live-0.7.1-source.zip" data-track-download="ai-spend-live-0.7.1-source.zip">
+          <a class="download-card featured" href="ai-spend-live-0.7.2-source.zip" data-track-download="ai-spend-live-0.7.2-source.zip">
             <div>
-              <strong>ai-spend-live-0.7.1-source.zip</strong>
-              <p>Latest release: 6 live per-harness tuning knobs across Antigravity, Codex, and Claude, streamlined Guard UI, and zero-PII site counter.</p>
+              <strong>ai-spend-live-0.7.2-source.zip</strong>
+              <p>Latest release: plain-English load-balancing across Claude, Codex, Antigravity, and custom subscriptions (<code>custom-providers.json</code>), auto-animated simulator, and clean Guard UI.</p>
             </div>
-            <span class="download-meta">Primary download &middot; v0.7.1 &darr;</span>
+            <span class="download-meta">Primary download &middot; v0.7.2 &darr;</span>
           </a>
           <a class="download-card" href="guard.html">
             <div>
@@ -497,26 +514,26 @@
             </div>
             <span class="download-meta">Open guard.html &nearr;</span>
           </a>
-          <a class="download-card" href="ai-spend-live-0.7.0-source.zip" data-track-download="ai-spend-live-0.7.0-source.zip">
+          <a class="download-card" href="ai-spend-live-0.7.1-source.zip" data-track-download="ai-spend-live-0.7.1-source.zip">
             <div>
-              <strong>ai-spend-live-0.7.0-source.zip</strong>
+              <strong>ai-spend-live-0.7.1-source.zip</strong>
               <p>Previous release archive. Browse full commit history and release notes on GitHub.</p>
             </div>
-            <span class="download-meta">Previous release &middot; v0.7.0 &darr;</span>
+            <span class="download-meta">Previous release &middot; v0.7.1 &darr;</span>
           </a>
         </div>
       </section>
     </main>
 
     <footer>
-      <span>AI Spend Live 0.7.1 &middot; Built by Anthony DiPerna &middot; MIT License. Aggregate counts only; zero cookies or PII.</span>
-      <span><a href="guard.html">Guard Playground</a> &middot; <a href="guard-walkthrough.gif?v=0.7.1">Walkthrough GIF</a> &middot; <a href="https://github.com/AnthonyDiPerna/aispend-live">GitHub</a></span>
+      <span>AI Spend Live 0.7.2 &middot; Built by Anthony DiPerna &middot; MIT License. Aggregate counts only; zero cookies or PII.</span>
+      <span><a href="guard.html">Guard Playground</a> &middot; <a href="guard-walkthrough.gif?v=0.7.2">Walkthrough GIF</a> &middot; <a href="https://github.com/AnthonyDiPerna/aispend-live">GitHub</a></span>
     </footer>
   </div>
 
   <!-- Sanitized aggregate fallbacks so local file:// previews or offline views always render real data -->
-  <script id="fallbackGuardSnapshot" type="application/json">{"generatedAt":"2026-11-23T12:52:23.294Z","source":"controller","version":"0.7.1","policy":{"usageMode":"continuous","providerOrder":["claude","codex","agy"],"blockedProviders":[],"reservePercent":10,"maxRequestsPerTask":40,"maxTaskMinutes":60,"maxContextTokens":80000,"maxThinkingLevel":"medium","maxSubagentCalls":0,"allowApiSpend":false},"recommendedProvider":null,"footer":"Guard · Claude 0%∅ · Codex 5% · AGY 70% · next: Claude resets in 34h","providers":[{"provider":"claude","status":"depleted","blocked":false,"configured":false,"model":null,"remainingPercent":0,"resetIn":"34h","resetAt":"2026-11-24T23:00:00.000Z","burnPercentPerHour":null,"runOutIn":null,"windows":[{"id":"weekly","modelFamily":null,"remainingPercent":0,"resetIn":"34h","applies":true},{"id":"weekly:fable","modelFamily":"fable","remainingPercent":49,"resetIn":"34h","applies":true}]},{"provider":"codex","status":"reserve","blocked":false,"configured":false,"model":null,"remainingPercent":5,"resetIn":"3h","resetAt":"2026-11-23T15:52:24.000Z","burnPercentPerHour":0,"runOutIn":null,"windows":[{"id":"codex:primary","modelFamily":null,"remainingPercent":5,"resetIn":"3h","applies":true}]},{"provider":"agy","status":"ready","blocked":false,"configured":false,"model":null,"remainingPercent":70,"resetIn":"6d","resetAt":"2026-11-29T03:15:07.000Z","burnPercentPerHour":null,"runOutIn":null,"windows":[{"id":"gemini:weekly","modelFamily":"gemini","remainingPercent":70,"resetIn":"6d","applies":true},{"id":"gemini:session","modelFamily":"gemini","remainingPercent":94,"resetIn":"4h","applies":true},{"id":"claude-gpt:weekly","modelFamily":"claude-gpt","remainingPercent":97,"resetIn":"6d","applies":true},{"id":"claude-gpt:session","modelFamily":"claude-gpt","remainingPercent":100,"resetIn":"5h","applies":true}]}],"optimizer":{"headline":"Run AGY /swarm (70% Gemini · 97% Claude/GPT open) · keep Codex /fast OFF (5% left, resets in 3h) · hold Claude (34h to reset)","strategy":"accelerate","primaryProvider":"agy","secondaryProvider":"codex","nextUnlock":{"provider":"codex","windowId":"codex:primary","resetAt":"2026-11-23T15:52:24.000Z","hoursLeft":3,"resetIn":"3h","label":"Codex Weekly limit resets in 3h"},"recommendedOrder":["agy","codex","claude"],"providers":[{"provider":"agy","label":"Antigravity (AGY)","status":"ready","utilizationState":"surplus","remainingPercent":70,"usablePercent":60,"resetIn":"6d","resetAt":"2026-11-29T03:15:07.000Z","hoursLeft":134.4,"targetPercentPerDay":10.7,"projectedUnusedAtReset":0,"bankedResets":0,"windows":[{"windowId":"gemini:weekly","modelFamily":"gemini","label":"Gemini weekly","remainingPercent":70,"resetIn":"6d","status":"ready","applies":true},{"windowId":"gemini:session","modelFamily":"gemini","label":"Gemini 5h session","remainingPercent":94,"resetIn":"4h","status":"ready","applies":true},{"windowId":"claude-gpt:weekly","modelFamily":"claude-gpt","label":"Claude/GPT weekly","remainingPercent":97,"resetIn":"6d","status":"ready","applies":true},{"windowId":"claude-gpt:session","modelFamily":"claude-gpt","label":"Claude/GPT 5h session","remainingPercent":100,"resetIn":"5h","status":"ready","applies":true}],"playbook":{"mode":"accelerate","headline":"Run /swarm (3–4 workers + verifier) on Gemini (70%) + tap AGY Claude/GPT lane (97%)","badges":["/swarm 3-4 workers + verifier","Gemini Neon / Hydrogen","Claude/GPT lane 97%"],"knobs":[{"id":"swarm-size","label":"/swarm workers","state":"boost","value":"3–4 workers + verifier","reason":"Gemini has 70% left (94% 5h) — safe for 3–4 parallel workers plus a verifier.","command":"/swarm"},{"id":"dual-pool","label":"Dual-pool routing","state":"boost","value":"Tap Claude/GPT lane (97%)","reason":"Native Claude is exhausted while AGY's separate Claude/GPT pool has 97% left (100% 5h) — route Opus/coding overflow here.","command":"/model claude-opus-5-5-high"},{"id":"worker-tier","label":"Worker model tiering","state":"boost","value":"Neon coord + Hydrogen/Flash","reason":"Keep coordinator sharp on Neon while Hydrogen/Flash workers absorb parallel edits so the 5h burst cap stays comfortable.","command":"/model gemini-4-neon-high"},{"id":"effort-suffix","label":"Model effort suffix","state":"boost","value":"-xhigh / -high","reason":"Surplus weekly (70%) and healthy 5h headroom support -xhigh on hard problems and -high on workers.","command":"/model gemini-4-neon-xhigh"},{"id":"session-5h","label":"5h burst guard","state":"boost","value":"Gem 5h 94% · CG 5h 100%","reason":"5h burst windows are wide open (Gem 5h 94%, CG 5h 100%) — safe for multi-worker /swarm bursts without tripping the 5h wall."},{"id":"context-compact","label":"Context & /goal timing","state":"boost","value":"/goal open · /compact at milestones","reason":"Plenty of weekly runway for /goal tasks — /compact when switching subsystems to protect the 5h burst window.","command":"/goal"}],"guidance":["Gemini has 70% left (94% 5h) — fire up /swarm with 3–4 parallel workers + a verifier on Gemini Neon or Hydrogen.","AGY's separate Claude/GPT lane has 97% left (100% 5h) while native Claude & Codex are tight — route Opus-tier planning or overflow coding there."],"commands":["/swarm","/model gemini-4-neon-high","/model claude-opus-5-5-high"]}},{"provider":"codex","label":"Codex","status":"reserve","utilizationState":"hot","remainingPercent":5,"usablePercent":0,"resetIn":"3h","resetAt":"2026-11-23T15:52:24.000Z","hoursLeft":3,"targetPercentPerDay":0,"projectedUnusedAtReset":5,"bankedResets":0,"windows":[{"windowId":"codex:primary","modelFamily":null,"label":"Weekly limit","remainingPercent":5,"resetIn":"3h","status":"reserve","applies":true}],"playbook":{"mode":"conserve","headline":"Codex low (5% left, resets in 3h) — turn /fast OFF, use Terra/Luna or wait","badges":["/fast OFF (2x-8x burn)","Terra / Luna or wait","Resets in 3h"],"knobs":[{"id":"speed-tier","label":"/fast speed tier","state":"off","value":"OFF (/fast off)","reason":"Only 5% left (3h to reset) — turn /fast OFF to block 2x priority and 8x ultrafast burn.","command":"/fast off"},{"id":"reasoning-effort","label":"Reasoning effort","state":"tighten","value":"low / medium","reason":"67% of 24h Codex tokens ran at xhigh/max while only 5% remains — drop immediately to low/medium.","command":"/effort low"},{"id":"model-tier","label":"Model stepping","state":"tighten","value":"gpt-6.1-terra / gpt-6-luna","reason":"Only 5% left before the 3h reset — step down to gpt-6.1-terra or gpt-6-luna for essential edits.","command":"/model gpt-6.1-terra"},{"id":"context-cliff","label":"272k context cliff","state":"tighten","value":"Checkpoint <250k (78% >150k)","reason":"78% of 24h Codex tokens exceeded 150k context — checkpoint into a fresh thread before 250k so you never hit the 272k 2x input cliff.","command":"/new"},{"id":"subagents-review","label":"Subagents & auto-review","state":"tighten","value":"Single-thread · auto-review OFF","reason":"Codex is tight (5% left) — pause subagent fan-out and disable automatic review passes until reset.","command":"/model gpt-6-luna"},{"id":"banked-resets","label":"Banked resets & cache","state":"boost","value":"0 banked · 89% cache","reason":"No banked reset credits on hand. 24h prefix cache reuse is 89%."}],"guidance":["Turn /fast OFF immediately — priority speed multiplies burn 2x–8x and only 5% remains before the 3h reset.","Step down to Terra or Luna with low/medium effort, or hold Codex for 3h and use AGY."],"commands":["/fast off","/effort low","/model gpt-6.1-terra"]}},{"provider":"claude","label":"Claude","status":"depleted","utilizationState":"exhausted","remainingPercent":0,"usablePercent":0,"resetIn":"34h","resetAt":"2026-11-24T23:00:00.000Z","hoursLeft":34.1,"targetPercentPerDay":0,"projectedUnusedAtReset":0,"bankedResets":0,"windows":[{"windowId":"weekly","modelFamily":null,"label":"All models weekly","remainingPercent":0,"resetIn":"34h","status":"depleted","applies":true},{"windowId":"weekly:fable","modelFamily":"fable","label":"Fable weekly","remainingPercent":49,"resetIn":"34h","status":"ready","applies":true}],"playbook":{"mode":"pause","headline":"Claude exhausted (34h to reset) — shift Opus/coding to AGY Claude/GPT lane (97% left)","badges":["Exhausted","Resets in 34h","Shift to AGY Claude/GPT (97%)"],"knobs":[{"id":"model-tier","label":"Model tier split","state":"off","value":"Shift to AGY Claude/GPT","reason":"Native Claude is exhausted (34h to reset) — shift Opus/coding work to AGY's Claude/GPT lane (97% left).","command":"/model claude-opus-5-5-high"},{"id":"effort-level","label":"Per-turn effort","state":"off","value":"OFF (exhausted)","reason":"Native Claude is paused until the 34h reset."},{"id":"subagent-fanout","label":"Subagent fan-out cap","state":"off","value":"OFF (exhausted)","reason":"Pause sidechain fan-out until native Claude resets in 34h."},{"id":"context-gravity","label":"Context gravity & /clear","state":"off","value":"/clear before resume","reason":"Prepare a 6-bullet handoff and /clear stale context before Claude unlocks in 34h.","command":"/clear"},{"id":"cache-ttl","label":"Cache TTL batching","state":"off","value":"Queue batch for reset","reason":"Cluster queued edits inside the 5m/1h cache window once Claude resets in 34h."},{"id":"scoped-windows","label":"Scoped weekly & /fast","state":"off","value":"Fable weekly 49% (overall 0%)","reason":"Fable weekly still has 49% left, but account-wide weekly is capped at 0% (resets in 34h) — keep /fast OFF when resuming.","command":"/usage"}],"guidance":["Hold native Claude until its allowance resets in 34h.","Shift Opus/coding work to AGY's Claude/GPT lane (97% left) right now.","Note: Fable weekly still shows 49%, but the overall weekly cap at 0% blocks Claude until 34h."],"commands":["/model claude-opus-5-5-high"]}}],"alerts":[{"kind":"lane-opportunity","severity":"opportunity","provider":"agy","title":"AGY Claude/GPT lane is 97% free","detail":"Native Claude is exhausted, while AGY's separate Claude/GPT bucket still has 97% remaining.","command":"/model claude-opus-5-5-high"},{"kind":"swarm-ready","severity":"opportunity","provider":"agy","title":"AGY Gemini ready for /swarm (70% left)","detail":"Plenty of Gemini weekly & session headroom — run 3–4 parallel /swarm workers + verifier on Neon or Hydrogen.","command":"/swarm"},{"kind":"fast-burn","severity":"warn","provider":"codex","title":"Turn Codex /fast OFF (5% left)","detail":"/fast multiplies Codex quota burn 2x–8x. With 3h until reset, switch to standard speed on Terra/Luna or wait.","command":"/fast off"},{"kind":"exhausted","severity":"warn","provider":"claude","title":"Claude exhausted (resets in 34h)","detail":"Hold native Claude until its allowance resets in 34h. Shift Opus/coding work to AGY's Claude/GPT lane (97% left) right now.","command":"/model claude-opus-5-5-high"}],"quickCommands":[{"tool":"agy","label":"Launch AGY /swarm","command":"/swarm","why":"Gemini has 70% left — run 3–4 workers + verifier"},{"tool":"agy","label":"Tap AGY Claude/GPT lane","command":"/model claude-opus-5-5-high","why":"AGY Claude/GPT bucket is 97% free"},{"tool":"codex","label":"Turn Codex /fast OFF","command":"/fast off","why":"Only 5% left (3h to reset) — prevent 2x–8x burn"},{"tool":"pi","label":"Auto-order Pi Guard","command":"/guard-order auto","why":"Applies AGY > Codex > Claude priority"},{"tool":"cli","label":"Live check-in","command":"npm run check","why":"Instant terminal cockpit across AGY, Codex, and Claude"}]},"tasks":[],"interventions":{},"impact":{"removedChars":0,"estimatedInputTokensAvoided":0,"loopBlocks":0},"insights":{"since":"2026-11-13T14:28:48.041Z","providers":[{"provider":"claude","requests":6291,"totalTokens":2797000493,"cachePercent":98,"metrics":[{"id":"subagents","label":"Tokens in subagent requests","percent":91.5},{"id":"context","label":"Tokens in requests with >150k input context","percent":97.2},{"id":"effort","label":"Max / ultra / xhigh effort, where recorded","percent":null},{"id":"long","label":"Tokens in sessions spanning 8+ hours","percent":43},{"id":"cache","label":"Recorded input tokens read from cache","percent":98.5}]},{"provider":"codex","requests":38,"totalTokens":4460785,"cachePercent":89,"metrics":[{"id":"subagents","label":"Tokens in subagent requests","percent":22.3},{"id":"context","label":"Tokens in requests with >150k input context","percent":77.7},{"id":"effort","label":"Max / ultra / xhigh effort, where recorded","percent":67.2},{"id":"long","label":"Tokens in sessions spanning 8+ hours","percent":77.7},{"id":"cache","label":"Recorded input tokens read from cache","percent":89.1}]}]},"events":[{"at":"2026-11-14T14:28:48.058Z","kind":"settings","detail":"Usage-based protection: Large contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shor"}],"note":"Sanitized local snapshot: percentages, hashed task prefixes, optimizer guidance, counters and model IDs. No prompts, files or account identity."}</script>
-  <script id="fallbackDemoData" type="application/json">{"schema":"ai-spend-live-public-demo/v1","releaseVersion":"0.7.1","generatedOn":"2026-11-23","period":"Recent 30-day example","privacy":"Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.","coverageNote":"This example reflects supported local sources only; it is not an all-cloud or all-chat tracker.","coverage":[{"source":"Claude JSONL","files":353,"events":68644,"sessions":353},{"source":"Codex JSONL / state SQLite","files":2299,"events":64966,"sessions":2241},{"source":"Antigravity JSONL / SQLite","files":108,"events":7085,"sessions":99}],"totals":{"tokens":36599370361,"turns":139937,"sessions":2661,"breakdownUnknownTokens":122353269,"cacheReuse":0.9827336519641143,"cacheReuseScope":"known token breakdown only","estimatedApiUsd":10167.150116830118,"inputTokens":318179432,"cachedInputTokens":35754475313,"cacheWriteTokens":310016431,"outputTokens":94345916,"estimatedInputUsd":8731.41804773,"estimatedOutputUsd":1435.7320691},"models":[{"key":"claude:claude-opus-5-5","provider":"claude","model":"claude-opus-5-5","tokens":20872289277,"turns":53883,"share":0.5702909386452546,"inputTokens":110194,"cachedInputTokens":20583423250,"outputTokens":45715550,"cacheWriteTokens":243040283,"unknownBreakdownTokens":0,"estimatedInputUsd":5337.038853999998,"estimatedOutputUsd":914.311,"estimatedApiUsd":6251.349853999997,"pricingKnown":true},{"key":"claude:claude-fable-5-2","provider":"claude","model":"claude-fable-5-2","tokens":4296297351,"turns":11457,"share":0.11738719296597792,"inputTokens":25242,"cachedInputTokens":4231561337,"outputTokens":14046911,"cacheWriteTokens":50663861,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-5.6-luna","provider":"codex","model":"gpt-5.6-luna","tokens":2822739898,"turns":19761,"share":0.07712536773604961,"inputTokens":44738637,"cachedInputTokens":2770773248,"outputTokens":7228013,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":64.36319235999994,"estimatedOutputUsd":8.6736156,"estimatedApiUsd":73.03680795999995,"pricingKnown":true},{"key":"codex:gpt-6-astra","provider":"codex","model":"gpt-6-astra","tokens":2273339397,"turns":14217,"share":0.062114166844314145,"inputTokens":31229454,"cachedInputTokens":2121090304,"outputTokens":6230588,"cacheWriteTokens":0,"unknownBreakdownTokens":114789051,"estimatedInputUsd":2472.005506000002,"estimatedOutputUsd":311.5294,"estimatedApiUsd":2783.5349060000017,"pricingKnown":true},{"key":"codex:gpt-6.2-sol","provider":"codex","model":"gpt-6.2-sol","tokens":1056863251,"turns":7184,"share":0.028876541879698157,"inputTokens":10170416,"cachedInputTokens":1045287424,"outputTokens":1405411,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:codex-auto-review","provider":"codex","model":"codex-auto-review","tokens":1015019228,"turns":14033,"share":0.027733242894298436,"inputTokens":102793364,"cachedInputTokens":904942848,"outputTokens":1373062,"cacheWriteTokens":0,"unknownBreakdownTokens":5909954,"estimatedInputUsd":241.60956099999987,"estimatedOutputUsd":13.73062,"estimatedApiUsd":255.34018099999986,"pricingKnown":true},{"key":"agy:gemini-4-neon-xhigh","provider":"agy","model":"gemini-4-neon-xhigh","tokens":916879705,"turns":3391,"share":0.025051789032333183,"inputTokens":47369731,"cachedInputTokens":862801742,"outputTokens":6708232,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6.1-sol","provider":"codex","model":"gpt-6.1-sol","tokens":779395207,"turns":3809,"share":0.02129531735962642,"inputTokens":9915758,"cachedInputTokens":767314944,"outputTokens":2164505,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":136.73350860000005,"estimatedOutputUsd":21.64505,"estimatedApiUsd":158.37855860000005,"pricingKnown":true},{"key":"codex:gpt-6.2-astra","provider":"codex","model":"gpt-6.2-astra","tokens":705822497,"turns":4033,"share":0.019285099444008986,"inputTokens":6753679,"cachedInputTokens":698478464,"outputTokens":590354,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"claude:claude-fable-5-1","provider":"claude","model":"claude-fable-5-1","tokens":657877460,"turns":2125,"share":0.01797510321929005,"inputTokens":25714,"cachedInputTokens":642516089,"outputTokens":3030252,"cacheWriteTokens":12305405,"unknownBreakdownTokens":0,"estimatedInputUsd":395.6009447500004,"estimatedOutputUsd":151.5126,"estimatedApiUsd":547.1135447500004,"pricingKnown":true},{"key":"agy:gemini-4-carbon-high","provider":"agy","model":"gemini-4-carbon-high","tokens":279609263,"turns":967,"share":0.007639728777901311,"inputTokens":20823378,"cachedInputTokens":257203140,"outputTokens":1582745,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-neon-high","provider":"agy","model":"gemini-4-neon-high","tokens":185431398,"turns":606,"share":0.005066518799940729,"inputTokens":10494455,"cachedInputTokens":173874980,"outputTokens":1061963,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6-sol","provider":"codex","model":"gpt-6-sol","tokens":181242992,"turns":1427,"share":0.004952079508808466,"inputTokens":1286024,"cachedInputTokens":179475840,"outputTokens":481128,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":38.46721600000008,"estimatedOutputUsd":4.81128,"estimatedApiUsd":43.27849600000008,"pricingKnown":true},{"key":"agy:gemini-4-argon-high","provider":"agy","model":"gemini-4-argon-high","tokens":172595775,"turns":621,"share":0.0047158126846880595,"inputTokens":8974347,"cachedInputTokens":162967171,"outputTokens":654257,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-neon-medium","provider":"agy","model":"gemini-4-neon-medium","tokens":106584810,"turns":485,"share":0.0029122033780552667,"inputTokens":9996680,"cachedInputTokens":96152705,"outputTokens":435425,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-argon-medium","provider":"agy","model":"gemini-4-argon-medium","tokens":83374752,"turns":527,"share":0.00227803787818283,"inputTokens":4770290,"cachedInputTokens":78193915,"outputTokens":410547,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"claude:claude-sonnet-5-5","provider":"claude","model":"claude-sonnet-5-5","tokens":73259404,"turns":450,"share":0.002001657495126327,"inputTokens":946,"cachedInputTokens":68689984,"outputTokens":561592,"cacheWriteTokens":4006882,"unknownBreakdownTokens":0,"estimatedInputUsd":16.888095399999976,"estimatedOutputUsd":5.61592,"estimatedApiUsd":22.504015399999975,"pricingKnown":true},{"key":"codex:gpt-5.6-sol","provider":"codex","model":"gpt-5.6-sol","tokens":56702972,"turns":462,"share":0.001549288182848693,"inputTokens":1710394,"cachedInputTokens":54510464,"outputTokens":194927,"cacheWriteTokens":0,"unknownBreakdownTokens":287187,"estimatedInputUsd":28.64576160000001,"estimatedOutputUsd":3.89854,"estimatedApiUsd":32.54430160000001,"pricingKnown":true},{"key":"agy:gemini-3.8-flash-medium","provider":"agy","model":"gemini-3.8-flash-medium","tokens":27878828,"turns":258,"share":0.0007617297162496396,"inputTokens":2532248,"cachedInputTokens":25193555,"outputTokens":153025,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-hydrogen-tiered-xhigh","provider":"agy","model":"gemini-4-hydrogen-tiered-xhigh","tokens":19896408,"turns":83,"share":0.000543627057070945,"inputTokens":1657544,"cachedInputTokens":18118876,"outputTokens":119988,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:unknown","provider":"agy","model":"unknown","tokens":9018539,"turns":81,"share":0.0002464124084935102,"inputTokens":1829990,"cachedInputTokens":7088989,"outputTokens":99560,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:claude-opus-5-5-medium","provider":"agy","model":"claude-opus-5-5-medium","tokens":3919206,"turns":27,"share":0.00010708397334005164,"inputTokens":312933,"cachedInputTokens":3591252,"outputTokens":15021,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:unknown","provider":"codex","model":"unknown","tokens":1367077,"turns":2,"share":0.00003735247318507824,"inputTokens":0,"cachedInputTokens":0,"outputTokens":0,"cacheWriteTokens":0,"unknownBreakdownTokens":1367077,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6-luna","provider":"codex","model":"gpt-6-luna","tokens":1149250,"turns":7,"share":0.000031400813420130085,"inputTokens":459601,"cachedInputTokens":685952,"outputTokens":3697,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":0.052819620000000005,"estimatedOutputUsd":0.0018485,"estimatedApiUsd":0.05466812000000001,"pricingKnown":true},{"key":"agy:claude-opus-5-5-high","provider":"agy","model":"claude-opus-5-5-high","tokens":553485,"turns":6,"share":0.000015122801144956014,"inputTokens":99428,"cachedInputTokens":401156,"outputTokens":52901,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-hydrogen-tiered-high","provider":"agy","model":"gemini-4-hydrogen-tiered-high","tokens":217517,"turns":31,"share":0.000005943189673879865,"inputTokens":83220,"cachedInputTokens":110291,"outputTokens":24006,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6.1-terra","provider":"codex","model":"gpt-6.1-terra","tokens":36861,"turns":2,"share":0.0000010071484737693408,"inputTokens":11334,"cachedInputTokens":25088,"outputTokens":439,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":0.0125884,"estimatedOutputUsd":0.002195,"estimatedApiUsd":0.014783399999999999,"pricingKnown":true},{"key":"agy:gemini-3.8-flash-high","provider":"agy","model":"gemini-3.8-flash-high","tokens":8553,"turns":2,"share":2.3369254486175558e-7,"inputTokens":4431,"cachedInputTokens":2305,"outputTokens":1817,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false}],"daily":[{"period":"Day 1","tokens":1928042011,"turns":13314},{"period":"Day 2","tokens":3577969836,"turns":11536},{"period":"Day 3","tokens":3490739509,"turns":10004},{"period":"Day 4","tokens":4753994620,"turns":12912},{"period":"Day 5","tokens":461029162,"turns":2272},{"period":"Day 6","tokens":1129424032,"turns":4060},{"period":"Day 7","tokens":92753085,"turns":448}],"dailyByModel":[{"key":"agy:gemini-3.8-flash-medium","model":"gemini-3.8-flash-medium","date":"2026-11-17","period":"Day 1","tokens":10917120},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-17","period":"Day 1","tokens":108294232},{"key":"codex:gpt-5.6-luna","model":"gpt-5.6-luna","date":"2026-11-17","period":"Day 1","tokens":653506565},{"key":"codex:gpt-5.6-sol","model":"gpt-5.6-sol","date":"2026-11-17","period":"Day 1","tokens":2057369},{"key":"codex:gpt-6-astra","model":"gpt-6-astra","date":"2026-11-17","period":"Day 1","tokens":239167019},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-17","period":"Day 1","tokens":285790953},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-17","period":"Day 1","tokens":628308753},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-18","period":"Day 2","tokens":2345848657},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-18","period":"Day 2","tokens":755638782},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-18","period":"Day 2","tokens":7081090},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-18","period":"Day 2","tokens":245883164},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-18","period":"Day 2","tokens":223518143},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-19","period":"Day 3","tokens":442122994},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-19","period":"Day 3","tokens":3048616515},{"key":"agy:claude-opus-5-5-medium","model":"claude-opus-5-5-medium","date":"2026-11-20","period":"Day 4","tokens":2639674},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-20","period":"Day 4","tokens":48225339},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-20","period":"Day 4","tokens":99362},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-20","period":"Day 4","tokens":87178871},{"key":"agy:gemini-4-neon-medium","model":"gemini-4-neon-medium","date":"2026-11-20","period":"Day 4","tokens":55815064},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-20","period":"Day 4","tokens":378739975},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-20","period":"Day 4","tokens":3942704099},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-20","period":"Day 4","tokens":6628291},{"key":"codex:gpt-5.6-sol","model":"gpt-5.6-sol","date":"2026-11-20","period":"Day 4","tokens":420588},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-20","period":"Day 4","tokens":158470198},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-20","period":"Day 4","tokens":73073159},{"key":"agy:claude-opus-5-5-high","model":"claude-opus-5-5-high","date":"2026-11-21","period":"Day 5","tokens":553485},{"key":"agy:claude-opus-5-5-medium","model":"claude-opus-5-5-medium","date":"2026-11-21","period":"Day 5","tokens":1279532},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-21","period":"Day 5","tokens":52609590},{"key":"agy:gemini-4-argon-medium","model":"gemini-4-argon-medium","date":"2026-11-21","period":"Day 5","tokens":25917212},{"key":"agy:gemini-4-carbon-high","model":"gemini-4-carbon-high","date":"2026-11-21","period":"Day 5","tokens":8729452},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-21","period":"Day 5","tokens":20212245},{"key":"agy:gemini-4-neon-medium","model":"gemini-4-neon-medium","date":"2026-11-21","period":"Day 5","tokens":50769746},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-21","period":"Day 5","tokens":140891063},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-21","period":"Day 5","tokens":13009546},{"key":"codex:gpt-6-luna","model":"gpt-6-luna","date":"2026-11-21","period":"Day 5","tokens":601624},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-21","period":"Day 5","tokens":14492471},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-21","period":"Day 5","tokens":131963196},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-22","period":"Day 6","tokens":71760846},{"key":"agy:gemini-4-carbon-high","model":"gemini-4-carbon-high","date":"2026-11-22","period":"Day 6","tokens":270879811},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-22","period":"Day 6","tokens":41490},{"key":"agy:gemini-4-hydrogen-tiered-xhigh","model":"gemini-4-hydrogen-tiered-xhigh","date":"2026-11-22","period":"Day 6","tokens":19896408},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-22","period":"Day 6","tokens":78040282},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-22","period":"Day 6","tokens":688805195},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-23","period":"Day 7","tokens":76665},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-23","period":"Day 7","tokens":87183447},{"key":"claude:claude-fable-5-1","model":"claude-fable-5-1","date":"2026-11-23","period":"Day 7","tokens":4226541},{"key":"codex:gpt-6-luna","model":"gpt-6-luna","date":"2026-11-23","period":"Day 7","tokens":80721},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-23","period":"Day 7","tokens":1185711}],"pacing":{"fiveHour":{"status":"unset","usedTokens":41688228,"projectedTokens":208441140,"measuredTokensPerHour":41688228,"hasLocalBudget":false},"weekly":{"status":"unset","usedTokens":16748808875,"projectedTokens":16748808875,"measuredTokensPerHour":41688228,"hasLocalBudget":false}},"observedLimits":[{"limitId":"codex:10080:1","windowMinutes":10080,"usedPercent":69,"projectedPercent":null,"status":"stale","resetKnown":true},{"limitId":"codex:window:2","windowMinutes":0,"usedPercent":0,"projectedPercent":null,"status":"stale","resetKnown":true}],"subagents":{"tokens":30276592663,"share":0.8272435390107831,"sessions":2609},"speedStats":{"fastTokens":3668435080,"ultrafastTokens":0,"standardTokens":31002613773,"unknownSpeedTokens":1928321508,"fastShare":0.10023219098624318,"fastTurns":27859,"ultrafastTurns":0,"byProvider":{"claude":{"fastTokens":0,"ultrafastTokens":0,"standardTokens":25899723492,"fastTurns":0,"ultrafastTurns":0},"codex":{"fastTokens":3668435080,"ultrafastTokens":0,"standardTokens":5102890281,"fastTurns":27859,"ultrafastTurns":0},"agy":{"fastTokens":0,"ultrafastTokens":0,"standardTokens":0,"fastTurns":0,"ultrafastTurns":0}}},"swarmStats":{"swarmCount":3,"swarmWorkerSessions":66,"swarmWorkerTokens":606927783,"swarmShareOfAgy":0.33606780556454735,"subagentTokens":677877339,"totalAgyTokens":1805968239},"workflow":[{"title":"Explore with one bounded thread","target":"Workflow / exploration","detail":"Subagents are a large share of the observed burn. Search locally first, then delegate only independent questions.","steps":["Use the smallest available model tier for file discovery and inventory.","Keep any existing search or code-navigation skill scoped to named paths; AI Spend does not install skills automatically."]},{"title":"Review from a compact handoff","target":"Workflow / review","detail":"Most observed usage is input/context. Preserve decisions and test evidence, not the entire thread.","steps":["Summarize changed files, risks, and the failing or passing command before review.","Choose a stronger model only for the decision or review that needs it; do not assume the dashboard can switch models for you."]}],"insights":[{"severity":"high","title":"Claude dominates this range","detail":"Claude accounts for 71% of selected tokens. That is the first place to look for limit pressure."},{"severity":"high","title":"Subagent token share","detail":"2609 subagent sessions used 30.28B tokens (83% of range, ~$7092.49)."},{"severity":"high","title":"24 hour burn pace","detail":"808.3M tokens in the last 24 hours, about 33.7M tokens/hour on average."},{"severity":"high","title":"Claude burn is mostly context","detail":"Over 90% of Claude tokens are input or cached context. Long conversations and repeated context reads are likely limit drivers."},{"severity":"info","title":"Codex cache reuse","detail":"98% of Codex input tokens were cached in this range."}],"recommendations":[{"severity":"high","title":"Trim subagent fan-out","target":"2609 subagent sessions (83% of tokens)","detail":"Subagents consumed 30.28B tokens in this range. Each spawned subagent builds its own context window.","steps":["Keep routine multi-file changes with one implementation owner.","Pass subagents exact file paths and line ranges instead of letting every worker search the repo.","Use Claude Sonnet 5.5, Haiku 5.5, or GPT-6 Luna for bounded worker subagents."]},{"severity":"info","title":"Route mechanical sweeps to Codex","target":"Provider split","detail":"Claude is 71% of selected tokens.","steps":["Use Codex (GPT-6.1 Terra or GPT-6 Luna) for repo search, mechanical edits, and test-loop fixes.","Bring GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, or Opus 5.5 the narrowed result for architecture, UX, or review decisions."]},{"severity":"info","title":"Step down from frontier models after planning","target":"24.59B frontier (Astra / Sol / Fable / Opus) tokens","detail":"GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 are best spent on ambiguity and review. Once scope is clear, execute on Terra, Luna, Sonnet 5.5, or Haiku 5.5.","steps":["Ask Sol or Opus 5.5 for the write set, risks, and acceptance criteria.","Execute with GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5 using low or medium effort.","Bring the completed diff back for review only if decision quality matters."]}],"alertExamples":[{"id":"weekly","label":"Weekly allowance at 88%","synthetic":true,"severity":"high","title":"Protect the observed limit","target":"Codex CLI weekly: 88.0% observed","detail":"Observed 88.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.","steps":["Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.","Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.","Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.","Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."]},{"id":"five-hour","label":"Five-hour allowance at 84%","synthetic":true,"severity":"high","title":"Protect the observed limit","target":"Codex CLI five-hour: 84.0% observed","detail":"Observed 84.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.","steps":["Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.","Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.","Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.","Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."]}]}</script>
+  <script id="fallbackGuardSnapshot" type="application/json">{"generatedAt":"2026-11-23T13:35:54.808Z","source":"controller","version":"0.7.2","policy":{"usageMode":"continuous","providerOrder":["claude","codex","agy"],"blockedProviders":[],"reservePercent":10,"maxRequestsPerTask":40,"maxTaskMinutes":60,"maxContextTokens":80000,"maxThinkingLevel":"medium","maxSubagentCalls":0,"allowApiSpend":false},"recommendedProvider":null,"footer":"Guard · Claude 0%∅ · Codex 5% · AGY 68% · next: Claude resets in 33h","providers":[{"provider":"claude","status":"depleted","blocked":false,"configured":false,"model":null,"remainingPercent":0,"resetIn":"33h","resetAt":"2026-11-24T23:00:00.000Z","burnPercentPerHour":0,"runOutIn":null,"windows":[{"id":"weekly","modelFamily":null,"remainingPercent":0,"resetIn":"33h","applies":true},{"id":"weekly:fable","modelFamily":"fable","remainingPercent":49,"resetIn":"33h","applies":true}]},{"provider":"codex","status":"reserve","blocked":false,"configured":false,"model":null,"remainingPercent":5,"resetIn":"2h","resetAt":"2026-11-23T15:52:24.000Z","burnPercentPerHour":0,"runOutIn":null,"windows":[{"id":"codex:primary","modelFamily":null,"remainingPercent":5,"resetIn":"2h","applies":true}]},{"provider":"agy","status":"pace","blocked":false,"configured":false,"model":null,"remainingPercent":68,"resetIn":"6d","resetAt":"2026-11-29T03:15:07.000Z","burnPercentPerHour":2.8,"runOutIn":"25h","windows":[{"id":"gemini:weekly","modelFamily":"gemini","remainingPercent":68,"resetIn":"6d","applies":true},{"id":"gemini:session","modelFamily":"gemini","remainingPercent":88,"resetIn":"4h","applies":true},{"id":"claude-gpt:weekly","modelFamily":"claude-gpt","remainingPercent":97,"resetIn":"6d","applies":true},{"id":"claude-gpt:session","modelFamily":"claude-gpt","remainingPercent":100,"resetIn":"5h","applies":true}]}],"optimizer":{"headline":"Run AGY /swarm (68% Gemini · 97% Claude/GPT open) · keep Codex /fast OFF (5% left, resets in 2h) · hold Claude (33h to reset)","strategy":"accelerate","primaryProvider":"agy","secondaryProvider":"codex","nextUnlock":{"provider":"codex","windowId":"codex:primary","resetAt":"2026-11-23T15:52:24.000Z","hoursLeft":2.3,"resetIn":"2h","label":"Codex Weekly limit resets in 2h"},"recommendedOrder":["agy","codex","claude"],"providers":[{"provider":"agy","label":"Antigravity (AGY)","status":"pace","utilizationState":"surplus","remainingPercent":68,"usablePercent":58,"resetIn":"6d","resetAt":"2026-11-29T03:15:07.000Z","hoursLeft":133.7,"targetPercentPerDay":10.4,"projectedUnusedAtReset":0,"bankedResets":0,"windows":[{"windowId":"gemini:weekly","modelFamily":"gemini","label":"Gemini weekly","remainingPercent":68,"resetIn":"6d","status":"pace","applies":true},{"windowId":"gemini:session","modelFamily":"gemini","label":"Gemini 5h session","remainingPercent":88,"resetIn":"4h","status":"ready","applies":true},{"windowId":"claude-gpt:weekly","modelFamily":"claude-gpt","label":"Claude/GPT weekly","remainingPercent":97,"resetIn":"6d","status":"ready","applies":true},{"windowId":"claude-gpt:session","modelFamily":"claude-gpt","label":"Claude/GPT 5h session","remainingPercent":100,"resetIn":"5h","status":"ready","applies":true}],"playbook":{"mode":"accelerate","headline":"Run /swarm (3–4 workers + verifier) on Gemini (68%) + use AGY Claude/GPT (97%)","badges":["/swarm 3-4 workers + verifier","Gemini Neon / Hydrogen","AGY Claude/GPT 97%"],"knobs":[{"id":"swarm-size","label":"/swarm workers","state":"boost","value":"3–4 workers + verifier","reason":"Gemini has 68% left (88% 5h) — safe for 3–4 parallel workers plus a verifier.","command":"/swarm"},{"id":"separate-quotas","label":"AGY Claude/GPT quota","state":"boost","value":"Use AGY Claude/GPT (97%)","reason":"AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (97% left, 100% 5h) while native Claude resets.","command":"/model claude-opus-5-5-high"},{"id":"worker-tier","label":"Mix big & fast models","state":"boost","value":"Neon coord + Hydrogen/Flash","reason":"Keep coordinator sharp on Neon while Hydrogen/Flash workers absorb parallel edits so the 5h burst cap stays comfortable.","command":"/model gemini-4-neon-high"},{"id":"effort-suffix","label":"Effort level","state":"tighten","value":"-medium / -high (trim -xhigh)","reason":"93% of 24h AGY tokens ran at xhigh/max effort — use -medium on routine workers and save -high for complex steps.","command":"/model gemini-4-hydrogen-high"},{"id":"session-5h","label":"5-hour burst limit","state":"boost","value":"Gem 5h 88% · CG 5h 100%","reason":"5h burst windows are wide open (Gem 5h 88%, CG 5h 100%) — safe for multi-worker /swarm bursts without tripping the 5h wall."},{"id":"context-compact","label":"Keep context lean","state":"tighten","value":"/compact now (93% >150k)","reason":"93% of 24h AGY tokens ran above 150k context — run /compact or open a fresh thread at milestones.","command":"/compact"}],"guidance":["Gemini has 68% left (88% 5h) — fire up /swarm with 3–4 parallel workers + a verifier on Gemini Neon or Hydrogen.","AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (97% left, 100% 5h) while native Claude & Codex are tight for Opus-tier planning or overflow coding."],"commands":["/swarm","/model gemini-4-neon-high","/model claude-opus-5-5-high"]}},{"provider":"codex","label":"Codex","status":"reserve","utilizationState":"hot","remainingPercent":5,"usablePercent":0,"resetIn":"2h","resetAt":"2026-11-23T15:52:24.000Z","hoursLeft":2.3,"targetPercentPerDay":0,"projectedUnusedAtReset":5,"bankedResets":0,"windows":[{"windowId":"codex:primary","modelFamily":null,"label":"Weekly limit","remainingPercent":5,"resetIn":"2h","status":"reserve","applies":true}],"playbook":{"mode":"conserve","headline":"Codex low (5% left, resets in 2h) — turn /fast OFF, use Terra/Luna or wait","badges":["/fast OFF (2x-8x burn)","Terra / Luna or wait","Resets in 2h"],"knobs":[{"id":"speed-tier","label":"/fast speed","state":"off","value":"OFF (/fast off)","reason":"Only 5% left (2h to reset) — turn /fast OFF to block 2x priority and 8x ultrafast burn.","command":"/fast off"},{"id":"reasoning-effort","label":"Effort level","state":"tighten","value":"low / medium","reason":"Only 5% left (2h to reset) — step reasoning effort down to low/medium.","command":"/effort low"},{"id":"model-tier","label":"Mix big & fast models","state":"tighten","value":"gpt-6.1-terra / gpt-6-luna","reason":"Only 5% left before the 2h reset — step down to gpt-6.1-terra or gpt-6-luna for essential edits.","command":"/model gpt-6.1-terra"},{"id":"context-cliff","label":"272k context limit","state":"tighten","value":"Hard cap <150k–250k","reason":"Only 5% left — checkpoint early well below the 272k 2x input-weight cliff.","command":"/new"},{"id":"subagents-review","label":"Subagents & reviews","state":"tighten","value":"Single-thread · auto-review OFF","reason":"Codex is tight (5% left) — pause subagent fan-out and disable automatic review passes until reset.","command":"/model gpt-6-luna"},{"id":"banked-resets","label":"Banked resets & cache","state":"boost","value":"0 banked · 89% cache","reason":"No banked reset credits on hand. 24h prefix cache reuse is 89%."}],"guidance":["Turn /fast OFF immediately — priority speed multiplies burn 2x–8x and only 5% remains before the 2h reset.","Step down to Terra or Luna with low/medium effort, or hold Codex for 2h and use AGY."],"commands":["/fast off","/effort low","/model gpt-6.1-terra"]}},{"provider":"claude","label":"Claude","status":"depleted","utilizationState":"exhausted","remainingPercent":0,"usablePercent":0,"resetIn":"33h","resetAt":"2026-11-24T23:00:00.000Z","hoursLeft":33.4,"targetPercentPerDay":0,"projectedUnusedAtReset":0,"bankedResets":0,"windows":[{"windowId":"weekly","modelFamily":null,"label":"All models weekly","remainingPercent":0,"resetIn":"33h","status":"depleted","applies":true},{"windowId":"weekly:fable","modelFamily":"fable","label":"Fable weekly","remainingPercent":49,"resetIn":"33h","status":"ready","applies":true}],"playbook":{"mode":"pause","headline":"Claude exhausted (33h to reset) — use AGY's Claude/GPT quota (97% left)","badges":["Exhausted","Resets in 33h","Shift to AGY Claude/GPT (97%)"],"knobs":[{"id":"model-tier","label":"Mix big & fast models","state":"off","value":"Shift to AGY Claude/GPT","reason":"Native Claude is exhausted (33h to reset) — shift Opus/coding work to AGY's Claude/GPT quota (97% left).","command":"/model claude-opus-5-5-high"},{"id":"effort-level","label":"Effort level","state":"off","value":"OFF (exhausted)","reason":"Native Claude is paused until the 33h reset."},{"id":"subagent-fanout","label":"Subagent limit","state":"off","value":"OFF (exhausted)","reason":"Pause sidechain fan-out until native Claude resets in 33h."},{"id":"context-gravity","label":"Keep context lean","state":"off","value":"/clear before resume","reason":"Prepare a 6-bullet handoff and /clear stale context before Claude unlocks in 33h.","command":"/clear"},{"id":"cache-ttl","label":"Prompt cache batching","state":"off","value":"Queue batch for reset","reason":"Cluster queued edits inside the 5m/1h cache window once Claude resets in 33h."},{"id":"scoped-windows","label":"Weekly caps & /fast","state":"off","value":"Fable weekly 49% (overall 0%)","reason":"Fable weekly still has 49% left, but account-wide weekly is capped at 0% (resets in 33h) — keep /fast OFF when resuming.","command":"/usage"}],"guidance":["Hold native Claude until its allowance resets in 33h.","AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (97% left) while native Claude resets.","Note: Fable weekly still shows 49%, but the overall weekly cap at 0% blocks Claude until 33h."],"commands":["/model claude-opus-5-5-high"]}}],"alerts":[{"kind":"quota-opportunity","severity":"opportunity","provider":"agy","title":"AGY Claude/GPT quota is 97% free","detail":"AGY tracks Gemini and Claude/GPT separately — native Claude is exhausted, while AGY's Claude/GPT quota still has 97% left.","command":"/model claude-opus-5-5-high"},{"kind":"swarm-ready","severity":"opportunity","provider":"agy","title":"AGY Gemini ready for /swarm (68% left)","detail":"Plenty of Gemini weekly & session headroom — run 3–4 parallel /swarm workers + verifier on Neon or Hydrogen.","command":"/swarm"},{"kind":"fast-burn","severity":"warn","provider":"codex","title":"Turn Codex /fast OFF (5% left)","detail":"/fast multiplies Codex quota burn 2x–8x. With 2h until reset, switch to standard speed on Terra/Luna or wait.","command":"/fast off"},{"kind":"exhausted","severity":"warn","provider":"claude","title":"Claude exhausted (resets in 33h)","detail":"Hold native Claude until its allowance resets in 33h. AGY tracks Gemini and Claude/GPT separately — use AGY's Claude/GPT quota (97% left) while native Claude resets.","command":"/model claude-opus-5-5-high"}],"quickCommands":[{"tool":"agy","label":"Launch AGY /swarm","command":"/swarm","why":"Gemini has 68% left — run 3–4 workers + verifier"},{"tool":"agy","label":"Use AGY Claude/GPT","command":"/model claude-opus-5-5-high","why":"AGY's separate Claude/GPT quota is 97% free"},{"tool":"codex","label":"Turn Codex /fast OFF","command":"/fast off","why":"Only 5% left (2h to reset) — prevent 2x–8x burn"},{"tool":"pi","label":"Auto-order Pi Guard","command":"/guard-order auto","why":"Applies AGY > Codex > Claude priority"},{"tool":"cli","label":"Live check-in","command":"npm run check","why":"Instant terminal cockpit across your AI subscriptions"}]},"tasks":[],"interventions":{},"impact":{"removedChars":0,"estimatedInputTokensAvoided":0,"loopBlocks":0},"insights":{"since":"2026-11-22T13:34:32.907Z","providers":[{"provider":"claude","requests":20,"totalTokens":4226541,"cachePercent":90,"metrics":[{"id":"subagents","label":"Tokens in subagent requests","percent":0},{"id":"context","label":"Tokens in requests with >150k input context","percent":100},{"id":"effort","label":"Max / ultra / xhigh effort, where recorded","percent":0},{"id":"long","label":"Tokens in sessions spanning 8+ hours","percent":100},{"id":"cache","label":"Recorded input tokens read from cache","percent":90.4},{"id":"fast","label":"Tokens in /fast or ultrafast requests","percent":0}]},{"provider":"codex","requests":20,"totalTokens":1266432,"cachePercent":89,"metrics":[{"id":"subagents","label":"Tokens in subagent requests","percent":0},{"id":"context","label":"Tokens in requests with >150k input context","percent":0},{"id":"effort","label":"Max / ultra / xhigh effort, where recorded","percent":4.1},{"id":"long","label":"Tokens in sessions spanning 8+ hours","percent":0},{"id":"cache","label":"Recorded input tokens read from cache","percent":89.3},{"id":"fast","label":"Tokens in /fast or ultrafast requests","percent":0}]},{"provider":"agy","requests":3410,"totalTokens":917290039,"cachePercent":95,"metrics":[{"id":"subagents","label":"Tokens in subagent requests","percent":67.7},{"id":"context","label":"Tokens in requests with >150k input context","percent":92.5},{"id":"effort","label":"Max / ultra / xhigh effort, where recorded","percent":93.2},{"id":"long","label":"Tokens in sessions spanning 8+ hours","percent":47.2},{"id":"cache","label":"Recorded input tokens read from cache","percent":94.9},{"id":"fast","label":"Tokens in /fast or ultrafast requests","percent":0},{"id":"swarm","label":"Tokens in /swarm sessions","percent":96.8}]}]},"events":[{"at":"2026-11-14T14:28:48.058Z","kind":"settings","detail":"Usage-based protection: Large contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shor"}],"note":"Sanitized local snapshot: percentages, hashed task prefixes, optimizer guidance, counters and model IDs. No prompts, files or account identity."}</script>
+  <script id="fallbackDemoData" type="application/json">{"schema":"ai-spend-live-public-demo/v1","releaseVersion":"0.7.2","generatedOn":"2026-11-23","period":"Recent 30-day example","privacy":"Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.","coverageNote":"This example reflects supported local sources only; it is not an all-cloud or all-chat tracker.","coverage":[{"source":"Claude JSONL","files":353,"events":68644,"sessions":353},{"source":"Codex JSONL / state SQLite","files":2299,"events":64966,"sessions":2241},{"source":"Antigravity JSONL / SQLite","files":112,"events":7478,"sessions":103}],"totals":{"tokens":36713031016,"turns":140330,"sessions":2665,"breakdownUnknownTokens":122353269,"cacheReuse":0.9827023389501972,"cacheReuseScope":"known token breakdown only","estimatedApiUsd":10167.150116830118,"inputTokens":321270777,"cachedInputTokens":35864237024,"cacheWriteTokens":310016431,"outputTokens":95153515,"estimatedInputUsd":8731.41804773,"estimatedOutputUsd":1435.7320691},"models":[{"key":"claude:claude-opus-5-5","provider":"claude","model":"claude-opus-5-5","tokens":20872289277,"turns":53883,"share":0.5685253627766009,"inputTokens":110194,"cachedInputTokens":20583423250,"outputTokens":45715550,"cacheWriteTokens":243040283,"unknownBreakdownTokens":0,"estimatedInputUsd":5337.038853999998,"estimatedOutputUsd":914.311,"estimatedApiUsd":6251.349853999997,"pricingKnown":true},{"key":"claude:claude-fable-5-2","provider":"claude","model":"claude-fable-5-2","tokens":4296297351,"turns":11457,"share":0.11702377145400007,"inputTokens":25242,"cachedInputTokens":4231561337,"outputTokens":14046911,"cacheWriteTokens":50663861,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-5.6-luna","provider":"codex","model":"gpt-5.6-luna","tokens":2822739898,"turns":19761,"share":0.07688659366669602,"inputTokens":44738637,"cachedInputTokens":2770773248,"outputTokens":7228013,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":64.36319235999994,"estimatedOutputUsd":8.6736156,"estimatedApiUsd":73.03680795999995,"pricingKnown":true},{"key":"codex:gpt-6-astra","provider":"codex","model":"gpt-6-astra","tokens":2273339397,"turns":14217,"share":0.061921866271658424,"inputTokens":31229454,"cachedInputTokens":2121090304,"outputTokens":6230588,"cacheWriteTokens":0,"unknownBreakdownTokens":114789051,"estimatedInputUsd":2472.005506000002,"estimatedOutputUsd":311.5294,"estimatedApiUsd":2783.5349060000017,"pricingKnown":true},{"key":"codex:gpt-6.2-sol","provider":"codex","model":"gpt-6.2-sol","tokens":1056863251,"turns":7184,"share":0.028787142378394356,"inputTokens":10170416,"cachedInputTokens":1045287424,"outputTokens":1405411,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-neon-xhigh","provider":"agy","model":"gemini-4-neon-xhigh","tokens":1030540360,"turns":3784,"share":0.028070151972766223,"inputTokens":50461076,"cachedInputTokens":972563453,"outputTokens":7515831,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:codex-auto-review","provider":"codex","model":"codex-auto-review","tokens":1015019228,"turns":14033,"share":0.02764738295668483,"inputTokens":102793364,"cachedInputTokens":904942848,"outputTokens":1373062,"cacheWriteTokens":0,"unknownBreakdownTokens":5909954,"estimatedInputUsd":241.60956099999987,"estimatedOutputUsd":13.73062,"estimatedApiUsd":255.34018099999986,"pricingKnown":true},{"key":"codex:gpt-6.1-sol","provider":"codex","model":"gpt-6.1-sol","tokens":779395207,"turns":3809,"share":0.021229388732854276,"inputTokens":9915758,"cachedInputTokens":767314944,"outputTokens":2164505,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":136.73350860000005,"estimatedOutputUsd":21.64505,"estimatedApiUsd":158.37855860000005,"pricingKnown":true},{"key":"codex:gpt-6.2-astra","provider":"codex","model":"gpt-6.2-astra","tokens":705822497,"turns":4033,"share":0.019225394293715323,"inputTokens":6753679,"cachedInputTokens":698478464,"outputTokens":590354,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"claude:claude-fable-5-1","provider":"claude","model":"claude-fable-5-1","tokens":657877460,"turns":2125,"share":0.017919453714221763,"inputTokens":25714,"cachedInputTokens":642516089,"outputTokens":3030252,"cacheWriteTokens":12305405,"unknownBreakdownTokens":0,"estimatedInputUsd":395.6009447500004,"estimatedOutputUsd":151.5126,"estimatedApiUsd":547.1135447500004,"pricingKnown":true},{"key":"agy:gemini-4-carbon-high","provider":"agy","model":"gemini-4-carbon-high","tokens":279609263,"turns":967,"share":0.007616076778791236,"inputTokens":20823378,"cachedInputTokens":257203140,"outputTokens":1582745,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-neon-high","provider":"agy","model":"gemini-4-neon-high","tokens":185431398,"turns":606,"share":0.0050508332564311205,"inputTokens":10494455,"cachedInputTokens":173874980,"outputTokens":1061963,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6-sol","provider":"codex","model":"gpt-6-sol","tokens":181242992,"turns":1427,"share":0.004936748260338734,"inputTokens":1286024,"cachedInputTokens":179475840,"outputTokens":481128,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":38.46721600000008,"estimatedOutputUsd":4.81128,"estimatedApiUsd":43.27849600000008,"pricingKnown":true},{"key":"agy:gemini-4-argon-high","provider":"agy","model":"gemini-4-argon-high","tokens":172595775,"turns":621,"share":0.004701212899713472,"inputTokens":8974347,"cachedInputTokens":162967171,"outputTokens":654257,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-neon-medium","provider":"agy","model":"gemini-4-neon-medium","tokens":106584810,"turns":485,"share":0.002903187425564209,"inputTokens":9996680,"cachedInputTokens":96152705,"outputTokens":435425,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-argon-medium","provider":"agy","model":"gemini-4-argon-medium","tokens":83374752,"turns":527,"share":0.0022709852521755622,"inputTokens":4770290,"cachedInputTokens":78193915,"outputTokens":410547,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"claude:claude-sonnet-5-5","provider":"claude","model":"claude-sonnet-5-5","tokens":73259404,"turns":450,"share":0.0019954605210360495,"inputTokens":946,"cachedInputTokens":68689984,"outputTokens":561592,"cacheWriteTokens":4006882,"unknownBreakdownTokens":0,"estimatedInputUsd":16.888095399999976,"estimatedOutputUsd":5.61592,"estimatedApiUsd":22.504015399999975,"pricingKnown":true},{"key":"codex:gpt-5.6-sol","provider":"codex","model":"gpt-5.6-sol","tokens":56702972,"turns":462,"share":0.001544491708551335,"inputTokens":1710394,"cachedInputTokens":54510464,"outputTokens":194927,"cacheWriteTokens":0,"unknownBreakdownTokens":287187,"estimatedInputUsd":28.64576160000001,"estimatedOutputUsd":3.89854,"estimatedApiUsd":32.54430160000001,"pricingKnown":true},{"key":"agy:gemini-3.8-flash-medium","provider":"agy","model":"gemini-3.8-flash-medium","tokens":27878828,"turns":258,"share":0.0007593714609902423,"inputTokens":2532248,"cachedInputTokens":25193555,"outputTokens":153025,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-hydrogen-tiered-xhigh","provider":"agy","model":"gemini-4-hydrogen-tiered-xhigh","tokens":19896408,"turns":83,"share":0.0005419440304814086,"inputTokens":1657544,"cachedInputTokens":18118876,"outputTokens":119988,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:unknown","provider":"agy","model":"unknown","tokens":9018539,"turns":81,"share":0.0002456495350675243,"inputTokens":1829990,"cachedInputTokens":7088989,"outputTokens":99560,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:claude-opus-5-5-medium","provider":"agy","model":"claude-opus-5-5-medium","tokens":3919206,"turns":27,"share":0.00010675244978525365,"inputTokens":312933,"cachedInputTokens":3591252,"outputTokens":15021,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:unknown","provider":"codex","model":"unknown","tokens":1367077,"turns":2,"share":0.00003723683286744183,"inputTokens":0,"cachedInputTokens":0,"outputTokens":0,"cacheWriteTokens":0,"unknownBreakdownTokens":1367077,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6-luna","provider":"codex","model":"gpt-6-luna","tokens":1149250,"turns":7,"share":0.00003130359897277734,"inputTokens":459601,"cachedInputTokens":685952,"outputTokens":3697,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":0.052819620000000005,"estimatedOutputUsd":0.0018485,"estimatedApiUsd":0.05466812000000001,"pricingKnown":true},{"key":"agy:claude-opus-5-5-high","provider":"agy","model":"claude-opus-5-5-high","tokens":553485,"turns":6,"share":0.000015075982142656222,"inputTokens":99428,"cachedInputTokens":401156,"outputTokens":52901,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"agy:gemini-4-hydrogen-tiered-high","provider":"agy","model":"gemini-4-hydrogen-tiered-high","tokens":217517,"turns":31,"share":0.000005924790026331614,"inputTokens":83220,"cachedInputTokens":110291,"outputTokens":24006,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false},{"key":"codex:gpt-6.1-terra","provider":"codex","model":"gpt-6.1-terra","tokens":36861,"turns":2,"share":0.0000010040304213491802,"inputTokens":11334,"cachedInputTokens":25088,"outputTokens":439,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":0.0125884,"estimatedOutputUsd":0.002195,"estimatedApiUsd":0.014783399999999999,"pricingKnown":true},{"key":"agy:gemini-3.8-flash-high","provider":"agy","model":"gemini-3.8-flash-high","tokens":8553,"turns":2,"share":2.3296905113262087e-7,"inputTokens":4431,"cachedInputTokens":2305,"outputTokens":1817,"cacheWriteTokens":0,"unknownBreakdownTokens":0,"estimatedInputUsd":null,"estimatedOutputUsd":null,"estimatedApiUsd":null,"pricingKnown":false}],"daily":[{"period":"Day 1","tokens":1928042011,"turns":13314},{"period":"Day 2","tokens":3577969836,"turns":11536},{"period":"Day 3","tokens":3490739509,"turns":10004},{"period":"Day 4","tokens":4753994620,"turns":12912},{"period":"Day 5","tokens":461029162,"turns":2272},{"period":"Day 6","tokens":1129424032,"turns":4060},{"period":"Day 7","tokens":206413740,"turns":841}],"dailyByModel":[{"key":"agy:gemini-3.8-flash-medium","model":"gemini-3.8-flash-medium","date":"2026-11-17","period":"Day 1","tokens":10917120},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-17","period":"Day 1","tokens":108294232},{"key":"codex:gpt-5.6-luna","model":"gpt-5.6-luna","date":"2026-11-17","period":"Day 1","tokens":653506565},{"key":"codex:gpt-5.6-sol","model":"gpt-5.6-sol","date":"2026-11-17","period":"Day 1","tokens":2057369},{"key":"codex:gpt-6-astra","model":"gpt-6-astra","date":"2026-11-17","period":"Day 1","tokens":239167019},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-17","period":"Day 1","tokens":285790953},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-17","period":"Day 1","tokens":628308753},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-18","period":"Day 2","tokens":2345848657},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-18","period":"Day 2","tokens":755638782},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-18","period":"Day 2","tokens":7081090},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-18","period":"Day 2","tokens":245883164},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-18","period":"Day 2","tokens":223518143},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-19","period":"Day 3","tokens":442122994},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-19","period":"Day 3","tokens":3048616515},{"key":"agy:claude-opus-5-5-medium","model":"claude-opus-5-5-medium","date":"2026-11-20","period":"Day 4","tokens":2639674},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-20","period":"Day 4","tokens":48225339},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-20","period":"Day 4","tokens":99362},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-20","period":"Day 4","tokens":87178871},{"key":"agy:gemini-4-neon-medium","model":"gemini-4-neon-medium","date":"2026-11-20","period":"Day 4","tokens":55815064},{"key":"claude:claude-fable-5-2","model":"claude-fable-5-2","date":"2026-11-20","period":"Day 4","tokens":378739975},{"key":"claude:claude-opus-5-5","model":"claude-opus-5-5","date":"2026-11-20","period":"Day 4","tokens":3942704099},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-20","period":"Day 4","tokens":6628291},{"key":"codex:gpt-5.6-sol","model":"gpt-5.6-sol","date":"2026-11-20","period":"Day 4","tokens":420588},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-20","period":"Day 4","tokens":158470198},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-20","period":"Day 4","tokens":73073159},{"key":"agy:claude-opus-5-5-high","model":"claude-opus-5-5-high","date":"2026-11-21","period":"Day 5","tokens":553485},{"key":"agy:claude-opus-5-5-medium","model":"claude-opus-5-5-medium","date":"2026-11-21","period":"Day 5","tokens":1279532},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-21","period":"Day 5","tokens":52609590},{"key":"agy:gemini-4-argon-medium","model":"gemini-4-argon-medium","date":"2026-11-21","period":"Day 5","tokens":25917212},{"key":"agy:gemini-4-carbon-high","model":"gemini-4-carbon-high","date":"2026-11-21","period":"Day 5","tokens":8729452},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-21","period":"Day 5","tokens":20212245},{"key":"agy:gemini-4-neon-medium","model":"gemini-4-neon-medium","date":"2026-11-21","period":"Day 5","tokens":50769746},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-21","period":"Day 5","tokens":140891063},{"key":"codex:codex-auto-review","model":"codex-auto-review","date":"2026-11-21","period":"Day 5","tokens":13009546},{"key":"codex:gpt-6-luna","model":"gpt-6-luna","date":"2026-11-21","period":"Day 5","tokens":601624},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-21","period":"Day 5","tokens":14492471},{"key":"codex:gpt-6.2-sol","model":"gpt-6.2-sol","date":"2026-11-21","period":"Day 5","tokens":131963196},{"key":"agy:gemini-4-argon-high","model":"gemini-4-argon-high","date":"2026-11-22","period":"Day 6","tokens":71760846},{"key":"agy:gemini-4-carbon-high","model":"gemini-4-carbon-high","date":"2026-11-22","period":"Day 6","tokens":270879811},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-22","period":"Day 6","tokens":41490},{"key":"agy:gemini-4-hydrogen-tiered-xhigh","model":"gemini-4-hydrogen-tiered-xhigh","date":"2026-11-22","period":"Day 6","tokens":19896408},{"key":"agy:gemini-4-neon-high","model":"gemini-4-neon-high","date":"2026-11-22","period":"Day 6","tokens":78040282},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-22","period":"Day 6","tokens":688805195},{"key":"agy:gemini-4-hydrogen-tiered-high","model":"gemini-4-hydrogen-tiered-high","date":"2026-11-23","period":"Day 7","tokens":76665},{"key":"agy:gemini-4-neon-xhigh","model":"gemini-4-neon-xhigh","date":"2026-11-23","period":"Day 7","tokens":200844102},{"key":"claude:claude-fable-5-1","model":"claude-fable-5-1","date":"2026-11-23","period":"Day 7","tokens":4226541},{"key":"codex:gpt-6-luna","model":"gpt-6-luna","date":"2026-11-23","period":"Day 7","tokens":80721},{"key":"codex:gpt-6.2-astra","model":"gpt-6.2-astra","date":"2026-11-23","period":"Day 7","tokens":1185711}],"pacing":{"fiveHour":{"status":"unset","usedTokens":155348883,"projectedTokens":715498020,"measuredTokensPerHour":143099604,"hasLocalBudget":false},"weekly":{"status":"unset","usedTokens":16824686815,"projectedTokens":24040733472,"measuredTokensPerHour":143099604,"hasLocalBudget":false}},"observedLimits":[{"limitId":"codex:10080:1","windowMinutes":10080,"usedPercent":69,"projectedPercent":null,"status":"stale","resetKnown":true},{"limitId":"codex:window:2","windowMinutes":0,"usedPercent":0,"projectedPercent":null,"status":"stale","resetKnown":true}],"subagents":{"tokens":30374811046,"share":0.8273577584145062,"sessions":2613},"speedStats":{"fastTokens":3668435080,"ultrafastTokens":0,"standardTokens":31002613773,"unknownSpeedTokens":2041982163,"fastShare":0.09992188001043144,"fastTurns":27859,"ultrafastTurns":0,"byProvider":{"claude":{"fastTokens":0,"ultrafastTokens":0,"standardTokens":25899723492,"fastTurns":0,"ultrafastTurns":0},"codex":{"fastTokens":3668435080,"ultrafastTokens":0,"standardTokens":5102890281,"fastTurns":27859,"ultrafastTurns":0},"agy":{"fastTokens":0,"ultrafastTokens":0,"standardTokens":0,"fastTurns":0,"ultrafastTurns":0}}},"swarmStats":{"swarmCount":3,"swarmWorkerSessions":70,"swarmWorkerTokens":705146166,"swarmShareOfAgy":0.3673346281690215,"subagentTokens":776095722,"totalAgyTokens":1919628894},"workflow":[{"title":"Explore with one bounded thread","target":"Workflow / exploration","detail":"Subagents are a large share of the observed burn. Search locally first, then delegate only independent questions.","steps":["Use the smallest available model tier for file discovery and inventory.","Keep any existing search or code-navigation skill scoped to named paths; AI Spend does not install skills automatically."]},{"title":"Review from a compact handoff","target":"Workflow / review","detail":"Most observed usage is input/context. Preserve decisions and test evidence, not the entire thread.","steps":["Summarize changed files, risks, and the failing or passing command before review.","Choose a stronger model only for the decision or review that needs it; do not assume the dashboard can switch models for you."]}],"insights":[{"severity":"high","title":"Claude dominates this range","detail":"Claude accounts for 71% of selected tokens. That is the first place to look for limit pressure."},{"severity":"high","title":"Subagent token share","detail":"2613 subagent sessions used 30.37B tokens (83% of range, ~$7092.49)."},{"severity":"high","title":"24 hour burn pace","detail":"909.2M tokens in the last 24 hours, about 37.9M tokens/hour on average."},{"severity":"high","title":"Current hour is spiking","detail":"The last hour used 143.1M tokens, well above the 24 hour average pace."},{"severity":"high","title":"Claude burn is mostly context","detail":"Over 90% of Claude tokens are input or cached context. Long conversations and repeated context reads are likely limit drivers."},{"severity":"info","title":"Codex cache reuse","detail":"98% of Codex input tokens were cached in this range."}],"recommendations":[{"severity":"high","title":"Pause the current spike","target":"Last-hour usage","detail":"The last hour used 143.1M tokens, above the 24 hour average pace.","steps":["Stop broad follow-up prompts until you know which session or subagent swarm caused the spike.","Open Largest Turns, find the matching session, and split the next ask by file group or failing command.","Do not use /fast or xhigh/ultra effort again until the write set and acceptance test are explicit."]},{"severity":"high","title":"Trim subagent fan-out","target":"2613 subagent sessions (83% of tokens)","detail":"Subagents consumed 30.37B tokens in this range. Each spawned subagent builds its own context window.","steps":["Keep routine multi-file changes with one implementation owner.","Pass subagents exact file paths and line ranges instead of letting every worker search the repo.","Use Claude Sonnet 5.5, Haiku 5.5, or GPT-6 Luna for bounded worker subagents."]},{"severity":"info","title":"Route mechanical sweeps to Codex","target":"Provider split","detail":"Claude is 71% of selected tokens.","steps":["Use Codex (GPT-6.1 Terra or GPT-6 Luna) for repo search, mechanical edits, and test-loop fixes.","Bring GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, or Opus 5.5 the narrowed result for architecture, UX, or review decisions."]},{"severity":"info","title":"Step down from frontier models after planning","target":"24.59B frontier (Astra / Sol / Fable / Opus) tokens","detail":"GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 are best spent on ambiguity and review. Once scope is clear, execute on Terra, Luna, Sonnet 5.5, or Haiku 5.5.","steps":["Ask Sol or Opus 5.5 for the write set, risks, and acceptance criteria.","Execute with GPT-6.1 Terra, GPT-6 Luna, Claude Sonnet 5.5, or Haiku 5.5 using low or medium effort.","Bring the completed diff back for review only if decision quality matters."]}],"alertExamples":[{"id":"weekly","label":"Weekly allowance at 88%","synthetic":true,"severity":"high","title":"Protect the observed limit","target":"Codex CLI weekly: 88.0% observed","detail":"Observed 88.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.","steps":["Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.","Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.","Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.","Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."]},{"id":"five-hour","label":"Five-hour allowance at 84%","synthetic":true,"severity":"high","title":"Protect the observed limit","target":"Codex CLI five-hour: 84.0% observed","detail":"Observed 84.0%; projected 100.0% by reset at the measured slope. This is provider-reported allowance telemetry; token totals and API estimates do not prove subscription quota.","steps":["Pause unbounded discovery and extra agents until the current window resets or the next task is explicitly bounded.","Run the smallest check for the changed files. Record its build and exercised action; reuse passing evidence while those inputs stay unchanged.","Save a compact handoff and stop the current session if it has changed purpose; do not keep paying to rebuild old context.","Use another provider only when its own window is separately observed; AI Spend cannot infer shared subscription capacity."]}]}</script>
 
   <script>
     const nf = new Intl.NumberFormat();
@@ -741,16 +758,19 @@
       }).catch(() => {});
     })();
 
-    // 3. Interactive Quick Check-In Simulator with Live 6-Knob Reactivity
+    // 3. Interactive Quick Check-In Simulator with Live 6-Knob Reactivity & Auto-Demo Loop
     (function initSimulator() {
       const ids = ["simAgyGem", "simAgyCg", "simAgyHrs", "simCodexRem", "simCodexHrs", "simClaudeRem", "simClaudeHrs"];
       const el = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
-      const PRESETS = {
-        tonight: { simAgyGem: 73, simAgyCg: 97, simAgyHrs: 120, simCodexRem: 5, simCodexHrs: 16, simClaudeRem: 0, simClaudeHrs: 48 },
-        surplus: { simAgyGem: 60, simAgyCg: 80, simAgyHrs: 100, simCodexRem: 70, simCodexHrs: 14, simClaudeRem: 45, simClaudeHrs: 72 },
-        fresh: { simAgyGem: 95, simAgyCg: 100, simAgyHrs: 160, simCodexRem: 92, simCodexHrs: 155, simClaudeRem: 88, simClaudeHrs: 150 },
-        crunch: { simAgyGem: 18, simAgyCg: 22, simAgyHrs: 48, simCodexRem: 14, simCodexHrs: 50, simClaudeRem: 12, simClaudeHrs: 60 },
-      };
+      const simPanel = document.getElementById("simulator");
+      const simStatus = document.getElementById("simAutoStatus");
+      const SCENARIOS = [
+        { key: "agy", simAgyGem: 72, simAgyCg: 97, simAgyHrs: 120, simCodexRem: 5, simCodexHrs: 11, simClaudeRem: 0, simClaudeHrs: 42 },
+        { key: "codex", simAgyGem: 22, simAgyCg: 30, simAgyHrs: 96, simCodexRem: 70, simCodexHrs: 14, simClaudeRem: 12, simClaudeHrs: 52 },
+        { key: "claude", simAgyGem: 18, simAgyCg: 25, simAgyHrs: 72, simCodexRem: 14, simCodexHrs: 36, simClaudeRem: 88, simClaudeHrs: 120 },
+        { key: "tight", simAgyGem: 12, simAgyCg: 18, simAgyHrs: 28, simCodexRem: 8, simCodexHrs: 9, simClaudeRem: 9, simClaudeHrs: 24 },
+      ];
+      const PRESETS = Object.fromEntries(SCENARIOS.map((s) => [s.key, s]));
 
       function classify(rem, hrs) {
         const usable = Math.max(0, rem - 10);
@@ -776,21 +796,21 @@
         const expiring = hrs <= 48;
         if (best <= 10) {
           return [
-            { label: "/swarm workers", state: "off", value: "Pause swarms until reset", reason: "Both AGY pools are at or below reserve." },
-            { label: "Dual-pool arbitrage", state: "off", value: `Gem ${gem}% · C/G ${cg}%`, reason: "Neither AGY pool has usable headroom." },
-            { label: "Worker tiering", state: "off", value: "Hold AGY", reason: "Wait for reset before dispatching workers." },
-            { label: "Effort suffix", state: "off", value: "Hold (-medium on resume)", reason: "Preserve remaining reserve." },
-            { label: "5h burst guard", state: "off", value: "Paused until refill", reason: "Short and weekly cushions depleted." },
-            { label: "/compact & /goal", state: "tighten", value: "Save handoff · wait", reason: "Resume fresh after reset." },
+            { label: "/swarm workers", state: "off", value: "Pause swarms until reset", reason: "Both AGY quotas are at or below reserve." },
+            { label: "AGY Claude/GPT quota", state: "off", value: `Gem ${gem}% · C/G ${cg}%`, reason: "Neither AGY quota has usable headroom." },
+            { label: "Mix big & fast models", state: "off", value: "Hold AGY", reason: "Wait for reset before dispatching workers." },
+            { label: "Effort level", state: "off", value: "Hold (-medium on resume)", reason: "Preserve remaining reserve." },
+            { label: "5-hour burst limit", state: "off", value: "Paused until refill", reason: "Short and weekly cushions depleted." },
+            { label: "Keep context lean", state: "tighten", value: "Save handoff · wait", reason: "Resume fresh after reset." },
           ];
         }
         return [
           { label: "/swarm workers", state: gemSurplus ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus ? "3–4 workers + verifier" : gem < 25 ? "1–2 workers / single thread" : "2–3 focused workers", reason: "Sized to Gemini weekly + short-window headroom." },
-          { label: "Dual-pool arbitrage", state: cg >= 50 && (claudeTight || gem < 25) ? "boost" : cg >= 30 ? "steady" : "tighten", value: cg >= 50 && claudeTight ? `Use C/G (${cg}%) for Opus overflow` : `Gem ${gem}% · C/G ${cg}%`, reason: "Separate AGY Claude/GPT pool covers native Claude pressure." },
-          { label: "Worker tiering", state: gemSurplus ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus ? "Neon coord + Hydrogen workers" : gem < 25 ? "Hydrogen / Flash only" : "Neon coord + Flash workers", reason: "Protects 5h burst window while keeping coordinator sharp." },
-          { label: "Effort suffix", state: gemSurplus ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus ? "-xhigh / -high" : gem < 25 ? "-medium" : "-high", reason: "Matches thinking suffix to remaining cushion." },
-          { label: "5h burst guard", state: gem < 25 ? "tighten" : "steady", value: gem < 25 ? "Cap fan-out <25% 5h" : "Monitor 5h vs weekly", reason: "Prevents tripping 5h wall while weekly still has room." },
-          { label: "/compact & /goal", state: gemSurplus && expiring ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus && expiring ? "Run /goal before reset" : gem < 25 ? "/compact early (<120k)" : "/compact at milestones", reason: "Schedule big /goal runs before expiring surplus resets." },
+          { label: "AGY Claude/GPT quota", state: cg >= 50 && (claudeTight || gem < 25) ? "boost" : cg >= 30 ? "steady" : "tighten", value: cg >= 50 && claudeTight ? `Use AGY C/G (${cg}%) for Opus overflow` : `Gem ${gem}% · C/G ${cg}%`, reason: "AGY tracks Gemini and Claude/GPT separately so it covers native Claude pressure." },
+          { label: "Mix big & fast models", state: gemSurplus ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus ? "Neon coord + Hydrogen workers" : gem < 25 ? "Hydrogen / Flash only" : "Neon coord + Flash workers", reason: "Protects the 5-hour burst limit while keeping the coordinator sharp." },
+          { label: "Effort level", state: gemSurplus ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus ? "-xhigh / -high" : gem < 25 ? "-medium" : "-high", reason: "Matches thinking suffix to remaining cushion." },
+          { label: "5-hour burst limit", state: gem < 25 ? "tighten" : "steady", value: gem < 25 ? "Cap fan-out <25% 5h" : "Monitor 5h vs weekly", reason: "Prevents tripping the 5h wall while weekly still has room." },
+          { label: "Keep context lean", state: gemSurplus && expiring ? "boost" : gem < 25 ? "tighten" : "steady", value: gemSurplus && expiring ? "Run /goal before reset" : gem < 25 ? "/compact early (<120k)" : "/compact at milestones", reason: "Keep threads lean and schedule big /goal runs before expiring quota resets." },
         ];
       }
 
@@ -799,9 +819,9 @@
         if (rem <= 10) {
           return [
             { label: "Speed tier (/fast)", state: "off", value: "/fast OFF (2x–8x burn)", reason: "Turn off priority speed immediately at reserve." },
-            { label: "Reasoning effort", state: "off", value: "Hold · /effort low on resume", reason: "Avoid burning last reserve on xhigh reasoning." },
-            { label: "Model stepping", state: "off", value: "Hold or gpt-6-luna only", reason: "Shift work to open subscriptions until reset." },
-            { label: "272k context cliff", state: "tighten", value: "Strict <150k / fresh thread", reason: "Avoid 2x long-context cliff past 272k tokens." },
+            { label: "Effort level", state: "off", value: "Hold · /effort low on resume", reason: "Avoid burning last reserve on xhigh reasoning." },
+            { label: "Mix big & fast models", state: "off", value: "Hold or gpt-6-luna only", reason: "Shift work to open subscriptions until reset." },
+            { label: "Keep context lean", state: "tighten", value: "Strict <150k / fresh thread", reason: "Avoid 2x long-context cliff past 272k tokens." },
             { label: "Subagents & review", state: "off", value: "Off until reset", reason: "Pause auto-review and worker fan-out." },
             { label: "Banked resets & cache", state: "tighten", value: hrs <= 12 ? `Hold credit (reset ${fmtHours(hrs)})` : "Redeem in /usage if urgent", reason: "Keep banked credit unless deadline cannot wait." },
           ];
@@ -809,9 +829,9 @@
         if (c.state === "surplus") {
           return [
             { label: "Speed tier (/fast)", state: "boost", value: "/fast ON (priority safe)", reason: "High or expiring headroom makes priority speed worth it." },
-            { label: "Reasoning effort", state: "boost", value: "/effort high / xhigh", reason: "Sufficient weekly budget for deep reasoning." },
-            { label: "Model stepping", state: "boost", value: "gpt-6.2-sol / astra", reason: "Use flagship models before quota expires." },
-            { label: "272k context cliff", state: "steady", value: "Checkpoint before 250k", reason: "Still avoid crossing the 272k 2x input cliff." },
+            { label: "Effort level", state: "boost", value: "/effort high / xhigh", reason: "Sufficient weekly budget for deep reasoning." },
+            { label: "Mix big & fast models", state: "boost", value: "gpt-6.2-sol / astra", reason: "Use flagship models before quota expires." },
+            { label: "Keep context lean", state: "steady", value: "Checkpoint before 250k", reason: "Still avoid crossing the 272k 2x input cliff." },
             { label: "Subagents & review", state: "boost", value: "Parallel & auto-review OK", reason: "Route simple checks to luna to stay fast." },
             { label: "Banked resets & cache", state: "steady", value: "Keep banked · stable prefix", reason: "No need to redeem credits with surplus open." },
           ];
@@ -819,18 +839,18 @@
         if (c.state === "hot") {
           return [
             { label: "Speed tier (/fast)", state: "off", value: "/fast OFF (stop 2x–8x burn)", reason: "Priority speed drains tight windows rapidly." },
-            { label: "Reasoning effort", state: "tighten", value: "/effort low / medium", reason: "Keep thinking concise until weekly reset." },
-            { label: "Model stepping", state: "tighten", value: "gpt-6.1-terra / gpt-6-luna", reason: "Step down from Sol/Astra for routine edits." },
-            { label: "272k context cliff", state: "tighten", value: "Fresh thread <150k", reason: "Zero margin for 2x long-context multiplier." },
+            { label: "Effort level", state: "tighten", value: "/effort low / medium", reason: "Keep thinking concise until weekly reset." },
+            { label: "Mix big & fast models", state: "tighten", value: "gpt-6.1-terra / gpt-6-luna", reason: "Step down from Sol/Astra for routine edits." },
+            { label: "Keep context lean", state: "tighten", value: "Fresh thread <150k", reason: "Zero margin for 2x long-context multiplier." },
             { label: "Subagents & review", state: "tighten", value: "Single thread · luna only", reason: "Cut subagent fan-out and auto-review overhead." },
             { label: "Banked resets & cache", state: "tighten", value: `Hold credit · resets ${fmtHours(hrs)}`, reason: "Redeem banked reset only for urgent deadlines." },
           ];
         }
         return [
           { label: "Speed tier (/fast)", state: "steady", value: "Standard (targeted /fast)", reason: "Save /fast for short latency-critical sprints." },
-          { label: "Reasoning effort", state: "steady", value: "/effort medium / high", reason: "Drop routine edits to medium." },
-          { label: "Model stepping", state: "steady", value: "Sol plans · Terra edits", reason: "Match model tier to task complexity." },
-          { label: "272k context cliff", state: "steady", value: "Checkpoint <250k", reason: "Stay below the 272k 2x input threshold." },
+          { label: "Effort level", state: "steady", value: "/effort medium / high", reason: "Drop routine edits to medium." },
+          { label: "Mix big & fast models", state: "steady", value: "Sol plans · Terra edits", reason: "Match model tier to task complexity." },
+          { label: "Keep context lean", state: "steady", value: "Checkpoint <250k", reason: "Stay below the 272k 2x input threshold." },
           { label: "Subagents & review", state: "steady", value: "Luna workers + file lists", reason: "Keep sidechain context narrow." },
           { label: "Banked resets & cache", state: "steady", value: "Keep banked · reuse prefix", reason: "Preserve credits and prompt prefix stability." },
         ];
@@ -840,39 +860,39 @@
         const c = classify(rem, hrs);
         if (rem <= 10) {
           return [
-            { label: "Model tier split", state: agyCg >= 40 ? "boost" : "off", value: agyCg >= 40 ? `Shift to AGY C/G (${agyCg}%)` : "Hold native Claude", reason: "Native Claude weekly cap reached; use AGY Claude/GPT overflow." },
+            { label: "Mix big & fast models", state: agyCg >= 40 ? "boost" : "off", value: agyCg >= 40 ? `Shift to AGY C/G (${agyCg}%)` : "Hold native Claude", reason: "Native Claude weekly cap reached; use AGY's separate Claude/GPT quota." },
             { label: "Effort level", state: "off", value: "Paused until reset", reason: "Hold native Claude turns until window refills." },
             { label: "Subagent fan-out", state: "off", value: "OFF (0 sidechains)", reason: "Sidechains multiply fresh context burn." },
-            { label: "Context gravity", state: "tighten", value: "Handoff + /clear ready", reason: "Start fresh after reset." },
+            { label: "Keep context lean", state: "tighten", value: "Handoff + /clear ready", reason: "Start fresh after reset." },
             { label: "Cache TTL batching", state: "off", value: `Resume in ${fmtHours(hrs)}`, reason: "Wait for fresh weekly reading." },
-            { label: "Scoped vs weekly", state: "off", value: "Account weekly blocks all", reason: "Account-wide 0% overrides open scoped buckets." },
+            { label: "Scoped vs weekly", state: "off", value: "Account weekly blocks all", reason: "Account-wide 0% overrides open scoped quotas." },
           ];
         }
         if (c.state === "surplus") {
           return [
-            { label: "Model tier split", state: "boost", value: "Opus / Fable open", reason: "Ample weekly cushion for architecture and deep review." },
+            { label: "Mix big & fast models", state: "boost", value: "Opus / Fable open", reason: "Ample weekly cushion for architecture and deep review." },
             { label: "Effort level", state: "boost", value: "high / max", reason: "Safe to use deep reasoning on hard problems." },
             { label: "Subagent fan-out", state: "boost", value: "Parallel subagents OK", reason: "Still pass explicit file lists to keep sidechains sharp." },
-            { label: "Context gravity", state: "steady", value: "/clear on topic switch", reason: "Keep prompt context focused under 150k." },
+            { label: "Keep context lean", state: "steady", value: "/clear on topic switch", reason: "Keep prompt context focused under 150k." },
             { label: "Cache TTL batching", state: "steady", value: "Batch inside 5m/1h TTL", reason: "Sustain 90%+ cache-read reuse." },
-            { label: "Scoped vs weekly", state: "steady", value: "All pools healthy · /fast off", reason: "No scoped cap pressure." },
+            { label: "Scoped vs weekly", state: "steady", value: "All quotas healthy · /fast off", reason: "No scoped cap pressure." },
           ];
         }
         if (c.state === "hot") {
           return [
-            { label: "Model tier split", state: "tighten", value: "Sonnet / Haiku only", reason: "Hold Opus/Fable or offload to AGY C/G." },
+            { label: "Mix big & fast models", state: "tighten", value: "Sonnet / Haiku only", reason: "Hold Opus/Fable or offload to AGY's separate Claude/GPT quota." },
             { label: "Effort level", state: "tighten", value: "medium", reason: "Avoid max-effort burns on tight quota." },
             { label: "Subagent fan-out", state: "off", value: "Single-owner (no fan-out)", reason: "Each sidechain builds a fresh context window." },
-            { label: "Context gravity", state: "tighten", value: "6-bullet handoff + /clear", reason: "Cut >150k context replay drag immediately." },
+            { label: "Keep context lean", state: "tighten", value: "6-bullet handoff + /clear", reason: "Cut >150k context replay drag immediately." },
             { label: "Cache TTL batching", state: "tighten", value: "Tight 5m edit batches", reason: "Avoid cold cache writes on small edits." },
             { label: "Scoped vs weekly", state: "tighten", value: `Protect last ${rem}% · /fast off`, reason: `Stretch ${fmtHours(hrs)} to reset.` },
           ];
         }
         return [
-          { label: "Model tier split", state: "steady", value: "Opus plans · Sonnet edits", reason: "Reserve Opus/Fable for architecture and review gates." },
+          { label: "Mix big & fast models", state: "steady", value: "Opus plans · Sonnet edits", reason: "Reserve Opus/Fable for architecture and review gates." },
           { label: "Effort level", state: "steady", value: "medium / high", reason: "Use medium for bounded implementation." },
           { label: "Subagent fan-out", state: "steady", value: "Targeted Sonnet/Haiku", reason: "Keep routine edits in a single thread." },
-          { label: "Context gravity", state: "steady", value: "/clear at milestones", reason: "Keep working context below 150k." },
+          { label: "Keep context lean", state: "steady", value: "/clear at milestones", reason: "Keep working context below 150k." },
           { label: "Cache TTL batching", state: "steady", value: "Batch edits inside TTL", reason: "Reuse warm cache prefix across turns." },
           { label: "Scoped vs weekly", state: "steady", value: "Balanced · /fast off", reason: "Track scoped model limits beside weekly." },
         ];
@@ -931,7 +951,7 @@
         } else if (strategy === "accelerate") {
           headline = `Lead with ${primary.label} (${primary.rem}% left, resets in ${fmtHours(primary.hrs)}).`;
         } else if (strategy === "conserve") {
-          headline = `All lanes are tight — keep tasks small on ${primary.label} (${primary.rem}% left) until ${unlock.label} resets in ${fmtHours(unlock.hrs)}.`;
+          headline = `All subscriptions are tight — keep tasks small on ${primary.label} (${primary.rem}% left) until ${unlock.label} resets in ${fmtHours(unlock.hrs)}.`;
         } else {
           headline = `Balanced week: lead with ${primary.label} (${primary.rem}% left), keep multipliers selective.`;
         }
@@ -944,13 +964,13 @@
         // AGY summary + live 6 knobs
         document.getElementById("simAgyRate").textContent = `${agyC.targetPerDay}%/day`;
         if (agyBest <= 10) {
-          document.getElementById("simAgyText").textContent = "Both Gemini and Claude/GPT lanes are at reserve. Pause swarms until reset.";
+          document.getElementById("simAgyText").textContent = "Both Gemini and Claude/GPT quotas are at reserve. Pause swarms until reset.";
           document.getElementById("simAgyCmd").textContent = "Hold AGY until reset";
         } else if (agyGem >= 50 || (agyGem >= 30 && agyHrs <= 48)) {
-          document.getElementById("simAgyText").textContent = `Run /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen.${agyCg >= 60 && claudeRem <= 20 ? ` AGY C/G (${agyCg}%) covers Claude overflow.` : ""}`;
+          document.getElementById("simAgyText").textContent = `Run /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen.${agyCg >= 60 && claudeRem <= 20 ? ` AGY's separate Claude/GPT quota (${agyCg}%) covers Claude overflow.` : ""}`;
           document.getElementById("simAgyCmd").textContent = "/swarm";
         } else if (agyCg >= 50) {
-          document.getElementById("simAgyText").textContent = `Gemini is at ${agyGem}%, but AGY Claude/GPT lane has ${agyCg}% left — pivot coding there.`;
+          document.getElementById("simAgyText").textContent = `Gemini is at ${agyGem}%, while AGY's separate Claude/GPT quota has ${agyCg}% left — pivot coding there.`;
           document.getElementById("simAgyCmd").textContent = "/model claude-opus-5-5-high";
         } else if (agyBest > 25) {
           document.getElementById("simAgyText").textContent = "Run focused 2-worker /swarm on Hydrogen/Flash.";
@@ -981,7 +1001,7 @@
         // Claude summary + live 6 knobs
         document.getElementById("simClaudeRate").textContent = `${claudeC.targetPerDay}%/day`;
         if (claudeRem <= 10) {
-          const offload = agyCg >= 40 ? `AGY Claude/GPT (${agyCg}% left)` : (codexRem > 20 ? "Codex" : "AGY");
+          const offload = agyCg >= 40 ? `AGY's Claude/GPT quota (${agyCg}% left)` : (codexRem > 20 ? "Codex" : "AGY");
           document.getElementById("simClaudeText").textContent = `Hold native Claude (${fmtHours(claudeHrs)} to reset). Offload to ${offload}.`;
           document.getElementById("simClaudeCmd").textContent = agyCg >= 40 ? "/model claude-opus-5-5-high" : "Hold Claude";
         } else if (claudeC.state === "surplus") {
@@ -997,27 +1017,120 @@
         document.getElementById("simClaudeKnobs").innerHTML = renderKnobRows(simClaudeKnobs(claudeRem, claudeHrs, agyCg));
       }
 
-      ids.forEach((id) => el[id].addEventListener("input", () => {
-        document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("active"));
-        updateSim();
-      }));
+      const prefersReducedMotion = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      const GLIDE_MS = 1200;
+      const HOLD_MS = 2800;
+      const FIRST_HOLD_MS = 1400;
+      let autoDemoActive = false;
+      let rafId = null;
+      let pauseTimer = null;
+      let scenarioIdx = 0;
+
+      function setActivePreset(key) {
+        document.querySelectorAll(".preset-btn").forEach((b) => b.classList.toggle("active", Boolean(key) && b.dataset.preset === key));
+      }
+
+      function renderAutoStatus(mode) {
+        if (!simStatus) return;
+        if (mode === "running") {
+          simStatus.innerHTML = `<span class="sim-status-dot" aria-hidden="true"></span><span>Auto-demo &middot; drag any slider to take control</span>`;
+        } else {
+          const btnText = mode === "reduced" ? "Play demo" : "Replay demo";
+          simStatus.innerHTML = `<span>Your mix</span><span aria-hidden="true">&middot;</span><button class="sim-replay-btn" type="button" id="simReplayBtn">${btnText}</button>`;
+          const replay = document.getElementById("simReplayBtn");
+          if (replay) replay.addEventListener("click", () => startAutoDemo(true));
+        }
+      }
+
+      function stopAutoDemo(humanTookControl) {
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+        if (pauseTimer !== null) { clearTimeout(pauseTimer); pauseTimer = null; }
+        const wasRunning = autoDemoActive;
+        autoDemoActive = false;
+        if (simPanel) simPanel.dataset.autodemo = "paused";
+        if (humanTookControl || wasRunning) renderAutoStatus("paused");
+      }
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function glideToNext() {
+        if (!autoDemoActive) return;
+        const fromVals = Object.fromEntries(ids.map((id) => [id, Number(el[id].value)]));
+        const nextIdx = (scenarioIdx + 1) % SCENARIOS.length;
+        const target = SCENARIOS[nextIdx];
+        const startTime = performance.now();
+
+        function step(now) {
+          if (!autoDemoActive) return;
+          const rawT = Math.min(1, Math.max(0, (now - startTime) / GLIDE_MS));
+          const t = easeInOutCubic(rawT);
+          for (const id of ids) {
+            el[id].value = String(Math.round(fromVals[id] + (target[id] - fromVals[id]) * t));
+          }
+          updateSim();
+          if (rawT < 1) {
+            rafId = requestAnimationFrame(step);
+          } else {
+            rafId = null;
+            scenarioIdx = nextIdx;
+            setActivePreset(target.key);
+            pauseTimer = setTimeout(glideToNext, HOLD_MS);
+          }
+        }
+        rafId = requestAnimationFrame(step);
+      }
+
+      function startAutoDemo(immediate) {
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+        if (pauseTimer !== null) { clearTimeout(pauseTimer); pauseTimer = null; }
+        autoDemoActive = true;
+        if (simPanel) simPanel.dataset.autodemo = "running";
+        renderAutoStatus("running");
+        if (immediate) {
+          glideToNext();
+        } else {
+          setActivePreset(SCENARIOS[scenarioIdx].key);
+          pauseTimer = setTimeout(glideToNext, FIRST_HOLD_MS);
+        }
+      }
+
+      ids.forEach((id) => {
+        const slider = el[id];
+        ["pointerdown", "mousedown", "touchstart", "keydown"].forEach((ev) => {
+          slider.addEventListener(ev, () => stopAutoDemo(true), { passive: true });
+        });
+        slider.addEventListener("input", () => {
+          stopAutoDemo(true);
+          setActivePreset(null);
+          updateSim();
+        });
+      });
 
       document.querySelectorAll(".preset-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const p = PRESETS[btn.dataset.preset];
           if (!p) return;
-          document.querySelectorAll(".preset-btn").forEach((b) => b.classList.toggle("active", b === btn));
-          for (const [k, v] of Object.entries(p)) {
-            if (el[k]) el[k].value = String(v);
+          stopAutoDemo(true);
+          setActivePreset(btn.dataset.preset);
+          for (const id of ids) {
+            if (el[id] && p[id] != null) el[id].value = String(p[id]);
           }
           updateSim();
         });
       });
 
       updateSim();
+      if (prefersReducedMotion) {
+        if (simPanel) simPanel.dataset.autodemo = "paused";
+        renderAutoStatus("reduced");
+      } else {
+        startAutoDemo(false);
+      }
     })();
 
-    // 4. Live Sanitized Guard & Optimizer Snapshot (guard-snapshot.json?v=0.7.1 + embedded fallback)
+    // 4. Live Sanitized Guard & Optimizer Snapshot (guard-snapshot.json?v=0.7.2 + embedded fallback)
     (function initGuardSnapshot() {
       function renderGuardSnapshot(snap, { embedded = false } = {}) {
         if (!snap || typeof snap !== "object" || (!snap.optimizer && !Array.isArray(snap.providers))) return;
@@ -1081,7 +1194,7 @@
         const when = new Date(snap.generatedAt);
         const srcTag = embedded ? "embedded sanitized snapshot" : "live snapshot";
         document.getElementById("guardSnapshotNote").innerHTML =
-          `Snapshot exported ${safe(Number.isNaN(when.getTime()) ? (snap.generatedAt || "recently") : when.toLocaleString())} (${safe(srcTag)}, v${safe(snap.version || "0.7.1")}) via <code>npm run guard:snapshot</code>: percentages, tuning knobs, counters, and model IDs only.`;
+          `Snapshot exported ${safe(Number.isNaN(when.getTime()) ? (snap.generatedAt || "recently") : when.toLocaleString())} (${safe(srcTag)}, v${safe(snap.version || "0.7.2")}) via <code>npm run guard:snapshot</code>: percentages, tuning knobs, counters, and model IDs only.`;
       }
 
       if (FALLBACK_SNAPSHOT) {
@@ -1089,7 +1202,7 @@
       }
       if (IS_FILE_PROTOCOL) return;
 
-      fetch("guard-snapshot.json?v=0.7.1", { cache: "no-store" })
+      fetch("guard-snapshot.json?v=0.7.2", { cache: "no-store" })
         .then((r) => { if (!r.ok) throw new Error("missing"); return r.json(); })
         .then((snap) => {
           if (snap && (snap.optimizer || Array.isArray(snap.providers))) {
@@ -1099,7 +1212,7 @@
         .catch(() => {});
     })();
 
-    // 5. Usage Deep-Dive (demo-data.json?v=0.7.1 + embedded fallback)
+    // 5. Usage Deep-Dive (demo-data.json?v=0.7.2 + embedded fallback)
     function normalizeDemoData(raw) {
       if (!raw || typeof raw !== "object" || !Array.isArray(raw.models) || !raw.models.length || !raw.totals || typeof raw.totals !== "object") {
         return null;
@@ -1349,8 +1462,8 @@
     }
 
     if (!IS_FILE_PROTOCOL) {
-      const expectedVer = (document.querySelector('meta[name="application-version"]') || {}).content || "0.7.1";
-      fetch("demo-data.json?v=0.7.1", { cache: "no-store" })
+      const expectedVer = (document.querySelector('meta[name="application-version"]') || {}).content || "0.7.2";
+      fetch("demo-data.json?v=0.7.2", { cache: "no-store" })
         .then((response) => { if (!response.ok) throw new Error("Demo data HTTP " + response.status); return response.json(); })
         .then((raw) => {
           const normalized = normalizeDemoData(raw);

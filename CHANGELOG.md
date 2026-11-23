@@ -3,6 +3,21 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.7.2 — 2026-11-23
+
+- **Load-Balancing Positioning & Plain-English Copy Scrub**:
+  - Updated the website hero (`public/index.html`) to *"Get the most out of your AI subscriptions."* with clear multi-tool load-balancing positioning across Claude, Codex, Antigravity, and other tools.
+  - Replaced internal shorthand across the optimizer, terminal CLI, website, Guard UI, local dashboard, docs, and all 5 animated terminal GIFs with clear plain English (`"AGY's separate Claude/GPT quota"`, `"Gemini + Claude/GPT quotas"`, `"Mix big & fast models"`, `"Effort level"`, `"5-hour burst limit"`, `"Keep context lean"`).
+- **Custom / Other Subscription Support (`custom-providers.json`)**:
+  - Added optional custom subscription quota ingestion (`<stateDir>/custom-providers.json`, `AI_SPEND_CUSTOM_PROVIDERS`, `POST /api/custom-providers`, and `npm run check -- --custom <file>`) so users running **Cursor, GitHub Copilot, Windsurf, Gemini CLI, OpenCode, or any custom plan** can load-balance them alongside Claude, Codex, and Antigravity.
+  - Added a lightweight **"Works with other tools too"** callout in the landing-page walkthrough explaining `custom-providers.json` and normalized JSONL imports (`AI_SPEND_IMPORT`).
+- **Auto-Animated Interactive Check-In Simulator (`public/index.html`)**:
+  - Added a smooth eased `requestAnimationFrame` auto-demo loop cycling through four realistic load-balancing scenarios (*AGY surplus*, *Codex expiring*, *Claude reset*, *All tight*) with live verdict and 6-knob updates.
+  - Respects `prefers-reduced-motion: reduce`, displays an unobtrusive status pill (`Auto-demo · drag any slider to take control` / `Your mix · Replay demo`), and hands 100% control to the user the instant any slider or preset is touched.
+- **Visual Border Cleanup & Versioned Assets (`0.7.2` / Guard `0.4.2`)**:
+  - Removed thick left accent bars across `public/design.css`, `tools/usage-guard.css`, and all 5 rendered terminal GIFs in favor of clean uniform `1px` borders and subtle dark surface tinting.
+  - Bumped all cache-busted asset query strings to `?v=0.7.2` and Guard UI to `0.4.2`.
+
 ## 0.7.1 — 2026-11-23
 
 - **Expanded Per-Harness Tuning Knobs (6 live levers per subscription)**:
@@ -11,9 +26,9 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
     value, reason, command? }]`, states `boost | steady | tighten | off`)
     computed from live allowance windows, reset countdowns, banked resets, and
     24h local `insights`:
-    - **Antigravity (AGY)**: `/swarm` sizing, Gemini vs Claude/GPT dual-pool
-      arbitrage, per-worker model tiering, effort suffix (`-xhigh`/`-high`/
-      `-medium`), 5-hour burst window guard, and `/compact` + `/goal` scheduling.
+    - **Antigravity (AGY)**: `/swarm` sizing, separate Gemini & Claude/GPT
+      quotas, mixing big & fast models, effort level (`-xhigh`/`-high`/
+      `-medium`), 5-hour burst limit, and `/compact` + `/goal` scheduling.
     - **Codex**: `/fast` speed tier (2x/8x vs standard), reasoning effort,
       model stepping (`Sol`/`Astra` -> `Terra`/`Luna`), `272k` long-context
       cliff guard, subagent/auto-review routing, and banked resets + prefix cache.
@@ -49,7 +64,7 @@ history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
 - **Multi-Subscription Value Optimizer (`tools/subscription-optimizer.js`)**:
   Evaluates Claude, Codex, and Antigravity (including AGY's separate **Gemini**
-  and **Claude/GPT** lanes), banked reset inventory, and 24-hour usage insights.
+  and **Claude/GPT** quotas), banked reset inventory, and 24-hour usage insights.
   Classifies each subscription (`surplus`, `on-pace`, `hot`, `exhausted`,
   `blocked`), computes daily burn targets (`%/day`) and next unlock countdowns,
   and outputs concrete playbooks for AGY `/swarm` sizing, Codex `/fast` &
