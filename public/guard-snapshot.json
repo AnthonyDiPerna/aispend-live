@@ -1,158 +1,408 @@
 {
- "generatedAt": "2026-11-14T16:48:33.689Z",
+ "generatedAt": "2026-11-23T04:42:24.149Z",
  "source": "controller",
- "version": "0.6.5",
+ "version": "0.7.0",
  "policy": {
   "usageMode": "max",
   "providerOrder": [
-   "agy",
    "codex",
+   "agy",
    "claude"
   ],
-  "blockedProviders": [
-   "claude"
-  ],
+  "blockedProviders": [],
   "reservePercent": 10,
   "maxRequestsPerTask": 200,
   "maxTaskMinutes": 480,
-  "maxContextTokens": 80000,
+  "maxContextTokens": 1000000,
   "maxThinkingLevel": "medium",
   "maxSubagentCalls": 0,
   "allowApiSpend": false
  },
- "recommendedProvider": "agy",
- "footer": "Guard · ▸AGY 100% · Codex 10% · Claude 90%⛔ · next: Codex resets in 21h",
+ "recommendedProvider": "codex",
+ "footer": "Guard · ▸Codex 5% · AGY 70% · Claude 0%∅ · next: Codex resets in 11h",
  "providers": [
-  {
-   "provider": "agy",
-   "status": "ready",
-   "blocked": false,
-   "configured": true,
-   "model": "gemini-4-argon",
-   "remainingPercent": 100,
-   "resetIn": "7d",
-   "resetAt": "2026-11-21T16:43:51.000Z",
-   "burnPercentPerHour": null,
-   "runOutIn": null,
-   "windows": [
-    {
-     "id": "gemini:weekly",
-     "remainingPercent": 100,
-     "resetIn": "7d",
-     "applies": true
-    },
-    {
-     "id": "gemini:session",
-     "remainingPercent": 100,
-     "resetIn": "5h",
-     "applies": true
-    },
-    {
-     "id": "claude-gpt:weekly",
-     "remainingPercent": 100,
-     "resetIn": "7d",
-     "applies": false
-    },
-    {
-     "id": "claude-gpt:session",
-     "remainingPercent": 100,
-     "resetIn": "5h",
-     "applies": false
-    },
-    {
-     "id": "gemini-argon:weekly",
-     "remainingPercent": 100,
-     "resetIn": "7d",
-     "applies": true
-    }
-   ]
-  },
   {
    "provider": "codex",
    "status": "reserve",
    "blocked": false,
    "configured": true,
    "model": "gpt-5.6-sol",
-   "remainingPercent": 10,
-   "resetIn": "21h",
-   "resetAt": "2026-11-15T13:38:43.000Z",
-   "burnPercentPerHour": 0.1,
+   "remainingPercent": 5,
+   "resetIn": "11h",
+   "resetAt": "2026-11-23T15:52:24.000Z",
+   "burnPercentPerHour": null,
    "runOutIn": null,
    "windows": [
     {
      "id": "codex:primary",
-     "remainingPercent": 10,
-     "resetIn": "21h",
+     "modelFamily": null,
+     "remainingPercent": 5,
+     "resetIn": "11h",
      "applies": true
     }
    ]
   },
   {
+   "provider": "agy",
+   "status": "ready",
+   "blocked": false,
+   "configured": true,
+   "model": "gemini-4-argon",
+   "remainingPercent": 70,
+   "resetIn": "1h",
+   "resetAt": "2026-11-23T05:52:10.000Z",
+   "burnPercentPerHour": null,
+   "runOutIn": null,
+   "windows": [
+    {
+     "id": "gemini:weekly",
+     "modelFamily": "gemini",
+     "remainingPercent": 73,
+     "resetIn": "6d",
+     "applies": true
+    },
+    {
+     "id": "gemini:session",
+     "modelFamily": "gemini",
+     "remainingPercent": 70,
+     "resetIn": "1h",
+     "applies": true
+    },
+    {
+     "id": "claude-gpt:weekly",
+     "modelFamily": "claude-gpt",
+     "remainingPercent": 97,
+     "resetIn": "6d",
+     "applies": false
+    },
+    {
+     "id": "claude-gpt:session",
+     "modelFamily": "claude-gpt",
+     "remainingPercent": 100,
+     "resetIn": "5h",
+     "applies": false
+    }
+   ]
+  },
+  {
    "provider": "claude",
-   "status": "blocked",
-   "blocked": true,
+   "status": "depleted",
+   "blocked": false,
    "configured": true,
    "model": "claude-sonnet-5",
-   "remainingPercent": 90,
-   "resetIn": "3d",
-   "resetAt": "2026-11-17T23:00:00.000Z",
-   "burnPercentPerHour": 12.7,
-   "runOutIn": "7h",
+   "remainingPercent": 0,
+   "resetIn": "42h",
+   "resetAt": "2026-11-24T23:00:00.000Z",
+   "burnPercentPerHour": null,
+   "runOutIn": null,
    "windows": [
     {
      "id": "weekly",
-     "remainingPercent": 90,
-     "resetIn": "3d",
+     "modelFamily": null,
+     "remainingPercent": 0,
+     "resetIn": "42h",
      "applies": true
     },
     {
      "id": "weekly:fable",
-     "remainingPercent": 91,
-     "resetIn": "3d",
+     "modelFamily": "fable",
+     "remainingPercent": 51,
+     "resetIn": "42h",
      "applies": false
     }
    ]
   }
  ],
+ "optimizer": {
+  "headline": "Run AGY /swarm (70% Gemini · 97% Claude/GPT open) · keep Codex /fast OFF (5% left, resets in 11h) · hold Claude (42h to reset)",
+  "strategy": "accelerate",
+  "primaryProvider": "agy",
+  "secondaryProvider": "codex",
+  "nextUnlock": {
+   "provider": "codex",
+   "windowId": "codex:primary",
+   "resetAt": "2026-11-23T15:52:24.000Z",
+   "hoursLeft": 11.2,
+   "resetIn": "11h",
+   "label": "Codex Weekly limit resets in 11h"
+  },
+  "recommendedOrder": [
+   "agy",
+   "codex",
+   "claude"
+  ],
+  "providers": [
+   {
+    "provider": "agy",
+    "label": "Antigravity (AGY)",
+    "status": "ready",
+    "utilizationState": "surplus",
+    "remainingPercent": 70,
+    "usablePercent": 60,
+    "resetIn": "6d",
+    "resetAt": "2026-11-29T03:15:07.000Z",
+    "hoursLeft": 142.5,
+    "targetPercentPerDay": 10.6,
+    "projectedUnusedAtReset": 0,
+    "bankedResets": 0,
+    "windows": [
+     {
+      "windowId": "gemini:weekly",
+      "modelFamily": "gemini",
+      "label": "Gemini weekly",
+      "remainingPercent": 73,
+      "resetIn": "6d",
+      "status": "ready",
+      "applies": true
+     },
+     {
+      "windowId": "gemini:session",
+      "modelFamily": "gemini",
+      "label": "Gemini 5h session",
+      "remainingPercent": 70,
+      "resetIn": "1h",
+      "status": "ready",
+      "applies": true
+     },
+     {
+      "windowId": "claude-gpt:weekly",
+      "modelFamily": "claude-gpt",
+      "label": "Claude/GPT weekly",
+      "remainingPercent": 97,
+      "resetIn": "6d",
+      "status": "ready",
+      "applies": false
+     },
+     {
+      "windowId": "claude-gpt:session",
+      "modelFamily": "claude-gpt",
+      "label": "Claude/GPT 5h session",
+      "remainingPercent": 100,
+      "resetIn": "5h",
+      "status": "ready",
+      "applies": false
+     }
+    ],
+    "playbook": {
+     "mode": "accelerate",
+     "headline": "Run /swarm (3–4 workers + verifier) on Gemini (70%) + tap AGY Claude/GPT lane (97%)",
+     "badges": [
+      "/swarm 3-4 workers + verifier",
+      "Gemini Neon / Hydrogen",
+      "Claude/GPT lane 97%"
+     ],
+     "guidance": [
+      "Gemini has 70% left (70% 5h) — fire up /swarm with 3–4 parallel workers + a verifier on Gemini Neon or Hydrogen.",
+      "AGY's separate Claude/GPT lane has 97% left (100% 5h) while native Claude & Codex are tight — route Opus-tier planning or overflow coding there."
+     ],
+     "commands": [
+      "/swarm",
+      "/model gemini-4-neon-high",
+      "/model claude-opus-5-5-high"
+     ]
+    }
+   },
+   {
+    "provider": "codex",
+    "label": "Codex",
+    "status": "reserve",
+    "utilizationState": "hot",
+    "remainingPercent": 5,
+    "usablePercent": 0,
+    "resetIn": "11h",
+    "resetAt": "2026-11-23T15:52:24.000Z",
+    "hoursLeft": 11.2,
+    "targetPercentPerDay": 0,
+    "projectedUnusedAtReset": 0,
+    "bankedResets": 0,
+    "windows": [
+     {
+      "windowId": "codex:primary",
+      "modelFamily": null,
+      "label": "Weekly limit",
+      "remainingPercent": 5,
+      "resetIn": "11h",
+      "status": "reserve",
+      "applies": true
+     }
+    ],
+    "playbook": {
+     "mode": "conserve",
+     "headline": "Codex low (5% left, resets in 11h) — turn /fast OFF, use Terra/Luna or wait",
+     "badges": [
+      "/fast OFF (2x-8x burn)",
+      "Terra / Luna or wait",
+      "Resets in 11h"
+     ],
+     "guidance": [
+      "Turn /fast OFF immediately — priority speed multiplies burn 2x–8x and only 5% remains before the 11h reset.",
+      "Step down to Terra or Luna with low/medium effort, or hold Codex for 11h and use AGY."
+     ],
+     "commands": [
+      "/fast off",
+      "/effort low",
+      "/model gpt-6.1-terra"
+     ]
+    }
+   },
+   {
+    "provider": "claude",
+    "label": "Claude",
+    "status": "depleted",
+    "utilizationState": "exhausted",
+    "remainingPercent": 0,
+    "usablePercent": 0,
+    "resetIn": "42h",
+    "resetAt": "2026-11-24T23:00:00.000Z",
+    "hoursLeft": 42.3,
+    "targetPercentPerDay": 0,
+    "projectedUnusedAtReset": 0,
+    "bankedResets": 0,
+    "windows": [
+     {
+      "windowId": "weekly",
+      "modelFamily": null,
+      "label": "All models weekly",
+      "remainingPercent": 0,
+      "resetIn": "42h",
+      "status": "depleted",
+      "applies": true
+     },
+     {
+      "windowId": "weekly:fable",
+      "modelFamily": "fable",
+      "label": "Fable weekly",
+      "remainingPercent": 51,
+      "resetIn": "42h",
+      "status": "ready",
+      "applies": false
+     }
+    ],
+    "playbook": {
+     "mode": "pause",
+     "headline": "Claude exhausted (42h to reset) — shift Opus/coding to AGY Claude/GPT lane (97% left)",
+     "badges": [
+      "Exhausted",
+      "Resets in 42h",
+      "Shift to AGY Claude/GPT (97%)"
+     ],
+     "guidance": [
+      "Hold native Claude until its allowance resets in 42h.",
+      "Shift Opus/coding work to AGY's Claude/GPT lane (97% left) right now.",
+      "Note: Fable weekly still shows 51%, but the overall weekly cap at 0% blocks Claude until 42h."
+     ],
+     "commands": [
+      "/model claude-opus-5-5-high"
+     ]
+    }
+   }
+  ],
+  "alerts": [
+   {
+    "kind": "lane-opportunity",
+    "severity": "opportunity",
+    "provider": "agy",
+    "title": "AGY Claude/GPT lane is 97% free",
+    "detail": "Native Claude is exhausted, while AGY's separate Claude/GPT bucket still has 97% remaining.",
+    "command": "/model claude-opus-5-5-high"
+   },
+   {
+    "kind": "swarm-ready",
+    "severity": "opportunity",
+    "provider": "agy",
+    "title": "AGY Gemini ready for /swarm (70% left)",
+    "detail": "Plenty of Gemini weekly & session headroom — run 3–4 parallel /swarm workers + verifier on Neon or Hydrogen.",
+    "command": "/swarm"
+   },
+   {
+    "kind": "fast-burn",
+    "severity": "warn",
+    "provider": "codex",
+    "title": "Turn Codex /fast OFF (5% left)",
+    "detail": "/fast multiplies Codex quota burn 2x–8x. With 11h until reset, switch to standard speed on Terra/Luna or wait.",
+    "command": "/fast off"
+   },
+   {
+    "kind": "exhausted",
+    "severity": "warn",
+    "provider": "claude",
+    "title": "Claude exhausted (resets in 42h)",
+    "detail": "Hold native Claude until its allowance resets in 42h. Shift Opus/coding work to AGY's Claude/GPT lane (97% left) right now.",
+    "command": "/model claude-opus-5-5-high"
+   }
+  ],
+  "quickCommands": [
+   {
+    "tool": "agy",
+    "label": "Launch AGY /swarm",
+    "command": "/swarm",
+    "why": "Gemini has 70% left — run 3–4 workers + verifier"
+   },
+   {
+    "tool": "agy",
+    "label": "Tap AGY Claude/GPT lane",
+    "command": "/model claude-opus-5-5-high",
+    "why": "AGY Claude/GPT bucket is 97% free"
+   },
+   {
+    "tool": "codex",
+    "label": "Turn Codex /fast OFF",
+    "command": "/fast off",
+    "why": "Only 5% left (11h to reset) — prevent 2x–8x burn"
+   },
+   {
+    "tool": "pi",
+    "label": "Auto-order Pi Guard",
+    "command": "/guard-order auto",
+    "why": "Applies AGY > Codex > Claude priority"
+   },
+   {
+    "tool": "cli",
+    "label": "Live check-in",
+    "command": "npm run check",
+    "why": "Instant terminal cockpit across AGY, Codex, and Claude"
+   }
+  ]
+ },
  "tasks": [
   {
    "id": "deb1f665",
-   "requests": 1,
-   "tokens": 0,
-   "status": "running",
-   "provider": "agy",
-   "startedAt": "2026-11-14T16:43:15.3192652Z",
-   "minutes": 2,
-   "contextTokens": 31285,
-   "trimmedChars": 6732
+   "requests": 2,
+   "tokens": 202124,
+   "status": "ready",
+   "provider": "codex",
+   "startedAt": "2026-11-15T22:59:53.799Z",
+   "minutes": 0,
+   "contextTokens": 101078,
+   "trimmedChars": 7750
   }
  ],
  "interventions": {
-  "switches": 1
+  "switches": 3
  },
  "impact": {
-  "removedChars": 6732,
-  "estimatedInputTokensAvoided": 1682,
+  "removedChars": 7750,
+  "estimatedInputTokensAvoided": 1936,
   "loopBlocks": 0
  },
  "insights": {
-  "since": "2026-11-13T16:44:08.107Z",
+  "since": "2026-11-19T08:19:07.118Z",
   "providers": [
    {
     "provider": "claude",
-    "requests": 8658,
-    "totalTokens": 3849825407,
+    "requests": 10207,
+    "totalTokens": 3669314930,
     "cachePercent": 99,
     "metrics": [
      {
       "id": "subagents",
       "label": "Tokens in subagent requests",
-      "percent": 91.9
+      "percent": 93
      },
      {
       "id": "context",
       "label": "Tokens in requests with >150k input context",
-      "percent": 97.4
+      "percent": 95.9
      },
      {
       "id": "effort",
@@ -162,181 +412,51 @@
      {
       "id": "long",
       "label": "Tokens in sessions spanning 8+ hours",
-      "percent": 32.7
+      "percent": 20.1
      },
      {
       "id": "cache",
       "label": "Recorded input tokens read from cache",
-      "percent": 98.7
+      "percent": 98.8
      }
     ]
    },
    {
     "provider": "codex",
-    "requests": 38,
-    "totalTokens": 4460785,
-    "cachePercent": 89,
+    "requests": 0,
+    "totalTokens": 0,
+    "cachePercent": null,
     "metrics": [
      {
       "id": "subagents",
       "label": "Tokens in subagent requests",
-      "percent": 22.3
+      "percent": null
      },
      {
       "id": "context",
       "label": "Tokens in requests with >150k input context",
-      "percent": 77.7
+      "percent": null
      },
      {
       "id": "effort",
       "label": "Max / ultra / xhigh effort, where recorded",
-      "percent": 67.2
+      "percent": null
      },
      {
       "id": "long",
       "label": "Tokens in sessions spanning 8+ hours",
-      "percent": 77.7
+      "percent": null
      },
      {
       "id": "cache",
       "label": "Recorded input tokens read from cache",
-      "percent": 89.1
+      "percent": null
      }
     ]
    }
   ]
  },
  "events": [
-  {
-   "at": "2026-11-14T16:38:04.128Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:05.423Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:06.754Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:07.899Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:09.116Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:10.441Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:16.689Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:25.882Z",
-   "kind": "protection",
-   "detail": "effort-cap: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.873Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.885Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.887Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.893Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.895Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.900Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.907Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.913Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.915Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.919Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.921Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.931Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.935Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.948Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.950Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.955Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
-  {
-   "at": "2026-11-14T16:38:31.957Z",
-   "kind": "pause",
-   "detail": "request-budget: Task request budget reached. Review the saved session before raising its budget."
-  },
-  {
-   "at": "2026-11-14T16:38:31.961Z",
-   "kind": "protection",
-   "detail": "handoff: Guard enforced a work rule."
-  },
   {
    "at": "2026-11-14T16:38:31.963Z",
    "kind": "pause",
@@ -406,7 +526,137 @@
    "at": "2026-11-14T16:44:28.647Z",
    "kind": "binding",
    "detail": "Selected connected subscription models. Existing choices and API spending are unchanged."
+  },
+  {
+   "at": "2026-11-14T17:26:52.502Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:27:21.199Z",
+   "kind": "protection",
+   "detail": "compact: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:28:09.165Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T17:28:09.182Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:43:44.365Z",
+   "kind": "settings",
+   "detail": "Usage-based protection: Large contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward. Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shor"
+  },
+  {
+   "at": "2026-11-14T17:43:44.365Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
+  },
+  {
+   "at": "2026-11-14T17:43:57.217Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T17:43:57.228Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:43:59.205Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T17:44:00.430Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
+  },
+  {
+   "at": "2026-11-14T17:45:11.866Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T17:45:11.903Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:45:11.908Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T17:45:31.765Z",
+   "kind": "protection",
+   "detail": "compact: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T18:04:59.848Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T18:04:59.874Z",
+   "kind": "protection",
+   "detail": "handoff: Guard enforced a work rule."
+  },
+  {
+   "at": "2026-11-14T18:05:26.459Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T18:05:29.840Z",
+   "kind": "compact",
+   "detail": "context: Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing."
+  },
+  {
+   "at": "2026-11-14T18:06:48.303Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
+  },
+  {
+   "at": "2026-11-15T05:01:35.082Z",
+   "kind": "auto-fix",
+   "detail": "time-budget reached on task deb1f665; budget renewed automatically and work continued."
+  },
+  {
+   "at": "2026-11-15T14:00:34.944Z",
+   "kind": "auto-fix",
+   "detail": "time-budget reached on task deb1f665; budget renewed automatically and work continued."
+  },
+  {
+   "at": "2026-11-15T14:15:07.322Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
+  },
+  {
+   "at": "2026-11-15T15:27:12.537Z",
+   "kind": "protection",
+   "detail": "tool-trim: 37 net characters removed from context."
+  },
+  {
+   "at": "2026-11-15T15:27:12.585Z",
+   "kind": "protection",
+   "detail": "tool-trim: 981 net characters removed from context."
+  },
+  {
+   "at": "2026-11-15T22:59:53.799Z",
+   "kind": "auto-fix",
+   "detail": "time-budget reached on task deb1f665; budget renewed automatically and work continued."
+  },
+  {
+   "at": "2026-11-15T23:03:43.222Z",
+   "kind": "policy",
+   "detail": "Work mode: max. Existing task counters and API caps remain in force."
   }
  ],
- "note": "Sanitized local snapshot: percentages, hashed task prefixes, counters and model IDs. No prompts, files or account identity."
+ "note": "Sanitized local snapshot: percentages, hashed task prefixes, optimizer guidance, counters and model IDs. No prompts, files or account identity."
 }

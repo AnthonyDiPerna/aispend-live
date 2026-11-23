@@ -32,7 +32,7 @@ function buildAdvice(state, now = Date.now()) {
   }
   if (metrics.some(row => row.id === 'effort' && row.percent >= 40 && row.coveragePercent >= 50)) {
     reasons.push('High reasoning effort is common where recorded. Medium remains the automatic ceiling.');
-    if (policy.maxThinkingLevel === 'high') { changes.maxThinkingLevel = 'medium'; }
+    if (['high', 'xhigh'].includes(policy.maxThinkingLevel)) { changes.maxThinkingLevel = 'medium'; }
   }
   if (policy.usageMode==='strict' && buildPlan(state, now).providers.some(row => row.status === 'pace')) {
     tighten('maxRequestsPerTask', 25, 'Measured allowance burn would reach a reserve before reset. Use shorter task batches.');
@@ -60,7 +60,7 @@ function defaultBindings(models, current) {
     if (result[group]) { continue; }
     const candidates = models.filter(model => model.group === group && model.auth === 'subscription');
     // Prefer a balanced family when present; names are drawn only from authenticated discovery.
-    const preferred = candidates.find(model => /sonnet|(?:^|-)sol(?:-|$)|flash/i.test(model.id)) || candidates[0];
+    const preferred = candidates.find(model => /sonnet|(?:^|-)(?:sol|terra)(?:-|$)|neon|carbon|flash/i.test(model.id)) || candidates[0];
     if (preferred) { result[group] = {provider: preferred.provider, model: preferred.id}; }
   }
   return result;

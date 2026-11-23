@@ -11,6 +11,7 @@ function isoReset(value) {
   const ms=typeof value==='number'?(value<1e12?value*1000:value):Date.parse(value);
   return Number.isFinite(ms)?new Date(Math.floor(ms/1000)*1000).toISOString():null;
 }
+const CLAUDE_BREAKDOWN_LABELS={claude_code:'Claude Code',chat:'Chats',cowork:'Cowork',other:'Other'};
 function claudeUsage(payload,now=Date.now()) {
   const rows=new Map();
   const add=(id,minutes,used,reset,modelFamily)=>{
@@ -31,8 +32,19 @@ function claudeUsage(payload,now=Date.now()) {
     }
   }
   if(!rows.size)throw Error('Claude did not report a usable allowance window. Missing readings stay unknown.');
+  const rawBreakdown=Array.isArray(payload.seven_day_breakdown?.rows)?payload.seven_day_breakdown.rows:[];
+  const claudeBreakdown=rawBreakdown
+    .filter(r=>r && typeof r.key==='string' && /^[a-z0-9_-]{1,32}$/.test(r.key) && typeof r.percent==='number' && Number.isFinite(r.percent) && r.percent>=0 && r.percent<=100)
+    .slice(0,16)
+    .map(r=>({
+      key:r.key,
+      label:CLAUDE_BREAKDOWN_LABELS[r.key] || r.key,
+      percent:r.percent,
+      percentOfLimit:typeof r.percent_of_limit==='number' && Number.isFinite(r.percent_of_limit) && r.percent_of_limit>=0 && r.percent_of_limit<=100?r.percent_of_limit:null,
+    }));
   return {observations:[...rows.values()],retiredWindowIds:Object.hasOwn(payload,'five_hour') && payload.five_hour===null && !rows.has('session')?['session']:[],
-    extraUsageEnabled:typeof payload.extra_usage?.is_enabled==='boolean'?payload.extra_usage.is_enabled:null};
+    extraUsageEnabled:typeof payload.extra_usage?.is_enabled==='boolean'?payload.extra_usage.is_enabled:null,
+    claudeBreakdown:claudeBreakdown.length?claudeBreakdown:null};
 }
 
 async function fetchClaudeUsage({configDir,fetchImpl=fetch,now=Date.now()}={}) {
@@ -66,7 +78,10 @@ function codexUsage(payload,now=Date.now()) {
     try{rows.push(observation({provider:'codex',windowId:`${snapshot.limitId || 'codex'}:${which}`,windowMinutes:row.windowDurationMins,usedPercent:row.usedPercent,resetAt:isoReset(row.resetsAt),observedAt:new Date(now).toISOString(),source:'codex-rpc'},now));}catch{}
   }
   if(!rows.length)throw Error('Codex did not report a usable subscription allowance.');
-  return {observations:rows,resetCredits:codexResetCredits(payload?.rateLimitResetCredits,now)};
+  const rawPlan=snapshots.map(s=>s?.planType).find(v=>typeof v==='string' && v.trim()) || (typeof payload?.planType==='string'?payload.planType:'');
+  const cleanPlan=rawPlan.trim().toLowerCase();
+  const planType=/^[a-z0-9_-]{1,32}$/.test(cleanPlan)?cleanPlan:null;
+  return {observations:rows,resetCredits:codexResetCredits(payload?.rateLimitResetCredits,now),planType};
 }
 
 function codexResetCredits(raw,now=Date.now()) {
@@ -145,7 +160,9 @@ function agyUsage(report,now=Date.now()){
     observations.push(observation({provider:'agy',windowId:`${family}:${minutes===300?'session':'weekly'}`,windowMinutes:minutes,usedPercent:100-Number(remaining.slice(0,-1)),resetAt:isoReset(reset),observedAt:new Date(now).toISOString(),source:'agy-cli',modelFamily:family},now));
   }
   if(!observations.length)throw Error('Antigravity did not return recognized percentages and reset times.');
-  return {observations};
+  const ids=new Set(observations.map(o=>o.windowId));
+  const retiredWindowIds=ids.has('gemini:weekly') && !ids.has('gemini-argon:weekly')?['gemini-argon:weekly']:[];
+  return {observations,retiredWindowIds};
 }
 function fetchAgyUsage({spawnImpl=spawn,now=Date.now(),command=process.env.AI_SPEND_AGY_COMMAND || (process.platform==='win32'?path.join(process.env.LOCALAPPDATA || path.join(os.homedir(),'AppData','Local'),'agy','bin','agy.exe'):'agy')}={}){
   return new Promise((resolve,reject)=>{

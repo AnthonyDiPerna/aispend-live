@@ -3,6 +3,70 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.7.0 — 2026-11-23
+
+- **Multi-Subscription Value Optimizer (`tools/subscription-optimizer.js`)**:
+  Evaluates Claude, Codex, and Antigravity (including AGY's separate **Gemini**
+  and **Claude/GPT** lanes), banked reset inventory, and 24-hour usage insights.
+  Classifies each subscription (`surplus`, `on-pace`, `hot`, `exhausted`,
+  `blocked`), computes daily burn targets (`%/day`) and next unlock countdowns,
+  and outputs concrete playbooks for AGY `/swarm` sizing, Codex `/fast` &
+  reasoning effort, and Claude model tiers/subagents. Bundled into both the
+  live controller (`GET /api/state`, `GET /api/checkin`) and the static public
+  playground (`public/guard.html`).
+- **Native-First Quick Check-In CLI (`npm run check`, `check:live`, `check:watch`)**:
+  Reads the running Guard controller or falls back automatically to direct
+  read-only Claude/Codex/AGY collectors so a 1-second multi-subscription verdict
+  works from any terminal with zero background server required.
+- **Full Antigravity (AGY) Telemetry & `/swarm` Capture (`parseAgy`)**:
+  Streams `%USERPROFILE%\.gemini\antigravity-cli\brain\*\logs\transcript.jsonl`
+  alongside `swarm/members.json`, `subagents/*.json`, and read-only
+  `conversation_summaries.db`. Applies accurate disjoint token accounting
+  (`input + cache_read + output`), extracts effort suffixes (`-xhigh`, `-high`,
+  `-medium`), tracks `/swarm` worker sessions and token share (`swarmStats`),
+  and adds AGY to `usage-insights.js`, `export-public-demo.js`, and the local
+  dashboard.
+- **`/fast` Speed Tier & Effort Telemetry Across Providers**:
+  Captures Codex `thread_settings_applied` `service_tier` (`priority` /
+  `ultrafast` / `default`) and `cache_write_input_tokens`, plus Claude
+  per-turn effort, speed tier, and thinking tokens, aggregated into
+  `speedStats`.
+- **Parser, Collector & Pi Guard Fixes**:
+  - Fix Codex `cacheHitRatio` / `contextTokenRatio` double-counting so Codex
+    cache reuse is no longer capped at 50%.
+  - Retire stale `gemini-argon:weekly` observations automatically in
+    `agyUsage()` when AGY reports `gemini:weekly` without a separate Argon row.
+  - Add `xhigh` to Guard `maxThinkingLevel`, recognize newer models
+    (`claude-fable-5-2`, `gpt-6.2-*`, `gemini-4-neon`, `gemini-4-carbon`,
+    `gemini-4-hydrogen`, `gemini-3.8-flash`) cleanly without inventing unverified
+    prices.
+  - Fix Pi Guard `/guard-order` and `/guard-block` whitespace split regexes
+    (`/[s,]+/` -> `/[\s,]+/`), tighten natural-language routing rule parsing so
+    ordinary sentences are not saved as rules, add new model aliases (`neon`,
+    `carbon`, `terra`, `spark`), and add `/guard-check`.
+- **Local Dashboard & Guard UI Overhaul**:
+  - Upgraded `tools/ai-spend-dashboard.html` into a 3-provider Multi-Subscription
+    Command Center with live Optimizer cockpit (via same-origin `/api/guard-proxy`),
+    true Claude/Codex/Antigravity stacked daily chart (fixing the `"Source A"` /
+    `"Source B"` legend bug), resize redraw without re-parsing logs, and
+    `/swarm` + `/fast` cards.
+  - Upgraded `tools/usage-guard.html` (v0.7.0 / Guard 0.4.0) with the Max-Value
+    Playbook panel and `xhigh` reasoning ceiling.
+- **Website Overhaul (`www.aispend.live`), Zero-PII Counter & Live Stats**:
+  - Overhauled `public/index.html` and `public/design.css` for v0.7.0 with live
+    author telemetry + 3-sub allowance strip, sanitized Optimizer snapshot view,
+    interactive browser Quick Check-In Simulator, AGY + `/swarm` + `/fast`
+    deep-dive telemetry, live GitHub repo stats (10-minute `localStorage` cache
+    with graceful fallback), and native-first Quick Start.
+  - Added zero-PII aggregate integer counter (`public/counter.php`, atomic
+    `flock()` on `.htaccess`-blocked `counter-data.json`, zero cookies/IPs/PII)
+    plus `Cache-Control: no-cache, must-revalidate` rules in `public/.htaccess`
+    and an in-memory `/counter.php` mock + image MIME types in
+    `tools/preview-public.js`.
+  - Updated `tools/export-guard-snapshot.js` to include sanitized Optimizer
+    guidance while preserving strict path scrubbing, and updated
+    `tools/package-guard-preview.ps1` allowlist for all 0.7.0 modules.
+
 ## 0.6.4 — 2026-11-14
 
 - Route Antigravity through the optional pi-antigravity-bridge, which uses the

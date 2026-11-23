@@ -10,6 +10,7 @@ const {buildAdvice,applyAdvice,defaultBindings}=require('./guard-advisor');
 const {recordLesson,learn,undo,learningView}=require('./guard-learning');
 const {recordImpact,attributeTrimReplay,impactReport}=require('./guard-impact');
 const {nativeEvent,COVERAGE}=require('./guard-native');
+const {buildOptimizationPlan}=require('./subscription-optimizer');
 const {Worker}=require('node:worker_threads');
 
 const MAX_BODY = 128 * 1024;
@@ -124,10 +125,13 @@ function createGuardServer(options={}) {
   const touchWindow=id=>{windows.set(id,now());for(const [k,v] of windows)if(now()-v>WINDOW_MS*5)windows.delete(k);};
   const windowsView=()=>{const t=now();const active=[...windows.entries()].filter(([,v])=>t-v<=WINDOW_MS);const slots=cleanPolicy(state.policy).maxConcurrentRequests;const inFlight=[...leases.values()].filter(l=>l.expiresAt>t).length;
     return {active:active.length,slots,inFlight,waiting:Math.max(0,active.filter(([id])=>state.tasks[id]?.status==='pause').length),ids:active.map(([id])=>id.slice(0,8))};};
-  const publicState=()=>({demo:Boolean(options.demo),...buildPlan(state,now()),windows:windowsView(),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
-    accounting:accounting(state,leases,now()),impact:impactReport(state),learning:learningView(state,now()),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,now()),advisor:state.advisor || null,
-    models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
-    harnesses:Object.entries(COVERAGE).map(([id,coverage])=>({id,...coverage,...state.harnesses?.[id]})),events:state.events, lastSyncAt,syncError});
+  const publicState=()=>{
+    const t=now(), plan=buildPlan(state,t);
+    return {demo:Boolean(options.demo),...plan,optimizer:buildOptimizationPlan(plan,state.insights || null,t),windows:windowsView(),collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),providerMeta:state.providerMeta || {},
+      accounting:accounting(state,leases,t),impact:impactReport(state),learning:learningView(state,t),insights:state.insights || null,reportedInsights:state.reportedInsights || {},advice:buildAdvice(state,t),advisor:state.advisor || null,
+      models:[...models.values()], tasks:Object.values(state.tasks).map(({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})=>({id,requests,totalTokens,status,provider,updatedAt,removedChars,startedAt,contextTokens,thinkingLevel,subagentCalls,costEstimateUsd,unknownCostRequests})),
+      harnesses:Object.entries(COVERAGE).map(([id,coverage])=>({id,...coverage,...state.harnesses?.[id]})),events:state.events, lastSyncAt,syncError};
+  };
   broadcast=()=>{if(!clients.size)return;const data='data: '+JSON.stringify(publicState())+'\n\n';for(const client of clients)if(client.writableLength>1024*1024){clients.delete(client);client.destroy();}else client.write(data);};
   function safeTaskId(id) {if(typeof id!=='string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(id)) throw new Error('Invalid task ID');return id;}
   async function body(req) {
@@ -158,6 +162,16 @@ function createGuardServer(options={}) {
       }
       if(req.method==='GET' && url.pathname==='/health') return reply(res,200,{ok:true,name:'ai-spend-guard',demo:Boolean(options.demo)});
       if(req.method==='GET' && url.pathname==='/api/state'){const t=url.searchParams.get('task');if(t && /^[0-9a-f]{8,64}$/.test(t))touchWindow(t);return reply(res,200,publicState());}
+      if(req.method==='GET' && url.pathname==='/api/checkin'){
+        const t=now(), plan=buildPlan(state,t);
+        return reply(res,200,{
+          generatedAt:plan.generatedAt,
+          recommendedProvider:plan.recommendedProvider,
+          optimizer:buildOptimizationPlan(plan,state.insights || null,t),
+          windows:windowsView(),
+          collectors:Object.fromEntries(Object.entries(collectors).map(([key,c])=>[key,c.view()])),
+        });
+      }
       if(req.method==='GET' && url.pathname==='/api/events'){
         res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Content-Type-Options':'nosniff'});
         clients.add(res);res.write('data: '+JSON.stringify(publicState())+'\n\n');req.on('close',()=>clients.delete(res));return;
@@ -342,7 +356,8 @@ function createGuardServer(options={}) {
       } else if(url.pathname==='/api/simulate') {
         const hours=Number(data.hours || 0);
         if(!Number.isFinite(hours) || hours<0 || hours>336) throw new Error('Invalid simulation time');
-        return reply(res,200,{demo:true,simulation:true,...buildPlan(demoState(now()),now()+hours*3600000)});
+        const simNow=now()+hours*3600000, simState=demoState(now()), simPlan=buildPlan(simState,simNow);
+        return reply(res,200,{demo:true,simulation:true,...simPlan,optimizer:buildOptimizationPlan(simPlan,simState.insights || null,simNow)});
       } else return reply(res,404,{error:'Not found'});
       return reply(res,200,publicState());
     } catch(error) {reply(res,400,{error:error.message});}

@@ -3,46 +3,70 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI Spend Local Dashboard</title>
+  <meta name="application-version" content="0.7.0" />
+  <title>AI Spend Local Dashboard — Multi-Subscription Command Center</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2307090b'/%3E%3Cpath d='M7 24V15h4v9m4 0V11h4v13m4 0V7h4v17' stroke='%2349c58f' stroke-width='2.5'/%3E%3C/svg%3E" />
   <style>
     :root {
       color-scheme: dark;
-      --bg: #101113;
-      --surface: #181b1f;
-      --surface-2: #20252a;
-      --surface-3: #252a31;
-      --line: #343b43;
-      --text: #eef2f3;
-      --muted: #9aa7ae;
+      --bg: #07090b;
+      --surface: #0e1115;
+      --surface-2: #141920;
+      --surface-3: #1b222c;
+      --line: #242c36;
+      --line-strong: #354150;
+      --text: #eef3f7;
+      --muted: #93a2b0;
+      --dim: #677583;
+      --claude: #49c58f;
+      --codex: #5fb8db;
+      --agy: #a78bfa;
+      --imported: #e3bd5f;
       --green: #49c58f;
-      --gold: #e3bd5f;
+      --gold: #e8be63;
       --cyan: #5fb8db;
-      --red: #ea6a6a;
-      --ink: #0d1114;
-      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      --violet: #a78bfa;
+      --red: #ef6f6f;
+      --ink: #070b0d;
+      --mono: "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
+      --sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.36);
     }
     * { box-sizing: border-box; }
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      max-width: 100%;
+    }
+    body {
       min-height: 100vh;
       color: var(--text);
-      background: linear-gradient(180deg, #151719 0%, var(--bg) 52%, #0c0e10 100%);
-      font: 14px/1.45 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background:
+        radial-gradient(ellipse 68% 36% at 14% -8%, rgba(73, 197, 143, 0.09), transparent 62%),
+        radial-gradient(ellipse 56% 32% at 88% -6%, rgba(167, 139, 250, 0.09), transparent 60%),
+        linear-gradient(180deg, #0b0e12 0%, var(--bg) 52%, #050709 100%);
+      font: 14px/1.48 var(--sans);
+      -webkit-font-smoothing: antialiased;
     }
-    button, select {
-      font: inherit;
-    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, select { font: inherit; }
+    .tabular { font-variant-numeric: tabular-nums; }
     .shell {
-      max-width: 1320px;
+      max-width: 1340px;
       margin: 0 auto;
-      padding: 22px 18px 42px;
+      padding: 20px 18px 48px;
     }
+
+    /* Top Command Bar */
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 18px;
-      margin-bottom: 18px;
+      gap: 16px;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--line);
     }
     .brand {
       display: flex;
@@ -51,21 +75,41 @@
       min-width: 0;
     }
     .mark {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
       display: grid;
       place-items: center;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--green), var(--cyan));
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--claude) 0%, var(--codex) 55%, var(--agy) 100%);
       color: var(--ink);
       font-weight: 900;
-      letter-spacing: 0;
+      font-size: 14px;
+      letter-spacing: -0.02em;
+      box-shadow: 0 8px 24px rgba(73, 197, 143, 0.2);
+    }
+    .brand-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     h1 {
       margin: 0;
-      font-size: 20px;
-      line-height: 1.12;
-      letter-spacing: 0;
+      font-size: 19px;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      font-weight: 800;
+    }
+    .ver-pill {
+      font: 700 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      background: var(--surface-2);
     }
     .caption {
       color: var(--muted);
@@ -74,101 +118,696 @@
     }
     .controls {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
+      align-items: center;
     }
     .control {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 8px 10px;
-      min-height: 38px;
+      padding: 6px 10px;
+      min-height: 36px;
+      max-width: 100%;
+    }
+    .control:focus-within {
+      border-color: var(--line-strong);
     }
     .control span {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
     }
     select {
       color: var(--text);
       background: transparent;
       border: 0;
       outline: 0;
+      font-size: 13px;
+      max-width: 100%;
+      cursor: pointer;
+    }
+    select option {
+      background: #10141a;
+      color: var(--text);
     }
     button {
       color: var(--ink);
       background: var(--green);
-      border: 0;
+      border: 1px solid var(--green);
       border-radius: 8px;
-      padding: 9px 13px;
+      padding: 7px 13px;
       font-weight: 750;
+      font-size: 13px;
       cursor: pointer;
-      min-height: 38px;
+      min-height: 36px;
+      transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
     }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: 0.55; cursor: wait; }
     button.secondary {
       color: var(--text);
       background: var(--surface-2);
+      border: 1px solid var(--line-strong);
+    }
+    button.secondary:hover {
+      background: var(--surface-3);
+      filter: none;
+    }
+    button:focus-visible, a:focus-visible, select:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    /* Multi-Subscription Optimizer Cockpit */
+    .cockpit {
+      position: relative;
+      background: linear-gradient(180deg, #11161d 0%, #0b0e13 100%);
+      border: 1px solid var(--line-strong);
+      border-top: 3px solid var(--cyan);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .cockpit[data-strategy="accelerate"] { border-top-color: var(--green); }
+    .cockpit[data-strategy="balanced"] { border-top-color: var(--cyan); }
+    .cockpit[data-strategy="conserve"] { border-top-color: var(--gold); }
+    .cockpit[data-strategy="wait"] { border-top-color: var(--red); }
+    .cockpit-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .cockpit-lead {
+      min-width: 0;
+      flex: 1 1 420px;
+    }
+    .cockpit-kicker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 7px;
+    }
+    .strategy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font: 800 10px/1.3 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--line-strong);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    .strategy-badge.accelerate {
+      color: #b7f7d8;
+      border-color: rgba(73, 197, 143, 0.5);
+      background: rgba(73, 197, 143, 0.14);
+    }
+    .strategy-badge.balanced {
+      color: #c5ecfb;
+      border-color: rgba(95, 184, 219, 0.48);
+      background: rgba(95, 184, 219, 0.14);
+    }
+    .strategy-badge.conserve {
+      color: #ffe3a3;
+      border-color: rgba(232, 190, 99, 0.5);
+      background: rgba(232, 190, 99, 0.14);
+    }
+    .strategy-badge.wait {
+      color: #ffc5c5;
+      border-color: rgba(239, 111, 111, 0.5);
+      background: rgba(239, 111, 111, 0.14);
+    }
+    .order-strip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: 600 11px/1.3 var(--mono);
+      color: var(--muted);
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--line);
     }
+    .cockpit-headline {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .cockpit-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .unlock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: rgba(95, 184, 219, 0.09);
+      border: 1px solid rgba(95, 184, 219, 0.28);
+      color: #d6f0fa;
+      font: 600 12px/1.25 var(--mono);
+    }
+    .unlock-pill strong { color: #ffffff; }
+    .guard-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      min-height: 36px;
+    }
+    .guard-link:hover {
+      background: var(--surface-3);
+      text-decoration: none;
+    }
+
+    /* Alert Pills */
+    .alert-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .alert-strip:empty { display: none; }
+    .alert-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      min-width: 0;
+    }
+    .alert-pill.opportunity, .alert-pill.surplus, .alert-pill.info {
+      background: rgba(73, 197, 143, 0.08);
+      border-color: rgba(73, 197, 143, 0.3);
+    }
+    .alert-pill.warn, .alert-pill.warning, .alert-pill.medium {
+      background: rgba(232, 190, 99, 0.09);
+      border-color: rgba(232, 190, 99, 0.32);
+    }
+    .alert-pill.critical, .alert-pill.high, .alert-pill.error {
+      background: rgba(239, 111, 111, 0.09);
+      border-color: rgba(239, 111, 111, 0.34);
+    }
+    .alert-copy { min-width: 0; }
+    .alert-title {
+      font-weight: 800;
+      font-size: 12px;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .alert-detail {
+      color: var(--muted);
+      font-size: 11.5px;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    /* 3 Subscription Cards */
+    .sub-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .sub-card {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      padding: 14px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+      border: 1px solid var(--line);
+      min-width: 0;
+    }
+    .sub-card.primary {
+      border-color: rgba(73, 197, 143, 0.45);
+      box-shadow: inset 0 1px 0 rgba(73, 197, 143, 0.2);
+    }
+    .sub-card.provider-agy.primary { border-color: rgba(167, 139, 250, 0.55); box-shadow: inset 0 1px 0 rgba(167, 139, 250, 0.22); }
+    .sub-card.provider-codex.primary { border-color: rgba(95, 184, 219, 0.52); box-shadow: inset 0 1px 0 rgba(95, 184, 219, 0.22); }
+    .sub-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .sub-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    .sub-name {
+      font-weight: 850;
+      font-size: 15px;
+      letter-spacing: -0.015em;
+    }
+    .rank-badge {
+      font: 800 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(73, 197, 143, 0.16);
+      color: #b7f7d8;
+      border: 1px solid rgba(73, 197, 143, 0.36);
+    }
+    .rank-badge.secondary {
+      background: rgba(95, 184, 219, 0.12);
+      color: #bde6f7;
+      border-color: rgba(95, 184, 219, 0.3);
+    }
+    .state-pill {
+      font: 800 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .state-pill.surplus, .state-pill.accelerate, .state-pill.ready {
+      color: #b7f7d8;
+      border-color: rgba(73, 197, 143, 0.42);
+      background: rgba(73, 197, 143, 0.12);
+    }
+    .state-pill.on-pace, .state-pill.steady {
+      color: #c5ecfb;
+      border-color: rgba(95, 184, 219, 0.42);
+      background: rgba(95, 184, 219, 0.12);
+    }
+    .state-pill.hot, .state-pill.conserve, .state-pill.pace, .state-pill.stale {
+      color: #ffe3a3;
+      border-color: rgba(232, 190, 99, 0.44);
+      background: rgba(232, 190, 99, 0.12);
+    }
+    .state-pill.exhausted, .state-pill.blocked, .state-pill.pause, .state-pill.depleted, .state-pill.reserve, .state-pill.verify-reset {
+      color: #ffc5c5;
+      border-color: rgba(239, 111, 111, 0.45);
+      background: rgba(239, 111, 111, 0.12);
+    }
+
+    .sub-hero-metric {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .sub-pct {
+      font: 800 26px/1.05 var(--mono);
+      letter-spacing: -0.03em;
+    }
+    .sub-pct-meta {
+      font-size: 11.5px;
+      color: var(--muted);
+      text-align: right;
+    }
+    .meter-track {
+      height: 7px;
+      border-radius: 999px;
+      background: #090c10;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--green);
+      transition: width 200ms ease;
+    }
+    .meter-fill.claude { background: linear-gradient(90deg, #34a876, var(--claude)); }
+    .meter-fill.codex { background: linear-gradient(90deg, #3f98bd, var(--codex)); }
+    .meter-fill.agy { background: linear-gradient(90deg, #8b5cf6, var(--agy)); }
+    .meter-fill.warn { background: linear-gradient(90deg, #c9922c, var(--gold)); }
+    .meter-fill.danger { background: linear-gradient(90deg, #c94646, var(--red)); }
+
+    .sub-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      font-size: 11.5px;
+    }
+    .sub-meta-cell {
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      min-width: 0;
+    }
+    .sub-meta-cell span {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--dim);
+    }
+    .sub-meta-cell strong {
+      display: block;
+      margin-top: 2px;
+      font: 700 12px/1.25 var(--mono);
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .sub-meta-cell strong.surplus-val { color: var(--green); }
+    .sub-meta-cell strong.hot-val { color: var(--gold); }
+
+    /* Window Lanes inside Subscription Card (Critical for AGY Gemini + Claude/GPT!) */
+    .lane-list {
+      display: grid;
+      gap: 7px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .lane-row {
+      display: grid;
+      gap: 4px;
+      padding: 7px 8px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .lane-row.lane-claude-gpt {
+      border-color: rgba(73, 197, 143, 0.24);
+      background: rgba(73, 197, 143, 0.045);
+    }
+    .lane-row.lane-gemini {
+      border-color: rgba(167, 139, 250, 0.24);
+      background: rgba(167, 139, 250, 0.045);
+    }
+    .lane-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+    }
+    .lane-name {
+      font-weight: 700;
+      color: var(--text);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .lane-val {
+      font: 800 12px/1.2 var(--mono);
+      white-space: nowrap;
+    }
+    .lane-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+    .mini-meter {
+      height: 4px;
+      border-radius: 999px;
+      background: #090c10;
+      overflow: hidden;
+    }
+    .mini-meter span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    /* Actionable Playbook inside Subscription Card */
+    .playbook-box {
+      margin-top: auto;
+      padding: 10px;
+      border-radius: 8px;
+      background: #090c10;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      gap: 7px;
+    }
+    .playbook-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .playbook-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .pb-badge {
+      font: 700 10px/1.2 var(--mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      color: #d7e2ec;
+    }
+    .pb-list {
+      margin: 0;
+      padding-left: 15px;
+      color: var(--muted);
+      font-size: 11.5px;
+      display: grid;
+      gap: 3px;
+    }
+
+    /* Click-to-copy command chips */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .cmd-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      padding: 4px 9px;
+      min-height: 28px;
+      border-radius: 6px;
+      border: 1px solid rgba(73, 197, 143, 0.28);
+      background: rgba(73, 197, 143, 0.08);
+      color: #d6f7e7;
+      font: 600 11px/1.25 var(--mono);
+      cursor: pointer;
+      max-width: 100%;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: break-word;
+      text-align: left;
+    }
+    .cmd-chip:hover {
+      background: rgba(73, 197, 143, 0.16);
+      border-color: rgba(73, 197, 143, 0.55);
+      filter: none;
+    }
+    .cmd-chip.copied {
+      background: var(--green);
+      color: var(--ink);
+      border-color: var(--green);
+    }
+    .cmd-chip small {
+      opacity: 0.72;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Quick Commands Dock */
+    .quick-dock {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+    }
+    .quick-dock:empty { display: none; }
+    .quick-dock-label {
+      font: 700 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--dim);
+    }
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    .quick-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--line);
+      min-width: 0;
+    }
+    .quick-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .quick-why {
+      font-size: 11px;
+      color: var(--dim);
+      line-height: 1.3;
+    }
+
+    .cockpit-foot {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+    .protection-strip {
+      margin-top: 10px;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .protection-strip:empty { display: none; }
+    .protection-strip strong { color: var(--text); }
+    .offline-box {
+      padding: 16px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px dashed var(--line-strong);
+      display: grid;
+      gap: 10px;
+    }
+
+    /* Notice & Error */
     .notice {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 14px;
-      padding: 10px 12px;
-      background: rgba(227, 189, 95, 0.08);
-      border: 1px solid rgba(227, 189, 95, 0.22);
+      padding: 9px 12px;
+      background: rgba(232, 190, 99, 0.07);
+      border: 1px solid rgba(232, 190, 99, 0.22);
       border-radius: 8px;
-      color: #e8d7ad;
+      color: #e6d4aa;
       font-size: 12px;
     }
+    .error {
+      padding: 13px 15px;
+      border: 1px solid rgba(239, 111, 111, 0.36);
+      background: rgba(239, 111, 111, 0.09);
+      color: #ffd1d1;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    /* Main 12-Col Dashboard Grid */
     .grid {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 12px;
     }
     .panel {
       background: linear-gradient(180deg, var(--surface-2), var(--surface));
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 10px;
       box-shadow: var(--shadow);
       min-width: 0;
     }
     .stat {
       grid-column: span 2;
       padding: 14px;
-      min-height: 104px;
+      min-height: 102px;
     }
     .stat.wide { grid-column: span 3; }
+    .workflow-stat {
+      grid-column: span 4;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
     .label {
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 750;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .value {
-      font-size: 24px;
+      font-size: 23px;
       line-height: 1.1;
       font-weight: 850;
-      letter-spacing: 0;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
     }
     .subvalue {
       color: var(--muted);
       font-size: 12px;
-      margin-top: 8px;
+      margin-top: 7px;
+      line-height: 1.38;
     }
     .chart-panel {
       grid-column: span 8;
-      padding: 14px;
+      padding: 16px;
     }
     .side-panel {
       grid-column: span 4;
-      padding: 14px;
+      padding: 16px;
+    }
+    .side-panel.quarter {
+      grid-column: span 3;
     }
     .table-panel {
       grid-column: span 12;
@@ -180,67 +819,59 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      flex-wrap: wrap;
       margin-bottom: 12px;
     }
     .panel-title {
       margin: 0;
-      font-size: 15px;
+      font-size: 14.5px;
       line-height: 1.2;
       font-weight: 800;
-      letter-spacing: 0;
+      letter-spacing: -0.01em;
     }
     .pill-row {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .pill {
       border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 4px 8px;
+      padding: 3px 8px;
       color: var(--muted);
-      font-size: 12px;
-      background: rgba(255, 255, 255, 0.03);
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.025);
     }
     canvas {
       width: 100%;
-      height: 280px;
+      height: 290px;
       display: block;
     }
     .insights {
       display: grid;
-      gap: 9px;
+      gap: 8px;
     }
     .insight {
       display: grid;
       gap: 4px;
       padding: 10px;
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      min-width: 0;
     }
     .insight.high {
-      background: rgba(234, 106, 106, 0.08);
-      border-color: rgba(234, 106, 106, 0.24);
+      background: rgba(239, 111, 111, 0.08);
+      border-color: rgba(239, 111, 111, 0.26);
     }
-    .insight-title {
-      font-weight: 800;
-    }
-    .insight-detail {
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .recommendations-panel {
-      grid-column: span 12;
-      padding: 14px;
-    }
-    .guidance-panel {
-      grid-column: span 12;
-      padding: 14px;
-    }
+    .insight-title { font-weight: 800; font-size: 13px; }
+    .insight-detail { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
+    .recommendations-panel,
+    .guidance-panel,
     .budget-panel {
       grid-column: span 12;
-      padding: 14px;
+      padding: 16px;
     }
     .rec-grid {
       display: grid;
@@ -249,38 +880,32 @@
     }
     .guidance-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
+    .guidance-grid + .guidance-grid { margin-top: 10px; }
     .budget-summary-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 10px;
       margin-bottom: 12px;
     }
     .budget-card,
     .budget-group {
       display: grid;
-      gap: 8px;
+      gap: 7px;
       padding: 12px;
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
       min-width: 0;
     }
     .budget-card.high {
-      background: rgba(234, 106, 106, 0.08);
-      border-color: rgba(234, 106, 106, 0.24);
+      background: rgba(239, 111, 111, 0.08);
+      border-color: rgba(239, 111, 111, 0.26);
     }
-    .budget-value {
-      font-size: 22px;
-      line-height: 1.1;
-      font-weight: 850;
-    }
-    .budget-detail {
-      color: var(--muted);
-      font-size: 12px;
-    }
+    .budget-value { font-size: 21px; line-height: 1.1; font-weight: 850; font-variant-numeric: tabular-nums; }
+    .budget-detail { color: var(--muted); font-size: 12px; }
     .budget-eaters {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -292,83 +917,43 @@
       gap: 8px;
       align-items: start;
       padding-top: 8px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
     }
-    .budget-session {
-      font-weight: 800;
-      line-height: 1.25;
-      word-break: break-word;
-    }
-    .budget-share {
-      color: var(--gold);
-      font-weight: 850;
-      white-space: nowrap;
-    }
+    .budget-session { font-weight: 800; line-height: 1.25; word-break: break-word; }
+    .budget-share { color: var(--gold); font-weight: 850; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
     .recommendation {
       display: grid;
       gap: 9px;
       padding: 12px;
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
       min-width: 0;
     }
     .recommendation.high {
-      background: rgba(234, 106, 106, 0.08);
-      border-color: rgba(234, 106, 106, 0.24);
+      background: rgba(239, 111, 111, 0.08);
+      border-color: rgba(239, 111, 111, 0.26);
     }
     .guidance-card {
       display: grid;
-      gap: 8px;
+      gap: 7px;
       padding: 12px;
       border-radius: 8px;
-      background: rgba(95, 184, 219, 0.06);
+      background: rgba(95, 184, 219, 0.055);
       border: 1px solid rgba(95, 184, 219, 0.16);
       min-width: 0;
     }
     .guidance-card.high {
-      background: rgba(234, 106, 106, 0.08);
-      border-color: rgba(234, 106, 106, 0.24);
+      background: rgba(239, 111, 111, 0.08);
+      border-color: rgba(239, 111, 111, 0.26);
     }
-    .rec-title {
-      font-weight: 850;
-      font-size: 14px;
-      line-height: 1.2;
-    }
-    .guidance-title {
-      font-weight: 850;
-      font-size: 14px;
-      line-height: 1.2;
-    }
-    .rec-target {
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.35;
-      word-break: break-word;
-    }
-    .guidance-target {
-      color: var(--cyan);
-      font-size: 11px;
-      line-height: 1.35;
-      word-break: break-word;
-    }
-    .rec-reason {
-      color: #d9e3e1;
-      font-size: 12px;
-    }
-    .guidance-detail {
-      color: #d9e3e1;
-      font-size: 12px;
-    }
-    .rec-steps {
-      margin: 0;
-      padding-left: 17px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .rec-steps li + li {
-      margin-top: 3px;
-    }
+    .rec-title, .guidance-title { font-weight: 850; font-size: 13.5px; line-height: 1.25; }
+    .rec-target { color: var(--muted); font-size: 11px; line-height: 1.35; word-break: break-word; }
+    .guidance-target { color: var(--cyan); font-size: 11px; line-height: 1.35; word-break: break-word; }
+    .rec-reason, .guidance-detail { color: #d7e2ea; font-size: 12px; }
+    .rec-steps { margin: 0; padding-left: 17px; color: var(--muted); font-size: 12px; }
+    .rec-steps li + li { margin-top: 3px; }
     .ask-box {
       display: grid;
       gap: 4px;
@@ -379,57 +964,58 @@
       color: #dceff6;
       font-size: 12px;
     }
-    .ask-label,
-    .cmd-label {
+    .ask-label, .cmd-label {
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       font-size: 10px;
       font-weight: 800;
     }
-    .cmd-list {
-      display: grid;
-      gap: 5px;
-    }
+    .cmd-list { display: grid; gap: 5px; }
     .cmd {
       display: block;
       padding: 7px 8px;
       border-radius: 7px;
-      background: #0d1114;
+      background: #090c10;
       border: 1px solid rgba(255, 255, 255, 0.08);
       color: #d6f5e5;
+      font-family: var(--mono);
       white-space: normal;
       word-break: break-word;
       font-size: 11px;
     }
-    .bar-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .bar-item {
-      display: grid;
-      gap: 5px;
-    }
+
+    /* Bars */
+    .bar-list { display: grid; gap: 9px; margin-top: 6px; }
+    .bar-item { display: grid; gap: 4px; }
     .bar-meta {
       display: flex;
       justify-content: space-between;
       gap: 8px;
       color: var(--muted);
       font-size: 12px;
+      font-variant-numeric: tabular-nums;
     }
+    .bar-meta > span:first-child { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
     .bar {
-      height: 8px;
+      height: 7px;
       border-radius: 999px;
-      background: #111417;
+      background: #090c10;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.05);
     }
     .bar-fill {
       height: 100%;
       min-width: 2px;
-      background: linear-gradient(90deg, var(--green), var(--cyan));
+      background: linear-gradient(90deg, var(--claude), var(--codex));
     }
+    .bar-fill.claude { background: var(--claude); }
+    .bar-fill.codex { background: var(--codex); }
+    .bar-fill.agy { background: var(--agy); }
+    .bar-fill.imported { background: var(--imported); }
+    .bar-fill.fast { background: linear-gradient(90deg, #e8be63, #f59e0b); }
+
+    /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -454,66 +1040,44 @@
     td.num, th.num {
       text-align: right;
       white-space: nowrap;
+      font-variant-numeric: tabular-nums;
     }
     .table-scroll {
-      max-height: 420px;
+      max-height: 430px;
       overflow: auto;
+      max-width: 100%;
     }
     .provider {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       font-weight: 800;
-      text-transform: capitalize;
+      white-space: nowrap;
     }
     .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--green);
+      display: inline-block;
+      flex: 0 0 8px;
+      background: var(--claude);
     }
-    .dot.codex { background: var(--cyan); }
-    .mono {
-      font-family: Consolas, "Courier New", monospace;
-      word-break: break-all;
-    }
+    .dot.claude { background: var(--claude); }
+    .dot.codex { background: var(--codex); }
+    .dot.agy { background: var(--agy); }
+    .dot.imported { background: var(--imported); }
+    .mono { font-family: var(--mono); word-break: break-all; }
     .muted { color: var(--muted); }
-    .session-cell {
-      min-width: 230px;
-      max-width: 340px;
-    }
-    .session-title {
-      color: var(--text);
-      font-weight: 850;
-      line-height: 1.25;
-      word-break: break-word;
-    }
-    .session-meta {
-      margin-top: 3px;
-      font-size: 11px;
-    }
-    .cache-low {
-      color: var(--red);
-      font-weight: 850;
-    }
-    .cache-mid {
-      color: var(--gold);
-      font-weight: 800;
-    }
-    .action-cell {
-      min-width: 230px;
-      max-width: 360px;
-    }
-    .action-title {
-      color: var(--text);
-      font-weight: 850;
-      line-height: 1.25;
-    }
-    .action-detail {
-      color: var(--muted);
-      font-size: 11px;
-      margin-top: 3px;
-    }
+    .session-cell { min-width: 220px; max-width: 340px; }
+    .session-title { color: var(--text); font-weight: 800; line-height: 1.25; word-break: break-word; }
+    .session-meta { margin-top: 3px; font-size: 11px; }
+    .cache-low { color: var(--red); font-weight: 850; }
+    .cache-mid { color: var(--gold); font-weight: 800; }
+    .action-cell { min-width: 220px; max-width: 350px; }
+    .action-title { color: var(--text); font-weight: 800; line-height: 1.25; }
+    .action-detail { color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+    /* Tags */
     .tag {
       display: inline-block;
       padding: 1px 6px;
@@ -528,56 +1092,39 @@
       background: rgba(255, 255, 255, 0.06);
       color: var(--muted);
     }
-    .tag-subagent {
-      color: #d9c4ff;
-      background: rgba(167, 130, 245, 0.14);
-      border-color: rgba(167, 130, 245, 0.34);
-    }
-    .tag-effort {
-      color: #ffe299;
-      background: rgba(227, 189, 95, 0.14);
-      border-color: rgba(227, 189, 95, 0.34);
-    }
-    .tag-busy {
-      color: #b7f7d8;
-      background: rgba(73, 197, 143, 0.16);
-      border-color: rgba(73, 197, 143, 0.38);
-    }
-    .tag-sqlite {
-      color: #b7e6fa;
-      background: rgba(95, 184, 219, 0.14);
-      border-color: rgba(95, 184, 219, 0.32);
-    }
-    .side-panel.quarter {
-      grid-column: span 3;
-    }
-    .error {
-      padding: 16px;
-      border: 1px solid rgba(234, 106, 106, 0.3);
-      background: rgba(234, 106, 106, 0.08);
-      color: #ffd1d1;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      display: none;
-    }
-    @media (max-width: 980px) {
-      .topbar { align-items: flex-start; flex-direction: column; }
-      .controls { justify-content: flex-start; }
-      .stat, .stat.wide { grid-column: span 6; }
+    .tag-subagent { color: #d9c4ff; background: rgba(167, 139, 250, 0.14); border-color: rgba(167, 139, 250, 0.34); }
+    .tag-swarm { color: #e2d4ff; background: rgba(167, 139, 250, 0.22); border-color: rgba(167, 139, 250, 0.5); }
+    .tag-fast { color: #ffe3a3; background: rgba(232, 190, 99, 0.16); border-color: rgba(232, 190, 99, 0.42); }
+    .tag-ultrafast { color: #ffd0b0; background: rgba(245, 130, 75, 0.18); border-color: rgba(245, 130, 75, 0.48); }
+    .tag-effort { color: #ffe299; background: rgba(232, 190, 99, 0.12); border-color: rgba(232, 190, 99, 0.32); }
+    .tag-busy { color: #b7f7d8; background: rgba(73, 197, 143, 0.16); border-color: rgba(73, 197, 143, 0.38); }
+    .tag-sqlite { color: #b7e6fa; background: rgba(95, 184, 219, 0.14); border-color: rgba(95, 184, 219, 0.32); }
+
+    @media (max-width: 1080px) {
+      .sub-grid { grid-template-columns: 1fr; }
+      .workflow-stat { grid-column: span 12; }
+      .stat, .stat.wide { grid-column: span 4; }
       .chart-panel, .side-panel, .side-panel.quarter { grid-column: span 12; }
       .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .budget-eaters { grid-template-columns: 1fr; }
     }
-    @media (max-width: 620px) {
-      .shell { padding: 16px 12px 32px; }
-      .stat, .stat.wide { grid-column: span 12; }
-      .notice { flex-direction: column; }
-      canvas { height: 220px; }
-      th, td { padding: 9px 8px; }
+    @media (max-width: 780px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .controls { justify-content: flex-start; width: 100%; }
+      .stat, .stat.wide { grid-column: span 6; }
       .rec-grid { grid-template-columns: 1fr; }
-      .guidance-grid { grid-template-columns: 1fr; }
-      .budget-summary-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      .shell { padding: 14px 12px 34px; }
+      .cockpit { padding: 14px 12px; }
+      .stat, .stat.wide { grid-column: span 12; }
+      .control { flex: 1 1 calc(50% - 6px); }
+      .notice { flex-direction: column; }
+      canvas { height: 230px; }
+      th, td { padding: 8px 8px; }
+      .sub-meta-grid { grid-template-columns: 1fr 1fr; }
+      .cockpit-actions { width: 100%; }
+      .unlock-pill { width: 100%; justify-content: space-between; }
     }
   </style>
 </head>
@@ -587,8 +1134,11 @@
       <div class="brand">
         <div class="mark">AI</div>
         <div>
-          <h1>AI Spend Local Dashboard</h1>
-      <div class="caption">Local usage signals, model coverage, cache reuse, and pacing guidance from JSONL, SQLite, or normalized imports</div>
+          <div class="brand-title-row">
+            <h1>AI Spend Command Center</h1>
+            <span class="ver-pill">v0.7.0 · Local</span>
+          </div>
+          <div class="caption">Claude · Codex · Antigravity — live multi-subscription optimizer, /swarm &amp; /fast telemetry, and local pacing</div>
         </div>
       </div>
       <div class="controls">
@@ -608,6 +1158,7 @@
             <option value="all" selected>All</option>
             <option value="claude">Claude</option>
             <option value="codex">Codex</option>
+            <option value="agy">Antigravity (AGY)</option>
             <option value="imported">Imported</option>
           </select>
         </label>
@@ -646,16 +1197,37 @@
         <button id="refresh" type="button">Refresh</button>
       </div>
     </header>
-    <section class="panel" style="margin:16px 0;padding:20px;background:#090909;border:1px solid #303030">
-      <div class="panel-head"><h2 class="panel-title">Live subscription allowances</h2><a href="/guard">Open Guard &amp; routing rules →</a></div>
-      <div id="guardLive" style="font-size:13px;color:#bbb">Connecting to the local Guard controller…</div>
-      <div id="protectionInsights" style="margin-top:18px;font-size:13px"></div>
+
+    <section id="optimizerCockpit" class="cockpit" data-strategy="balanced" aria-live="polite">
+      <div class="cockpit-head">
+        <div class="cockpit-lead">
+          <div class="cockpit-kicker">
+            <span id="optimizerStrategy" class="strategy-badge balanced">Connecting</span>
+            <span id="optimizerOrder" class="order-strip">AGY · Codex · Claude</span>
+          </div>
+          <h2 id="optimizerHeadline" class="cockpit-headline">Connecting to live multi-subscription allowances…</h2>
+        </div>
+        <div class="cockpit-actions">
+          <span id="optimizerNextUnlock" class="unlock-pill">Next unlock: checking…</span>
+          <button id="refreshGuardBtn" type="button" class="secondary">Refresh allowances</button>
+          <a class="guard-link" href="/guard">Open Guard →</a>
+        </div>
+      </div>
+      <div id="optimizerAlerts" class="alert-strip"></div>
+      <div id="guardLive" class="sub-grid">
+        <div class="offline-box" style="grid-column:1/-1">
+          <div class="caption">Fetching live allowances from local Guard controller…</div>
+        </div>
+      </div>
+      <div id="optimizerCommands" class="quick-dock"></div>
+      <div id="optimizerFoot" class="cockpit-foot"></div>
+      <div id="protectionInsights" class="protection-strip"></div>
     </section>
 
     <div id="error" class="error"></div>
     <section class="notice">
       <div id="pricingNotice">Loading local usage...</div>
-      <div id="generatedAt" class="muted"></div>
+      <div id="generatedAt" class="muted tabular"></div>
     </section>
 
     <section class="grid">
@@ -684,19 +1256,19 @@
         <div id="weekTokens" class="value">...</div>
         <div id="weekSpend" class="subvalue">...</div>
       </article>
-      <article class="panel stat wide">
-        <div class="label">Selected Range</div>
-        <div id="rangeTokens" class="value">...</div>
-        <div id="rangeSpend" class="subvalue">...</div>
-      </article>
       <article class="panel stat">
         <div class="label">Cache Reuse</div>
         <div id="cachePct" class="value">...</div>
         <div id="cacheDetail" class="subvalue">...</div>
       </article>
       <article class="panel stat wide">
+        <div class="label">Selected Range</div>
+        <div id="rangeTokens" class="value">...</div>
+        <div id="rangeSpend" class="subvalue">...</div>
+      </article>
+      <article class="panel stat wide">
         <div class="label">Token Mix / Cost</div>
-        <div id="tokenMix" class="value">...</div>
+        <div id="tokenMix" class="value" style="font-size:16px;line-height:1.25">...</div>
         <div id="tokenCostMix" class="subvalue">...</div>
       </article>
       <article class="panel stat wide">
@@ -704,16 +1276,52 @@
         <div id="weekPace" class="value">...</div>
         <div id="weekPaceDetail" class="subvalue">...</div>
       </article>
+      <article class="panel stat wide">
+        <div class="label">Active Subscriptions</div>
+        <div id="providerMixHeadline" class="value" style="font-size:17px;line-height:1.25">...</div>
+        <div id="providerMixDetail" class="subvalue">...</div>
+      </article>
+
+      <!-- Dedicated /swarm, /fast & Reasoning Effort Row -->
+      <article class="panel workflow-stat">
+        <div class="panel-head" style="margin-bottom:0">
+          <div class="label" style="margin:0">/swarm &amp; AGY Orchestration</div>
+          <span class="tag tag-swarm">AGY</span>
+        </div>
+        <div id="swarmMetricValue" class="value">...</div>
+        <div id="swarmMetricSub" class="subvalue" style="margin-top:0">...</div>
+        <div id="swarmMetricBars" class="bar-list" style="margin-top:4px"></div>
+      </article>
+
+      <article class="panel workflow-stat">
+        <div class="panel-head" style="margin-bottom:0">
+          <div class="label" style="margin:0">/fast &amp; Speed Tiers</div>
+          <span class="tag tag-fast">Speed</span>
+        </div>
+        <div id="speedMetricValue" class="value">...</div>
+        <div id="speedMetricSub" class="subvalue" style="margin-top:0">...</div>
+        <div id="speedMetricBars" class="bar-list" style="margin-top:4px"></div>
+      </article>
+
+      <article class="panel workflow-stat">
+        <div class="panel-head" style="margin-bottom:0">
+          <div class="label" style="margin:0">Subagents &amp; Reasoning Effort</div>
+          <span class="tag tag-effort">Effort</span>
+        </div>
+        <div id="effortMetricValue" class="value">...</div>
+        <div id="effortMetricSub" class="subvalue" style="margin-top:0">...</div>
+        <div id="effortMetricBars" class="bar-list" style="margin-top:4px"></div>
+      </article>
 
       <article class="panel chart-panel">
         <div class="panel-head">
-          <h2 class="panel-title">Daily Token Burn</h2>
+          <h2 class="panel-title">Daily Token Burn (Claude · Codex · Antigravity)</h2>
           <div class="pill-row">
-            <span class="pill">input / cache / output</span>
+            <span class="pill">3-provider stacked</span>
             <span class="pill">observed usage only</span>
           </div>
         </div>
-        <canvas id="dailyChart" width="1000" height="280"></canvas>
+        <canvas id="dailyChart" width="1000" height="290"></canvas>
       </article>
 
       <aside class="panel side-panel">
@@ -837,6 +1445,7 @@
           </table>
         </div>
       </article>
+
       <article class="panel table-panel">
         <div style="padding:14px 14px 0">
           <div class="panel-head">
@@ -871,10 +1480,12 @@
     const colors = {
       claude: "#49c58f",
       codex: "#5fb8db",
-      grid: "#30363d",
-      text: "#eef2f3",
-      muted: "#9aa7ae",
-      gold: "#e3bd5f"
+      agy: "#a78bfa",
+      imported: "#e3bd5f",
+      grid: "#242c36",
+      text: "#eef3f7",
+      muted: "#93a2b0",
+      gold: "#e8be63"
     };
 
     const el = (id) => document.getElementById(id);
@@ -882,17 +1493,17 @@
     const cf = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
     const dtf = new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+    let lastSummary = null;
+    let resizeTimer = null;
+    let claudePlanTouched = false;
+    let codexPlanTouched = false;
+
     function compact(n) {
       n = Number(n || 0);
-      if (n >= 1000000000) {
-        return `${(n / 1000000000).toFixed(2)}B`;
-      }
-      if (n >= 1000000) {
-        return `${(n / 1000000).toFixed(1)}M`;
-      }
-      if (n >= 1000) {
-        return `${(n / 1000).toFixed(1)}K`;
-      }
+      if (!Number.isFinite(n)) return "0";
+      if (n >= 1000000000) return `${(n / 1000000000).toFixed(2)}B`;
+      if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+      if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
       return nf.format(Math.round(n));
     }
 
@@ -910,19 +1521,74 @@
       return `${Math.round(Number(value || 0) * 100)}%`;
     }
 
-    function providerLabel(provider) {
-      return `<span class="provider"><span class="dot ${provider === "codex" ? "codex" : ""}"></span>${provider}</span>`;
+    function pctRatio(value) {
+      if (value == null || value === "" || !Number.isFinite(Number(value))) return "—";
+      const n = Number(value);
+      const scaled = n > 1 ? n : n * 100;
+      return `${Math.max(0, Math.min(100, Math.round(scaled)))}%`;
+    }
+
+    function pctExact(value) {
+      if (value == null || value === "" || !Number.isFinite(Number(value))) return "—";
+      return `${Math.max(0, Math.min(100, Number(value))).toFixed(Number(value) % 1 === 0 ? 0 : 1)}%`;
+    }
+
+    function safeDate(value, fallback = "Reset unknown") {
+      if (value == null || value === "") return fallback;
+      const ms = typeof value === "number" ? value : value instanceof Date ? value.getTime() : Date.parse(value);
+      if (!Number.isFinite(ms)) return fallback;
+      return dtf.format(new Date(ms));
+    }
+
+    function formatCountdown(hoursLeft, resetAt) {
+      let h = (hoursLeft != null && hoursLeft !== "" && Number.isFinite(Number(hoursLeft)))
+        ? Number(hoursLeft)
+        : null;
+      if (h === null && resetAt != null && resetAt !== "") {
+        const ms = typeof resetAt === "number" ? resetAt : resetAt instanceof Date ? resetAt.getTime() : Date.parse(resetAt);
+        if (Number.isFinite(ms)) h = (ms - Date.now()) / 3600000;
+      }
+      if (h === null || !Number.isFinite(h)) return "reset unknown";
+      if (h <= 0) return "reset passed · confirm";
+      if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+      if (h < 48) return `${h < 10 ? h.toFixed(1) : Math.round(h)}h`;
+      const totalH = Math.round(h);
+      const days = Math.floor(totalH / 24);
+      const remH = totalH % 24;
+      return remH > 0 ? `${days}d ${remH}h` : `${days}d`;
+    }
+
+    function providerKey(provider) {
+      const p = String(provider || "").toLowerCase();
+      if (p === "claude" || p === "codex" || p === "agy" || p === "imported") return p;
+      return "imported";
     }
 
     function providerLabelText(provider) {
-      return provider === "claude" ? "Claude Code" : provider === "codex" ? "Codex CLI" : String(provider || "Imported");
+      const p = String(provider || "").toLowerCase();
+      if (p === "claude") return "Claude";
+      if (p === "codex") return "Codex";
+      if (p === "agy") return "Antigravity (AGY)";
+      if (p === "imported") return "Imported";
+      return String(provider || "Imported");
     }
 
-    let claudePlanTouched = false;
-    let codexPlanTouched = false;
+    function providerShortName(provider) {
+      const p = String(provider || "").toLowerCase();
+      if (p === "claude") return "Claude";
+      if (p === "codex") return "Codex";
+      if (p === "agy") return "AGY";
+      if (p === "imported") return "Imported";
+      return String(provider || "Other");
+    }
+
+    function providerLabel(provider) {
+      const key = providerKey(provider);
+      return `<span class="provider"><span class="dot ${key}"></span>${escapeHtml(providerShortName(provider))}</span>`;
+    }
 
     function tokenCacheRatio(tokens) {
-      const mix = disjointTokenMix(tokens);
+      const mix = disjointTokenMix(tokens || {});
       const inputLike = mix.fresh + mix.cached + mix.writes;
       return inputLike > 0 ? mix.cached / inputLike : 0;
     }
@@ -936,6 +1602,398 @@
         writes: Number(tokens.cacheCreationInputTokens || 0) + Number(tokens.cacheCreation1hInputTokens || 0),
         output: Number(tokens.outputTokens || 0),
       };
+    }
+
+    async function copyText(text, button) {
+      const value = String(text || "");
+      if (!value) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = value;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        if (button) {
+          const prev = button.dataset.origHtml || button.innerHTML;
+          button.dataset.origHtml = prev;
+          button.classList.add("copied");
+          button.textContent = "Copied ✓";
+          clearTimeout(button._copyTimer);
+          button._copyTimer = setTimeout(() => {
+            button.classList.remove("copied");
+            button.innerHTML = prev;
+          }, 1200);
+        }
+      } catch {
+        // Ignore clipboard errors in restricted environments
+      }
+    }
+
+    document.addEventListener("click", (event) => {
+      const chip = event.target.closest("[data-copy]");
+      if (!chip) return;
+      copyText(chip.getAttribute("data-copy"), chip);
+    });
+
+    function strategyLabel(strategy) {
+      const s = String(strategy || "balanced").toLowerCase();
+      if (s === "accelerate") return "ACCELERATE · SURPLUS";
+      if (s === "conserve") return "CONSERVE";
+      if (s === "wait") return "WAIT · RESET";
+      return "BALANCED";
+    }
+
+    function laneLabel(win) {
+      if (win.label) return win.label;
+      const fam = String(win.modelFamily || "").toLowerCase();
+      const id = String(win.windowId || "").toLowerCase();
+      const famText = fam === "claude-gpt" ? "Claude / GPT"
+        : fam === "gemini-argon" ? "Gemini Argon"
+        : fam === "gemini" ? "Gemini"
+        : fam === "fable" ? "Fable"
+        : fam ? fam : "All models";
+      const scope = id.includes("session") || Number(win.windowMinutes || 0) === 300 ? "5h Session"
+        : id.includes("weekly") || Number(win.windowMinutes || 0) >= 1440 ? "Weekly"
+        : id || "Window";
+      return `${famText} · ${scope}`;
+    }
+
+    function laneClass(win) {
+      const fam = String(win.modelFamily || "").toLowerCase();
+      const id = String(win.windowId || "").toLowerCase();
+      if (fam === "claude-gpt" || id.includes("claude-gpt")) return "lane-claude-gpt";
+      if (fam.includes("gemini") || id.includes("gemini")) return "lane-gemini";
+      return "";
+    }
+
+    function meterTone(provider, rem) {
+      if (rem == null || !Number.isFinite(Number(rem))) return providerKey(provider);
+      const n = Number(rem);
+      if (n <= 10) return "danger";
+      if (n <= 25) return "warn";
+      return providerKey(provider);
+    }
+
+    function laneBarColor(provider, win, rem) {
+      const n = Number(rem ?? 0);
+      if (n <= 10) return colors.red;
+      if (n <= 25) return colors.gold;
+      const fam = String(win.modelFamily || "").toLowerCase();
+      if (fam === "claude-gpt") return colors.claude;
+      if (fam.includes("gemini")) return colors.agy;
+      return colors[providerKey(provider)] || colors.cyan;
+    }
+
+    function bankedCount(optProv, guardData) {
+      if (optProv && typeof optProv.bankedResets === "number" && Number.isFinite(optProv.bankedResets)) {
+        return optProv.bankedResets;
+      }
+      if (optProv && optProv.bankedResets && typeof optProv.bankedResets === "object") {
+        const c = optProv.bankedResets.usableCount ?? optProv.bankedResets.availableCount;
+        if (typeof c === "number" && Number.isFinite(c)) return c;
+      }
+      const match = (guardData && Array.isArray(guardData.resetCredits) ? guardData.resetCredits : [])
+        .find((c) => c.provider === optProv.provider);
+      if (match && typeof match.usableCount === "number") return match.usableCount;
+      if (match && typeof match.availableCount === "number") return match.availableCount;
+      return null;
+    }
+
+    function fallbackOptimizerFromGuard(data) {
+      const provs = (data.providers || []).filter((p) => p.provider !== "api").map((p) => {
+        const wins = (p.windows || []).map((w) => {
+          const rem = w.remainingPercent != null ? Number(w.remainingPercent) : Math.max(0, 100 - Number(w.usedPercent || 0));
+          const ms = w.resetAt ? Date.parse(w.resetAt) : NaN;
+          const hrs = Number.isFinite(ms) ? (ms - Date.now()) / 3600000 : null;
+          return {
+            windowId: w.windowId || "window",
+            modelFamily: w.modelFamily || "",
+            label: laneLabel(w),
+            remainingPercent: rem,
+            usedPercent: Number(w.usedPercent ?? (100 - rem)),
+            hoursLeft: hrs,
+            resetAt: w.resetAt || null,
+            status: p.status || "unknown",
+            applies: w.applies !== false,
+          };
+        });
+        const primaryWin = wins.find((w) => w.applies) || wins[0] || null;
+        const rem = primaryWin ? primaryWin.remainingPercent : null;
+        const util = p.status === "depleted" || p.status === "reserve" || (rem != null && rem <= 5) ? "exhausted"
+          : rem != null && rem >= 55 ? "surplus"
+          : rem != null && rem < 20 ? "hot"
+          : rem != null ? "on-pace" : "unknown";
+        return {
+          provider: p.provider,
+          label: providerLabelText(p.provider),
+          status: p.status || "unknown",
+          utilizationState: util,
+          remainingPercent: rem,
+          usablePercent: primaryWin ? rem : null,
+          resetAt: primaryWin ? primaryWin.resetAt : null,
+          hoursLeft: primaryWin ? primaryWin.hoursLeft : null,
+          burnPercentPerHour: null,
+          targetPercentPerDay: null,
+          projectedUnusedAtReset: null,
+          windows: wins,
+          bankedResets: null,
+          playbook: {
+            mode: util === "surplus" ? "accelerate" : util === "hot" ? "conserve" : util === "exhausted" ? "pause" : "steady",
+            headline: p.message || "Live allowance reading active.",
+            badges: [],
+            guidance: [],
+            commands: [],
+          },
+        };
+      });
+      const order = (data.policy && Array.isArray(data.policy.providerOrder) ? data.policy.providerOrder : ["agy", "codex", "claude"]);
+      return {
+        generatedAt: data.generatedAt || new Date().toISOString(),
+        headline: data.recommendedProvider ? `Recommended active subscription: ${providerLabelText(data.recommendedProvider)}` : "Live Guard allowances connected",
+        strategy: provs.some((p) => p.utilizationState === "surplus") ? "accelerate" : data.recommendedProvider ? "balanced" : "wait",
+        primaryProvider: data.recommendedProvider || null,
+        secondaryProvider: null,
+        nextUnlock: null,
+        alerts: [],
+        providers: provs,
+        recommendedOrder: order,
+        quickCommands: [{ tool: "CLI", label: "Run check-in", command: "npm run check -- --live", why: "Print full multi-subscription verdict in terminal" }],
+        note: "Upgrade Guard controller to v0.7.0 for full optimizer playbooks.",
+      };
+    }
+
+    function renderOptimizerCockpit(guardData) {
+      const opt = (guardData && guardData.optimizer) ? guardData.optimizer : fallbackOptimizerFromGuard(guardData || {});
+      const cockpit = el("optimizerCockpit");
+      const strategy = String(opt.strategy || "balanced").toLowerCase();
+      cockpit.dataset.strategy = strategy;
+
+      const stratBadge = el("optimizerStrategy");
+      stratBadge.className = `strategy-badge ${strategy}`;
+      stratBadge.textContent = strategyLabel(strategy);
+
+      el("optimizerHeadline").textContent = opt.headline || "Multi-subscription allowances live";
+
+      const order = Array.isArray(opt.recommendedOrder) && opt.recommendedOrder.length
+        ? opt.recommendedOrder
+        : (opt.providers || []).map((p) => p.provider);
+      el("optimizerOrder").innerHTML = order.map((p) => `<span style="display:inline-flex;align-items:center;gap:4px"><span class="dot ${providerKey(p)}"></span>${escapeHtml(providerShortName(p))}</span>`).join(" <span style='opacity:.45'>→</span> ");
+
+      const unlockEl = el("optimizerNextUnlock");
+      if (opt.nextUnlock && (opt.nextUnlock.resetAt || opt.nextUnlock.hoursLeft != null || opt.nextUnlock.label)) {
+        const who = providerShortName(opt.nextUnlock.provider || "");
+        const rawLabel = String(opt.nextUnlock.label || "").trim();
+        const span = formatCountdown(opt.nextUnlock.hoursLeft, opt.nextUnlock.resetAt);
+        const when = opt.nextUnlock.resetAt ? safeDate(opt.nextUnlock.resetAt, "") : "";
+        const hasSpanInLabel = /\b(resets?\s+in|reset\s+passed|in\s+\d+(?:\.\d+)?\s*[dhm])\b/i.test(rawLabel);
+        const mainText = rawLabel
+          ? (hasSpanInLabel ? `<strong>${escapeHtml(rawLabel)}</strong>` : `<strong>${escapeHtml(rawLabel)}</strong> in <strong>${escapeHtml(span)}</strong>`)
+          : `<strong>${escapeHtml(who)}</strong> in <strong>${escapeHtml(span)}</strong>`;
+        unlockEl.innerHTML = `Next unlock: ${mainText}${when ? ` <span style="opacity:.75">(${escapeHtml(when)})</span>` : ""}`;
+      } else {
+        unlockEl.textContent = "Next unlock: no blocked reset pending";
+      }
+
+      const alerts = Array.isArray(opt.alerts) ? opt.alerts : [];
+      el("optimizerAlerts").innerHTML = alerts.map((a) => {
+        const sev = String(a.severity || a.kind || "info").toLowerCase();
+        const cls = sev.includes("crit") || sev === "high" || sev === "error" ? "critical"
+          : sev.includes("warn") || sev === "medium" ? "warn"
+          : "opportunity";
+        const cmdChip = a.command
+          ? `<button type="button" class="cmd-chip" data-copy="${escapeHtml(a.command)}" title="Click to copy command">${escapeHtml(a.command)}</button>`
+          : "";
+        return `
+          <div class="alert-pill ${cls}">
+            <div class="alert-copy">
+              <div class="alert-title">${a.provider ? `<span class="dot ${providerKey(a.provider)}" style="margin-right:6px"></span>` : ""}${escapeHtml(a.title || a.kind || "Signal")}</div>
+              <div class="alert-detail">${escapeHtml(a.detail || "")}</div>
+            </div>
+            ${cmdChip}
+          </div>
+        `;
+      }).join("");
+
+      const provMap = new Map((opt.providers || []).map((p) => [p.provider, p]));
+      const orderedProviders = [];
+      for (const id of order) {
+        if (provMap.has(id)) {
+          orderedProviders.push(provMap.get(id));
+          provMap.delete(id);
+        }
+      }
+      for (const rest of provMap.values()) orderedProviders.push(rest);
+
+      el("guardLive").innerHTML = orderedProviders.map((p) => {
+        const pKey = providerKey(p.provider);
+        const isPrimary = opt.primaryProvider === p.provider;
+        const isSecondary = !isPrimary && opt.secondaryProvider === p.provider;
+        const util = String(p.utilizationState || p.status || "unknown").toLowerCase();
+        const rem = p.remainingPercent != null && Number.isFinite(Number(p.remainingPercent)) ? Number(p.remainingPercent) : null;
+        const usable = p.usablePercent != null && Number.isFinite(Number(p.usablePercent)) ? Number(p.usablePercent) : null;
+        const burn = p.burnPercentPerHour != null && Number.isFinite(Number(p.burnPercentPerHour)) ? `${Number(p.burnPercentPerHour).toFixed(1)}%/h` : "—";
+        const target = p.targetPercentPerDay != null && Number.isFinite(Number(p.targetPercentPerDay)) ? `${Number(p.targetPercentPerDay).toFixed(1)}%/d` : "—";
+        const unused = p.projectedUnusedAtReset != null && Number.isFinite(Number(p.projectedUnusedAtReset)) ? `${Math.round(Number(p.projectedUnusedAtReset))}%` : null;
+        const banked = bankedCount(p, guardData);
+        const pb = p.playbook || {};
+        const wins = Array.isArray(p.windows) ? p.windows : [];
+        const pbMode = String(pb.mode || "steady").toLowerCase();
+
+        const lanesHtml = wins.length
+          ? `<div class="lane-list">${wins.map((w) => {
+              const wRem = w.remainingPercent != null && Number.isFinite(Number(w.remainingPercent))
+                ? Number(w.remainingPercent)
+                : (w.usedPercent != null ? Math.max(0, 100 - Number(w.usedPercent)) : null);
+              const fillPct = wRem != null ? Math.max(0, Math.min(100, wRem)) : 0;
+              const barColor = laneBarColor(p.provider, w, wRem);
+              const countdown = formatCountdown(w.hoursLeft, w.resetAt);
+              return `
+                <div class="lane-row ${laneClass(w)}">
+                  <div class="lane-top">
+                    <span class="lane-name">${escapeHtml(laneLabel(w))}</span>
+                    <span class="lane-val tabular" style="color:${barColor}">${wRem != null ? pctExact(wRem) + " left" : "unknown"}</span>
+                  </div>
+                  <div class="mini-meter"><span style="width:${fillPct}%;background:${barColor}"></span></div>
+                  <div class="lane-foot">
+                    <span>${w.resetAt ? escapeHtml(safeDate(w.resetAt)) : "Reset unknown"}</span>
+                    <span class="tabular">${escapeHtml(countdown)}</span>
+                  </div>
+                </div>
+              `;
+            }).join("")}</div>`
+          : `<div class="lane-list"><div class="caption">No measured allowance windows yet.</div></div>`;
+
+        const pbBadges = (Array.isArray(pb.badges) ? pb.badges : []).map((b) => `<span class="pb-badge">${escapeHtml(b)}</span>`).join("");
+        const pbGuidance = (Array.isArray(pb.guidance) && pb.guidance.length)
+          ? `<ul class="pb-list">${pb.guidance.map((g) => `<li>${escapeHtml(g)}</li>`).join("")}</ul>`
+          : "";
+        const pbCommands = (Array.isArray(pb.commands) && pb.commands.length)
+          ? `<div class="chip-row">${pb.commands.map((cmd) => `<button type="button" class="cmd-chip" data-copy="${escapeHtml(cmd)}" title="Click to copy">${escapeHtml(cmd)}</button>`).join("")}</div>`
+          : "";
+
+        return `
+          <article class="sub-card provider-${pKey} ${isPrimary ? "primary" : ""}">
+            <div class="sub-card-head">
+              <div class="sub-name-wrap">
+                <span class="dot ${pKey}"></span>
+                <span class="sub-name">${escapeHtml(p.label || providerLabelText(p.provider))}</span>
+                ${isPrimary ? `<span class="rank-badge">#1 Primary</span>` : isSecondary ? `<span class="rank-badge secondary">#2 Next</span>` : ""}
+              </div>
+              <span class="state-pill ${escapeHtml(util)}">${escapeHtml(util.replace(/-/g, " "))}</span>
+            </div>
+
+            <div>
+              <div class="sub-hero-metric">
+                <span class="sub-pct tabular">${rem != null ? pctExact(rem) : "—"}</span>
+                <span class="sub-pct-meta tabular">${usable != null ? `${pctExact(usable)} usable` : escapeHtml(p.status || "unknown")}${banked != null ? ` · ${banked} banked` : ""}</span>
+              </div>
+              <div class="meter-track" style="margin-top:6px"><div class="meter-fill ${meterTone(p.provider, rem)}" style="width:${rem != null ? Math.max(0, Math.min(100, rem)) : 0}%"></div></div>
+            </div>
+
+            <div class="sub-meta-grid">
+              <div class="sub-meta-cell">
+                <span>Reset</span>
+                <strong class="tabular">${escapeHtml(formatCountdown(p.hoursLeft, p.resetAt))}</strong>
+              </div>
+              <div class="sub-meta-cell">
+                <span>Daily Target</span>
+                <strong class="tabular">${escapeHtml(target)}</strong>
+              </div>
+              <div class="sub-meta-cell">
+                <span>Burn Pace</span>
+                <strong class="tabular">${escapeHtml(burn)}</strong>
+              </div>
+              <div class="sub-meta-cell">
+                <span>${p.provider === "codex" && banked != null ? "Banked Resets" : "Proj. Unused"}</span>
+                <strong class="tabular ${p.provider === "codex" && banked > 0 ? "surplus-val" : (unused && parseInt(unused, 10) >= 25 ? "surplus-val" : "")}">${p.provider === "codex" && banked != null ? `${banked} avail` : (unused != null ? unused : "—")}</strong>
+              </div>
+            </div>
+
+            ${lanesHtml}
+
+            <div class="playbook-box">
+              <div class="playbook-head">
+                <span class="playbook-title">${escapeHtml(pb.headline || "Actionable Playbook")}</span>
+                <span class="state-pill ${escapeHtml(pbMode)}">${escapeHtml(pbMode)}</span>
+              </div>
+              ${pbBadges ? `<div class="badge-row">${pbBadges}</div>` : ""}
+              ${pbGuidance}
+              ${pbCommands}
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      const quickCmds = Array.isArray(opt.quickCommands) ? opt.quickCommands : [];
+      el("optimizerCommands").innerHTML = quickCmds.length
+        ? `<div class="quick-dock-label">Quick Actions — click any command to copy</div>
+           <div class="quick-grid">${quickCmds.map((q) => `
+             <div class="quick-item">
+               <div class="quick-item-top">
+                 <strong>${escapeHtml(q.label || q.tool || "Action")}</strong>
+                 <span>${escapeHtml(q.tool || "")}</span>
+               </div>
+               <button type="button" class="cmd-chip" data-copy="${escapeHtml(q.command || "")}" title="Click to copy">${escapeHtml(q.command || "")}</button>
+               ${q.why ? `<div class="quick-why">${escapeHtml(q.why)}</div>` : ""}
+             </div>
+           `).join("")}</div>`
+        : "";
+
+      const apiEst = guardData && guardData.accounting ? cf.format(Number(guardData.accounting.apiEstimateUsd || 0)) : "$0.00";
+      const updatedTxt = safeDate(opt.generatedAt || (guardData && guardData.generatedAt));
+      el("optimizerFoot").innerHTML = `
+        <span>${escapeHtml(opt.note || "Live readings poll approximately every 5 minutes without spending model tokens.")}</span>
+        <span class="tabular">API estimate today: <strong>${escapeHtml(apiEst)}</strong> · Checked ${escapeHtml(updatedTxt)}</span>
+      `;
+    }
+
+    function renderGuardOffline() {
+      const cockpit = el("optimizerCockpit");
+      cockpit.dataset.strategy = "balanced";
+      const stratBadge = el("optimizerStrategy");
+      stratBadge.className = "strategy-badge";
+      stratBadge.textContent = "GUARD OFFLINE";
+      el("optimizerHeadline").textContent = "Start local Guard or run a terminal check-in for live multi-subscription quotas";
+      el("optimizerOrder").innerHTML = `<span class="dot agy"></span>AGY · <span class="dot codex"></span>Codex · <span class="dot claude"></span>Claude`;
+      el("optimizerNextUnlock").textContent = "Local telemetry below stays live";
+      el("optimizerAlerts").innerHTML = "";
+      el("guardLive").innerHTML = `
+        <div class="offline-box" style="grid-column:1/-1">
+          <div style="font-weight:750">Live subscription meters are disconnected (port 9021 unreachable).</div>
+          <div class="caption">Your local Claude, Codex, and Antigravity log telemetry below is still active. Start the local Guard controller or run the instant terminal check-in to unlock live multi-subscription playbooks:</div>
+          <div class="chip-row">
+            <button type="button" class="cmd-chip" data-copy="npm run guard">npm run guard <small>start controller</small></button>
+            <button type="button" class="cmd-chip" data-copy="npm run check -- --live">npm run check -- --live <small>instant CLI verdict</small></button>
+          </div>
+        </div>
+      `;
+      el("optimizerCommands").innerHTML = "";
+      el("optimizerFoot").innerHTML = `<span>Waiting for http://127.0.0.1:9021 · Click "Refresh allowances" once Guard is running.</span>`;
+    }
+
+    async function refreshGuard() {
+      const btn = el("refreshGuardBtn");
+      if (btn) btn.disabled = true;
+      try {
+        let response = await fetch("/api/guard-proxy");
+        if (response.status === 404) {
+          response = await fetch("/api/guard");
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderOptimizerCockpit(data);
+      } catch {
+        renderGuardOffline();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     async function loadData() {
@@ -966,45 +2024,166 @@
 
     function renderStats(data) {
       el("pricingNotice").textContent = data.pricingNotice || "";
-      el("generatedAt").textContent = `Updated ${dtf.format(new Date(data.generatedAt))}`;
+      el("generatedAt").textContent = `Updated ${safeDate(data.generatedAt)}`;
       el("todayTokens").textContent = compact(data.windows.today.totalTokens);
       el("todaySpend").textContent = spendEstimate(data.windows.today);
       el("hourTokens").textContent = compact(data.windows.lastHour.totalTokens);
       el("hourPace").textContent = `${compact(data.windows.lastHour.totalTokens)} tokens/hour current pace`;
+
       const fiveHour = data.budgetPace && data.budgetPace.fiveHour ? data.budgetPace.fiveHour : {};
       if (fiveHour.budgetTokens > 0) {
         el("fiveHourRemaining").textContent = compact(fiveHour.remainingTokens);
-        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens)} of ${compact(fiveHour.budgetTokens)} used - ${fiveHour.statusText}${fiveHour.resetAt ? ` Reset ${dtf.format(new Date(fiveHour.resetAt))}.` : ""}`;
+        el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens)} of ${compact(fiveHour.budgetTokens)} used - ${fiveHour.statusText}${fiveHour.resetAt ? ` Reset ${safeDate(fiveHour.resetAt)}.` : ""}`;
       } else {
         el("fiveHourRemaining").textContent = "Set budget";
         el("fiveHourDetail").textContent = `${compact(fiveHour.usedTokens || data.windows.last5h.totalTokens)} used. Set AI_SPEND_5H_TOKEN_BUDGET; projection uses observed pace.`;
       }
+
       el("dayTokens").textContent = compact(data.windows.last24h.totalTokens);
       el("daySpend").textContent = spendEstimate(data.windows.last24h);
       el("weekTokens").textContent = compact(data.windows.last7d.totalTokens);
       el("weekSpend").textContent = spendEstimate(data.windows.last7d);
       el("rangeTokens").textContent = compact(data.totals.totalTokens);
       el("rangeSpend").textContent = `${spendEstimate(data.totals)} across ${nf.format(data.totals.eventCount)} turns`;
+
       const cacheRatio = tokenCacheRatio(data.totals.tokens);
       el("cachePct").textContent = pct(cacheRatio);
       const unknownBreakdown = Number(data.totals.breakdownUnknownTokens || 0);
-      el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens from known breakdown${unknownBreakdown > 0 ? `; ${compact(unknownBreakdown)} total-only tokens excluded` : ""}`;
+      el("cacheDetail").textContent = `${compact((data.totals.tokens.cachedInputTokens || 0) + (data.totals.tokens.cacheReadInputTokens || 0))} cached/read tokens${unknownBreakdown > 0 ? `; ${compact(unknownBreakdown)} total-only excluded` : ""}`;
+
       const mix = disjointTokenMix(data.totals.tokens);
-      el("tokenMix").textContent = `${compact(mix.fresh)} fresh / ${compact(mix.cached)} cached / ${compact(mix.writes)} writes / ${compact(mix.output)} out`;
+      el("tokenMix").textContent = `${compact(mix.fresh)} fresh · ${compact(mix.cached)} cached · ${compact(mix.writes)} writes · ${compact(mix.output)} out`;
       el("tokenCostMix").textContent = `${money(data.totals.knownCostUsd)} known API estimate · ${compact(unknownBreakdown)} unknown breakdown`;
+
       const pace = data.weeklyPace || {};
       if (pace.budgetTokens > 0) {
         el("weekPace").textContent = compact(pace.remainingTokens);
-        el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}${pace.resetAt ? ` Reset ${dtf.format(new Date(pace.resetAt))}.` : ""}`;
+        el("weekPaceDetail").textContent = `${compact(pace.last7dTokens)} of ${compact(pace.budgetTokens)} rolling 7d - ${pace.statusText}${pace.resetAt ? ` Reset ${safeDate(pace.resetAt)}.` : ""}`;
       } else {
         el("weekPace").textContent = "Set budget";
         el("weekPaceDetail").textContent = "Set AI_SPEND_WEEKLY_TOKEN_BUDGET to track runout risk from observed pace.";
       }
+
+      const provTotals = (data.providerTotals || []).filter((p) => Number(p.totalTokens || 0) > 0);
+      const grand = Math.max(1, provTotals.reduce((acc, p) => acc + Number(p.totalTokens || 0), 0));
+      if (provTotals.length) {
+        el("providerMixHeadline").innerHTML = provTotals
+          .slice(0, 4)
+          .map((p) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span class="dot ${providerKey(p.provider)}"></span>${escapeHtml(providerShortName(p.provider))} ${Math.round((Number(p.totalTokens || 0) / grand) * 100)}%</span>`)
+          .join("");
+        el("providerMixDetail").textContent = provTotals.map((p) => `${providerShortName(p.provider)} ${compact(p.totalTokens)}`).join(" · ");
+      } else {
+        el("providerMixHeadline").textContent = "No tokens yet";
+        el("providerMixDetail").textContent = "No Claude, Codex, or AGY events in this range.";
+      }
+    }
+
+    function renderWorkflowMetrics(data) {
+      const swarm = data.swarmStats || {};
+      const speed = data.speedStats || {};
+      const sub = data.subagentStats || {};
+
+      // 1. /swarm & AGY Orchestration
+      const agyTotal = Number(swarm.totalAgyTokens || 0);
+      const swarmTokens = Number(swarm.swarmWorkerTokens || 0);
+      const swarmSubTokens = Number(swarm.subagentTokens || 0);
+      const swarmCount = Number(swarm.swarmCount || 0);
+      const swarmSessions = Number(swarm.swarmWorkerSessions || 0);
+      if (agyTotal > 0 || swarmCount > 0) {
+        el("swarmMetricValue").textContent = swarmCount > 0
+          ? `${nf.format(swarmCount)} ${swarmCount === 1 ? "swarm" : "swarms"} · ${pctRatio(swarm.swarmShareOfAgy)} of AGY`
+          : `${compact(agyTotal)} AGY tokens`;
+        el("swarmMetricSub").textContent = `${nf.format(swarmSessions)} worker sessions · ${compact(swarmTokens)} swarm worker tokens · ${compact(agyTotal)} total AGY`;
+        const agyDirect = Math.max(0, agyTotal - swarmTokens - Math.max(0, swarmSubTokens - swarmTokens));
+        const rows = [
+          { label: "Swarm workers (/swarm)", tokens: swarmTokens, cls: "agy" },
+          { label: "AGY direct sessions", tokens: agyDirect, cls: "codex" },
+          { label: "AGY subagents", tokens: swarmSubTokens, cls: "claude" },
+        ].filter((r) => r.tokens > 0);
+        const max = Math.max(1, agyTotal);
+        el("swarmMetricBars").innerHTML = rows.map((r) => `
+          <div class="bar-item">
+            <div class="bar-meta"><span>${escapeHtml(r.label)}</span><span>${compact(r.tokens)} (${Math.round(r.tokens / max * 100)}%)</span></div>
+            <div class="bar"><div class="bar-fill ${r.cls}" style="width:${Math.max(2, Math.round(r.tokens / max * 100))}%"></div></div>
+          </div>
+        `).join("") || `<div class="muted" style="font-size:12px">AGY telemetry active; no /swarm worker traffic in range.</div>`;
+      } else {
+        el("swarmMetricValue").textContent = "0 swarms";
+        el("swarmMetricSub").textContent = "No Antigravity (AGY) usage observed in the selected range.";
+        el("swarmMetricBars").innerHTML = `<div class="muted" style="font-size:12px">AGY logs are read from ~/.gemini/antigravity-cli/brain/*/logs/transcript.jsonl</div>`;
+      }
+
+      // 2. /fast & Speed Tiers
+      const fastT = Number(speed.fastTokens || 0);
+      const ultraT = Number(speed.ultrafastTokens || 0);
+      const stdT = Number(speed.standardTokens || 0);
+      const unkT = Number(speed.unknownSpeedTokens || 0);
+      const fastTurns = Number(speed.fastTurns || 0);
+      const ultraTurns = Number(speed.ultrafastTurns || 0);
+      const speedTotal = fastT + ultraT + stdT + unkT;
+      if (speedTotal > 0) {
+        const accelT = fastT + ultraT;
+        el("speedMetricValue").textContent = accelT > 0
+          ? `${pctRatio(speed.fastShare)} /fast share`
+          : "0% /fast";
+        const byProvRaw = speed.byProvider;
+        let byProvNote = "";
+        if (byProvRaw && typeof byProvRaw === "object") {
+          const entries = Array.isArray(byProvRaw)
+            ? byProvRaw.map((row) => [row.provider, row])
+            : Object.entries(byProvRaw);
+          const parts = entries
+            .map(([prov, info]) => {
+              const ft = Number((info && (info.fastTokens || 0)) + (info && (info.ultrafastTokens || 0)));
+              return ft > 0 ? `${providerShortName(prov)} ${compact(ft)}` : "";
+            })
+            .filter(Boolean);
+          if (parts.length) byProvNote = ` · ${parts.join(", ")}`;
+        }
+        el("speedMetricSub").textContent = `${compact(accelT)} fast/ultrafast tokens (${nf.format(fastTurns + ultraTurns)} turns)${byProvNote}`;
+        const rows = [
+          { label: "/fast (priority)", tokens: fastT, cls: "fast" },
+          { label: "Ultrafast", tokens: ultraT, cls: "imported" },
+          { label: "Standard speed", tokens: stdT, cls: "codex" },
+          { label: "Unclassified speed", tokens: unkT, cls: "" },
+        ].filter((r) => r.tokens > 0);
+        const max = Math.max(1, speedTotal);
+        el("speedMetricBars").innerHTML = rows.slice(0, 4).map((r) => `
+          <div class="bar-item">
+            <div class="bar-meta"><span>${escapeHtml(r.label)}</span><span>${compact(r.tokens)} (${Math.round(r.tokens / max * 100)}%)</span></div>
+            <div class="bar"><div class="bar-fill ${r.cls}" style="width:${Math.max(2, Math.round(r.tokens / max * 100))}%"></div></div>
+          </div>
+        `).join("");
+      } else {
+        el("speedMetricValue").textContent = "—";
+        el("speedMetricSub").textContent = "No speed-tier telemetry captured in this range.";
+        el("speedMetricBars").innerHTML = `<div class="muted" style="font-size:12px">Tracks Codex service_tier (/fast priority) and Claude speed fields.</div>`;
+      }
+
+      // 3. Subagents & Reasoning Effort
+      const totalTok = Math.max(1, Number(data.totals && data.totals.totalTokens || 0));
+      const subTok = Number(sub.subagentTokens || 0);
+      const effs = Array.isArray(sub.effortTotals) ? sub.effortTotals.filter((e) => Number(e.totalTokens || 0) > 0) : [];
+      const topEff = effs[0];
+      el("effortMetricValue").textContent = `${Math.round(subTok / totalTok * 100)}% subagents`;
+      el("effortMetricSub").textContent = `${nf.format(sub.subagentSessionCount || 0)} subagent / worker threads · ${topEff ? `Top effort: ${topEff.effort} (${compact(topEff.totalTokens)})` : "No effort tags recorded"}`;
+      const effRows = effs.slice(0, 4).map((e) => ({
+        label: `Effort: ${e.effort}`,
+        tokens: Number(e.totalTokens || 0),
+        cls: /xhigh|max|ultra/i.test(e.effort) ? "fast" : /high/i.test(e.effort) ? "agy" : "claude",
+      }));
+      const effMax = Math.max(1, ...effRows.map((r) => r.tokens));
+      el("effortMetricBars").innerHTML = effRows.map((r) => `
+        <div class="bar-item">
+          <div class="bar-meta"><span>${escapeHtml(r.label)}</span><span>${compact(r.tokens)}</span></div>
+          <div class="bar"><div class="bar-fill ${r.cls}" style="width:${Math.max(2, Math.round(r.tokens / effMax * 100))}%"></div></div>
+        </div>
+      `).join("") || `<div class="muted" style="font-size:12px">Main threads: ${compact(sub.mainTokens || 0)} · Subagents: ${compact(subTok)}</div>`;
     }
 
     function renderPlanOverview(data) {
       const planPace = data.planPace || {};
-      const rows = ["claude", "codex"].map((provider) => planPace[provider]).filter(Boolean);
+      const rows = ["claude", "codex", "agy"].map((provider) => planPace[provider]).filter(Boolean);
       el("planOverview").innerHTML = rows.map((plan) => {
         const severe = plan.status === "risk" || plan.status === "over";
         const hasEstimate = Number(plan.estimatedFiveHourTokenBudgetMin || 0) > 0;
@@ -1072,16 +2251,16 @@
     function renderObservedLimits(data) {
       const rows = data.observedRateLimits || [];
       el("observedLimits").innerHTML = rows.map((row) => {
-        const reset = row.resetAt ? `Reset ${dtf.format(new Date(row.resetAt))}` : "Reset unknown";
-        const forecast = row.projectedPercent == null ? "No safe forecast" : `${row.projectedPercent.toFixed(1)}% projected`;
+        const reset = row.resetAt ? `Reset ${safeDate(row.resetAt)}` : "Reset unknown";
+        const forecast = row.projectedPercent == null ? "No safe forecast" : `${Number(row.projectedPercent).toFixed(1)}% projected`;
         return `
-          <div class="budget-card ${row.usedPercent >= 80 ? "high" : ""}">
+          <div class="budget-card ${Number(row.usedPercent || 0) >= 80 ? "high" : ""}">
             <div><div class="guidance-title">Observed allowance · ${escapeHtml(row.limitName || row.limitId)}</div><div class="guidance-target">${escapeHtml(row.limitId)} · ${row.windowMinutes ? `${compact(row.windowMinutes)} min window` : "window unknown"}</div></div>
-            <div class="budget-value">${row.usedPercent.toFixed(1)}%</div>
-            <div class="budget-detail">${escapeHtml(row.statusText)} ${escapeHtml(reset)} · ${escapeHtml(forecast)}</div>
+            <div class="budget-value">${Number(row.usedPercent || 0).toFixed(1)}%</div>
+            <div class="budget-detail">${escapeHtml(row.statusText || "")} ${escapeHtml(reset)} · ${escapeHtml(forecast)}</div>
           </div>
         `;
-      }).join("") || `<div class="budget-card"><div class="guidance-title">Observed allowance</div><div class="budget-detail">No fresh rate-limit snapshots were found. This is separate from manual token budgets below.</div></div>`;
+      }).join("") || `<div class="budget-card"><div class="guidance-title">Observed allowance</div><div class="budget-detail">No fresh rate-limit snapshots were found in local logs. Live Guard readings appear in the Optimizer Cockpit above.</div></div>`;
     }
 
     function renderBudgetEaters(data) {
@@ -1103,7 +2282,7 @@
               <div class="budget-row">
                 <div>
                   <div class="budget-session">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
-                  <div class="budget-detail">${providerLabel(row.provider)} ${escapeHtml(row.model || "unknown")} - ${compact(row.totalTokens)} tokens - ${duration(row.durationMinutes)}</div>
+                  <div class="budget-detail">${providerLabel(row.provider)} ${escapeHtml(row.model || "unknown")} · ${compact(row.totalTokens)} tokens · ${duration(row.durationMinutes)}</div>
                 </div>
                 <div class="budget-share">${pct(share)}</div>
               </div>
@@ -1119,7 +2298,7 @@
           <div class="insight-title">${escapeHtml(item.title)}</div>
           <div class="insight-detail">${escapeHtml(item.detail)}</div>
         </div>
-      `).join("");
+      `).join("") || `<div class="muted">No active limit signals in this range.</div>`;
     }
 
     function renderRecommendations(data) {
@@ -1183,8 +2362,16 @@
 
     function renderBadges(row) {
       const tags = [];
-      if (row.isSubagent) {
+      if (row.subagentKind === "swarm_worker" || row.swarmId) {
+        tags.push(`<span class="tag tag-swarm">swarm</span>`);
+      } else if (row.isSubagent) {
         tags.push(`<span class="tag tag-subagent">subagent</span>`);
+      }
+      const speedVal = String(row.speed || row.serviceTier || "").toLowerCase();
+      if (speedVal === "ultrafast") {
+        tags.push(`<span class="tag tag-ultrafast">ultrafast</span>`);
+      } else if (speedVal === "fast" || speedVal === "priority") {
+        tags.push(`<span class="tag tag-fast">/fast</span>`);
       }
       if (row.reasoningEffort) {
         tags.push(`<span class="tag tag-effort">${escapeHtml(row.reasoningEffort)}</span>`);
@@ -1200,54 +2387,79 @@
 
     function renderSubagentsAndEffort(data) {
       const sub = data.subagentStats || {};
+      const swarm = data.swarmStats || {};
+      const speed = data.speedStats || {};
       const total = Math.max(1, Number(data.totals && data.totals.totalTokens || 0));
       const rows = [
         {
           label: `Main Threads (${nf.format(sub.mainSessionCount || 0)})`,
           totalTokens: Number(sub.mainTokens || 0),
           costUsd: Math.max(0, Number(data.totals && data.totals.costUsd || 0) - Number(sub.subagentCostUsd || 0)),
+          barClass: "codex",
         },
         {
           label: `Subagents (${nf.format(sub.subagentSessionCount || 0)})`,
           totalTokens: Number(sub.subagentTokens || 0),
           costUsd: Number(sub.subagentCostUsd || 0),
+          barClass: "agy",
         },
       ];
+      if (Number(swarm.swarmWorkerTokens || 0) > 0) {
+        rows.push({
+          label: `AGY /swarm workers (${nf.format(swarm.swarmWorkerSessions || 0)})`,
+          totalTokens: Number(swarm.swarmWorkerTokens || 0),
+          costUsd: 0,
+          barClass: "agy",
+        });
+      }
+      if (Number(speed.fastTokens || 0) + Number(speed.ultrafastTokens || 0) > 0) {
+        rows.push({
+          label: `/fast & ultrafast (${nf.format((speed.fastTurns || 0) + (speed.ultrafastTurns || 0))} turns)`,
+          totalTokens: Number(speed.fastTokens || 0) + Number(speed.ultrafastTokens || 0),
+          costUsd: 0,
+          barClass: "fast",
+        });
+      }
       for (const eff of (sub.effortTotals || []).slice(0, 4)) {
         rows.push({
           label: `Effort: ${eff.effort}`,
           totalTokens: Number(eff.totalTokens || 0),
           costUsd: Number(eff.costUsd || 0),
+          barClass: "claude",
         });
       }
-      renderBars("subagents", rows.filter((r) => r.totalTokens > 0), (row) => escapeHtml(row.label), total);
+      renderBars("subagents", rows.filter((r) => r.totalTokens > 0), (row) => escapeHtml(row.label), total, (row) => row.barClass || "");
     }
 
-    function renderBars(id, rows, labelFn, forcedMax) {
+    function renderBars(id, rows, labelFn, forcedMax, classFn) {
       const max = forcedMax || Math.max(1, ...rows.map((row) => row.totalTokens || 0));
-      el(id).innerHTML = rows.slice(0, 8).map((row) => `
-        <div class="bar-item">
-          <div class="bar-meta">
-            <span>${labelFn(row)}</span>
-            <span>${compact(row.totalTokens)} - ${money(row.costUsd)}</span>
+      el(id).innerHTML = rows.slice(0, 8).map((row) => {
+        const cls = classFn ? classFn(row) : "";
+        const costStr = Number(row.costUsd || 0) > 0 ? ` · ${money(row.costUsd)}` : "";
+        return `
+          <div class="bar-item">
+            <div class="bar-meta">
+              <span>${labelFn(row)}</span>
+              <span>${compact(row.totalTokens)}${costStr}</span>
+            </div>
+            <div class="bar"><div class="bar-fill ${cls}" style="width:${Math.max(2, Math.round((row.totalTokens || 0) / max * 100))}%"></div></div>
           </div>
-          <div class="bar"><div class="bar-fill" style="width:${Math.max(2, Math.round((row.totalTokens || 0) / max * 100))}%"></div></div>
-        </div>
-      `).join("") || `<div class="muted">No usage found in this range.</div>`;
+        `;
+      }).join("") || `<div class="muted">No usage found in this range.</div>`;
     }
 
     function renderSources(data) {
       const roots = data.roots || {};
-      const sourceRows = ["claude", "codex", "imported"].map((key) => {
+      const sourceRows = ["claude", "codex", "agy", "imported"].map((key) => {
         const source = roots[key] || {};
         const sqliteNote = source.sqliteThreads
-          ? ` (${nf.format(source.sqliteThreads)} from state SQLite)`
+          ? ` (${nf.format(source.sqliteThreads)} from SQLite)`
           : "";
         return `
           <div class="insight">
-            <div class="insight-title">${escapeHtml(key === "imported" ? "Normalized imports" : providerLabelText(key))}</div>
+            <div class="insight-title">${providerLabel(key)}${key === "imported" ? " <span class='muted' style='font-weight:500'>(Normalized)</span>" : ""}</div>
             <div class="insight-detail mono">${escapeHtml(source.root || "not found")}</div>
-            <div class="insight-detail">${nf.format(source.files || 0)} sources${escapeHtml(sqliteNote)} - ${nf.format((source.sessions || []).length)} sessions - ${nf.format((source.errors || []).length)} errors</div>
+            <div class="insight-detail">${nf.format(source.files || 0)} sources${escapeHtml(sqliteNote)} · ${nf.format((source.sessions || []).length)} sessions · ${nf.format((source.errors || []).length)} errors</div>
           </div>
         `;
       });
@@ -1261,39 +2473,39 @@
           <td class="session-cell">
             <div class="session-title">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
             <div class="muted mono session-meta">${escapeHtml(shortId(row.id))}</div>
-            <div class="muted session-meta">${escapeHtml(row.nameSource || "session id")} - ${escapeHtml(trimPath(row.file || ""))}</div>
+            <div class="muted session-meta">${escapeHtml(row.nameSource || "session id")} · ${escapeHtml(trimPath(row.file || ""))}</div>
           </td>
           <td class="action-cell">${renderAction(row.recommendation)}</td>
           <td>${escapeHtml(row.project || "")}<div class="muted mono">${escapeHtml(trimPath(row.cwd || ""))}</div></td>
           <td>${escapeHtml(row.model || "unknown")}</td>
-          <td>${row.endMs ? dtf.format(new Date(row.endMs)) : ""}</td>
+          <td>${row.endMs ? safeDate(row.endMs, "") : ""}</td>
           <td>${duration(row.durationMinutes)}</td>
           <td class="num ${cacheClass(row.cacheHitRatio)}">${pct(row.cacheHitRatio)}</td>
           <td class="num">${compact(row.totalTokens)}</td>
           <td class="num">${money(row.costUsd)}</td>
           <td class="num">${row.credits > 0 ? compact(row.credits) : `<span class="muted">-</span>`}</td>
         </tr>
-      `).join("");
+      `).join("") || `<tr><td colspan="11" class="muted">No sessions found in this range.</td></tr>`;
 
       el("events").innerHTML = (data.topEvents || []).slice(0, 80).map((row) => `
         <tr>
           <td>${providerLabel(row.provider)}</td>
-          <td>${dtf.format(new Date(row.timestampMs))}</td>
+          <td>${safeDate(row.timestampMs, "—")}</td>
           <td class="session-cell">
             <div class="session-title">${escapeHtml(sessionName(row))}${renderBadges(row)}</div>
-            <div class="muted mono session-meta">${escapeHtml(shortId(row.sessionId))} - turn ${row.turnIndex}</div>
+            <div class="muted mono session-meta">${escapeHtml(shortId(row.sessionId))} · turn ${row.turnIndex}</div>
           </td>
           <td class="action-cell">${renderAction(row.recommendation)}</td>
           <td>${escapeHtml(row.model || "unknown")}</td>
           <td>${escapeHtml(row.project || "")}</td>
-          <td class="num">${compact(row.tokens.inputTokens)}</td>
-          <td class="num">${compact((row.tokens.cachedInputTokens || 0) + (row.tokens.cacheReadInputTokens || 0))}</td>
-          <td class="num">${compact(row.tokens.outputTokens)}</td>
+          <td class="num">${compact(row.tokens && row.tokens.inputTokens)}</td>
+          <td class="num">${compact(((row.tokens && row.tokens.cachedInputTokens) || 0) + ((row.tokens && row.tokens.cacheReadInputTokens) || 0))}</td>
+          <td class="num">${compact(row.tokens && row.tokens.outputTokens)}</td>
           <td class="num">${compact(row.totalTokens)}</td>
           <td class="num">${row.costKnown ? money(row.costUsd) : "unknown"}</td>
           <td class="num">${row.creditKnown ? compact(row.credits) : `<span class="muted">-</span>`}</td>
         </tr>
-      `).join("");
+      `).join("") || `<tr><td colspan="12" class="muted">No turns found in this range.</td></tr>`;
 
       el("modelCatalog").innerHTML = (data.modelCatalog || []).map((row) => `
         <tr>
@@ -1312,7 +2524,7 @@
           <td class="num">${row.pricingKnown ? money(row.outputPer1M) : `<span class="muted">not configured</span>`}</td>
           <td class="num">${row.pricingKnown && row.creditInputPer1M != null ? `${compact(row.creditInputPer1M)} / ${compact(row.creditCachedInputPer1M)} / ${compact(row.creditOutputPer1M)}` : `<span class="muted">-</span>`}</td>
         </tr>
-      `).join("");
+      `).join("") || `<tr><td colspan="10" class="muted">No observed models yet.</td></tr>`;
     }
 
     function renderAction(action) {
@@ -1324,32 +2536,58 @@
     }
 
     function renderChart(data) {
+      if (!data) return;
       const canvas = el("dailyChart");
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(320, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(220, Math.floor(rect.height * dpr));
+      const w = Math.max(260, Math.floor(rect.width));
+      const h = Math.max(200, Math.floor(rect.height));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const w = rect.width;
-      const h = rect.height;
       ctx.clearRect(0, 0, w, h);
 
       const days = new Map();
+      let hasImported = false;
       for (const row of data.daily || []) {
-        if (!days.has(row.date)) days.set(row.date, { date: row.date, claude: 0, codex: 0 });
-        days.get(row.date)[row.provider] = row.totalTokens || 0;
+        if (!days.has(row.date)) {
+          days.set(row.date, { date: row.date, claude: 0, codex: 0, agy: 0, imported: 0 });
+        }
+        const key = providerKey(row.provider);
+        const val = Number(row.totalTokens || 0);
+        days.get(row.date)[key] = (days.get(row.date)[key] || 0) + val;
+        if (key === "imported" && val > 0) hasImported = true;
       }
       const rows = Array.from(days.values()).sort((a, b) => a.date.localeCompare(b.date));
-      const pad = { l: 48, r: 16, t: 18, b: 42 };
-      const chartW = w - pad.l - pad.r;
-      const chartH = h - pad.t - pad.b;
-      const max = Math.max(1, ...rows.map((row) => (row.claude || 0) + (row.codex || 0)));
+      const pad = { l: 52, r: 16, t: 28, b: 44 };
+      const chartW = Math.max(40, w - pad.l - pad.r);
+      const chartH = Math.max(40, h - pad.t - pad.b);
+      const max = Math.max(1, ...rows.map((row) => row.claude + row.codex + row.agy + row.imported));
 
+      // Legend with real provider labels (measured cleanly, zero overlap)
+      const legendItems = [
+        { label: "Claude", color: colors.claude },
+        { label: "Codex", color: colors.codex },
+        { label: "Antigravity", color: colors.agy },
+      ];
+      if (hasImported) legendItems.push({ label: "Imported", color: colors.imported });
+      ctx.font = "600 11.5px Segoe UI, system-ui, sans-serif";
+      ctx.textAlign = "left";
+      let lx = pad.l;
+      for (const item of legendItems) {
+        ctx.fillStyle = item.color;
+        ctx.fillRect(lx, 5, 10, 10);
+        ctx.fillStyle = colors.text;
+        ctx.fillText(item.label, lx + 15, 14);
+        lx += 15 + ctx.measureText(item.label).width + 16;
+      }
+
+      // Grid lines & Y-axis labels
       ctx.strokeStyle = colors.grid;
       ctx.lineWidth = 1;
       ctx.fillStyle = colors.muted;
-      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.font = "11px Consolas, monospace";
       ctx.textAlign = "right";
       for (let i = 0; i <= 4; i += 1) {
         const y = pad.t + chartH - chartH * (i / 4);
@@ -1357,52 +2595,49 @@
         ctx.moveTo(pad.l, y);
         ctx.lineTo(w - pad.r, y);
         ctx.stroke();
-        ctx.fillText(compact(max * i / 4), pad.l - 8, y + 4);
+        ctx.fillText(compact((max * i) / 4), pad.l - 8, y + 4);
       }
 
       if (rows.length === 0) {
         ctx.fillStyle = colors.muted;
+        ctx.font = "13px Segoe UI, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("No usage found in this range", w / 2, h / 2);
+        ctx.fillText("No usage found in this range", w / 2, pad.t + chartH / 2);
         return;
       }
 
       const slot = chartW / rows.length;
-      const barW = Math.max(8, Math.min(34, slot * 0.58));
+      const barW = Math.max(6, Math.min(34, slot * 0.6));
+      const maxLabels = Math.max(4, Math.floor(chartW / 44));
+      const labelStep = Math.max(1, Math.ceil(rows.length / maxLabels));
+
       rows.forEach((row, i) => {
         const x = pad.l + i * slot + (slot - barW) / 2;
         let y = pad.t + chartH;
-        const codexH = chartH * (row.codex || 0) / max;
-        const claudeH = chartH * (row.claude || 0) / max;
-        if (codexH > 0) {
-          ctx.fillStyle = colors.codex;
-          ctx.fillRect(x, y - codexH, barW, codexH);
-          y -= codexH;
+        const segments = [
+          { val: row.claude, color: colors.claude },
+          { val: row.codex, color: colors.codex },
+          { val: row.agy, color: colors.agy },
+          { val: row.imported, color: colors.imported },
+        ];
+        for (const seg of segments) {
+          if (seg.val <= 0) continue;
+          const segH = Math.max(1.5, (chartH * seg.val) / max);
+          ctx.fillStyle = seg.color;
+          ctx.fillRect(x, y - segH, barW, segH);
+          y -= segH;
         }
-        if (claudeH > 0) {
-          ctx.fillStyle = colors.claude;
-          ctx.fillRect(x, y - claudeH, barW, claudeH);
-        }
-        if (rows.length <= 18 || i % Math.ceil(rows.length / 8) === 0) {
+        if (i % labelStep === 0 || i === rows.length - 1) {
           ctx.fillStyle = colors.muted;
+          ctx.font = "11px Consolas, monospace";
           ctx.textAlign = "center";
           ctx.save();
           ctx.translate(x + barW / 2, h - 10);
-          ctx.rotate(-0.42);
+          ctx.rotate(-0.38);
           ctx.fillText(row.date.slice(5), 0, 0);
           ctx.restore();
         }
       });
-
-      ctx.textAlign = "left";
-      ctx.fillStyle = colors.claude;
-      ctx.fillRect(pad.l, 2, 10, 10);
-      ctx.fillStyle = colors.text;
-      ctx.fillText("Source A", pad.l + 15, 11);
-      ctx.fillStyle = colors.codex;
-      ctx.fillRect(pad.l + 82, 2, 10, 10);
-      ctx.fillStyle = colors.text;
-      ctx.fillText("Source B", pad.l + 97, 11);
     }
 
     function sessionName(row) {
@@ -1439,16 +2674,24 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     async function refresh() {
       try {
         const data = await loadData();
+        lastSummary = data;
         syncPlanControls(data);
         renderStats(data);
-        const protection=data.protectionInsights;
-        el('protectionInsights').innerHTML=protection?'<strong>Last 24h · overlapping local usage signals</strong><br>'+protection.providers.map(p=>escapeHtml(p.provider)+': '+p.metrics.map(m=>(m.percent===null?'unknown':m.percent+'%')+' '+escapeHtml(m.label)).join(' · ')).join('<br>'):'';
+        renderWorkflowMetrics(data);
+        const protection = data.protectionInsights;
+        el("protectionInsights").innerHTML = protection && Array.isArray(protection.providers)
+          ? `<strong>Last 24h local signals</strong> · ` + protection.providers.map((p) => {
+              const metrics = (p.metrics || []).map((m) => `${m.percent === null ? "unknown" : m.percent + "%"} ${escapeHtml(m.label)}`).join(" · ");
+              return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px"><span class="dot ${providerKey(p.provider)}"></span><strong>${escapeHtml(providerShortName(p.provider))}</strong>: ${metrics || "quiet"}</span>`;
+            }).join("")
+          : "";
         renderInsights(data);
         renderRecommendations(data);
         renderPromptGuidance(data);
@@ -1457,8 +2700,8 @@
         renderPlanOverview(data);
         renderBudgetOverview(data);
         renderBudgetEaters(data);
-        renderBars("providers", data.providerTotals || [], (row) => escapeHtml(providerLabelText(row.provider)));
-        renderBars("models", data.modelTotals || [], (row) => escapeHtml(row.model || "unknown"));
+        renderBars("providers", data.providerTotals || [], (row) => providerLabel(row.provider), null, (row) => providerKey(row.provider));
+        renderBars("models", data.modelTotals || [], (row) => escapeHtml(row.model || "unknown"), null, (row) => providerKey(row.provider));
         renderSubagentsAndEffort(data);
         renderSources(data);
         renderTables(data);
@@ -1470,7 +2713,11 @@
       }
     }
 
-    el("refresh").addEventListener("click", refresh);
+    el("refresh").addEventListener("click", () => {
+      refresh();
+      refreshGuard();
+    });
+    el("refreshGuardBtn").addEventListener("click", refreshGuard);
     el("days").addEventListener("change", refresh);
     el("provider").addEventListener("change", refresh);
     el("task").addEventListener("change", refresh);
@@ -1482,12 +2729,14 @@
       codexPlanTouched = true;
       refresh();
     });
-    window.addEventListener("resize", () => refresh());
-    async function refreshGuard(){
-      try{const response=await fetch('/api/guard');if(!response.ok)throw Error();const data=await response.json();el('guardLive').innerHTML=data.providers.filter(p=>p.provider!=='api').map(p=>'<div style="padding:8px 0;border-bottom:1px solid #282828"><strong>'+escapeHtml(p.provider)+'</strong> · '+escapeHtml(p.status)+' · '+p.windows.map(w=>escapeHtml(w.modelFamily||'all models')+' '+(100-w.usedPercent).toFixed(0)+'% left ('+escapeHtml(w.windowId)+'), reset '+dtf.format(new Date(w.resetAt))).join(' / ')+'</div>').join('')+'<p>API estimate today: '+cf.format(data.accounting?.apiEstimateUsd||0)+' · Readings update approximately every 5 minutes. Guarded request counters update live in Guard.</p>';}
-      catch{el('guardLive').textContent='Start AI Spend Guard to see provider percentages, resets, and routing. Your existing usage history is still available below.';}
-    }
-    refreshGuard();setInterval(()=>{if(!document.hidden)refreshGuard();},15000);
+    window.addEventListener("resize", () => {
+      if (!lastSummary) return;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => renderChart(lastSummary), 80);
+    });
+
+    refreshGuard();
+    setInterval(() => { if (!document.hidden) refreshGuard(); }, 15000);
     refresh();
   </script>
 </body>

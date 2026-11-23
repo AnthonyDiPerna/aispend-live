@@ -9,6 +9,12 @@ assert.equal(r.observation.provider,'agy');assert.equal(r.observation.windowId,'
 assert.equal(r.observation.resetAt,new Date(now+(154*3600+29*60+39)*1000).toISOString(),'the reset comes from the message');
 assert.equal(r.confirmedReset,true);assert.equal(r.observation.modelFamily,'gemini-argon');
 assert.equal(parseProviderRejection(agy('Rate limit exceeded, try again later','gemini-4-hydrogen'),now).observation.windowId,'gemini:session','no reset given: assume the session window');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 3h.','gemini-4-neon'),now).observation.modelFamily,'gemini','neon maps to gemini lane');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 3h.','neon'),now).observation.modelFamily,'gemini','bare neon alias maps to gemini lane');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 3h.','gemini-4-carbon'),now).observation.modelFamily,'gemini','carbon maps to gemini lane');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 3h.','flash'),now).observation.modelFamily,'gemini','flash maps to gemini lane');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 48h.','claude-opus-5-5'),now).observation.modelFamily,'claude-gpt','claude on AGY maps to claude-gpt lane');
+assert.equal(parseProviderRejection(agy('Quota reached. Resets in 48h.','claude-opus-5-5'),now).observation.windowId,'claude-gpt:weekly');
 assert.equal(parseProviderRejection(agy('Here is the quota reached handler you asked for:\n\nfunction onQuota(){...}\n'+'x'.repeat(700)),now),null,'long answers that mention quotas are answers');
 assert.equal(parseProviderRejection({...agy('quota reached'),content:[{type:'toolCall',name:'read'},{type:'text',text:'quota reached'}]},now),null,'a reply that does work is not a refusal');
 assert.equal(parseProviderRejection({role:'assistant',provider:'anthropic',model:'claude-sonnet-5',content:[{type:'text',text:'quota reached'}]},now),null,'direct providers raise real errors; not parsed');

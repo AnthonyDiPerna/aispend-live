@@ -5,8 +5,10 @@ const path = require("path");
 
 const {
   findClaudePricing,
+  listAgyTranscriptFiles,
   listJsonlFiles,
   numberValue,
+  parseAgy,
   parseClaude,
   parseCodex,
 } = require("./ai-spend-dashboard-server");
@@ -37,10 +39,11 @@ const PROSE_STOPWORDS = new Set([
   "and", "but", "or", "with", "into", "from", "how", "what", "want", "need", "can", "do", "make", "please",
   "just", "use", "add", "added", "fix", "help", "turn", "create", "build", "write",
 ]);
-const PROVIDERS = ["claude", "codex"];
+const PROVIDERS = ["claude", "codex", "agy"];
 const SOURCE_CLAUDE_JSONL = "claude-jsonl";
 const SOURCE_CODEX_JSONL = "codex-jsonl";
 const SOURCE_CODEX_SQLITE = "codex-sqlite";
+const SOURCE_AGY_JSONL = "agy-jsonl";
 const ROW_TOKEN_FIELDS = [
   "freshInputTokens",
   "cacheReadTokens",
@@ -77,9 +80,11 @@ function usage() {
     "  --out <path>            Ledger JSON to create or merge into (required)",
     "  --since YYYY-MM-DD      Only aggregate days on/after this date (local time)",
     "  --until YYYY-MM-DD      Only aggregate days on/before this date (local time)",
-    "  --provider <name>       claude | codex | all (default all)",
+    "  --provider <name>       claude | codex | agy | all (default all)",
     "  --claude-root <dir>     Claude projects root (default ~/.claude/projects)",
     "  --codex-root <dir>      Codex sessions root (default $CODEX_HOME/sessions)",
+    "  --agy-root <dir>        Antigravity root (default ~/.gemini/antigravity-cli)",
+    "  --no-agy                Skip Antigravity transcripts",
     "  --stats-cache <file>    Claude stats-cache.json (default ~/.claude/stats-cache.json)",
     "  --no-stats-cache        Skip the stats-cache blocks",
     "  --no-sqlite             Skip Codex state SQLite thread recovery",
@@ -97,6 +102,8 @@ function parseArgs(argv) {
     provider: "all",
     claudeRoot: "",
     codexRoot: "",
+    agyRoot: "",
+    includeAgy: undefined,
     statsCachePath: "",
     includeStatsCache: true,
     includeSqlite: true,
@@ -113,6 +120,8 @@ function parseArgs(argv) {
     else if (arg === "--provider") out.provider = String(argv[++i] || "all").toLowerCase();
     else if (arg === "--claude-root") out.claudeRoot = String(argv[++i] || "");
     else if (arg === "--codex-root") out.codexRoot = String(argv[++i] || "");
+    else if (arg === "--agy-root") out.agyRoot = String(argv[++i] || "");
+    else if (arg === "--no-agy") out.includeAgy = false;
     else if (arg === "--stats-cache") out.statsCachePath = String(argv[++i] || "");
     else if (arg === "--no-stats-cache") out.includeStatsCache = false;
     else if (arg === "--no-sqlite") out.includeSqlite = false;
@@ -195,12 +204,21 @@ function codexProjectName(session) {
   return safeProjectName(cwd ? path.basename(cwd) : "");
 }
 
+function agyProjectName(session) {
+  const cwd = String(session.cwd || "").trim();
+  const project = String(session.project || "").trim();
+  return safeProjectName(cwd ? path.basename(cwd) : project);
+}
+
 function projectName(provider, session) {
-  return provider === "claude" ? claudeProjectName(session) : codexProjectName(session);
+  if (provider === "claude") return claudeProjectName(session);
+  if (provider === "agy") return agyProjectName(session);
+  return codexProjectName(session);
 }
 
 function sourceName(provider, session) {
   if (provider === "claude") return SOURCE_CLAUDE_JSONL;
+  if (provider === "agy") return SOURCE_AGY_JSONL;
   return session.sourceType === "sqlite" ? SOURCE_CODEX_SQLITE : SOURCE_CODEX_JSONL;
 }
 
@@ -209,10 +227,13 @@ function sourceName(provider, session) {
 function eventComponents(event) {
   const tokens = event.tokens || {};
   const rawInput = numberValue(tokens.inputTokens);
+  const rawCacheWrite = numberValue(tokens.cacheCreationInputTokens) + numberValue(tokens.cacheCreation1hInputTokens);
   const cachedSubset = event.provider === "codex" ? Math.min(rawInput, numberValue(tokens.cachedInputTokens)) : 0;
-  const freshInputTokens = event.provider === "codex" ? rawInput - cachedSubset : rawInput;
+  const cacheWriteTokens = event.provider === "codex"
+    ? Math.min(Math.max(0, rawInput - cachedSubset), rawCacheWrite)
+    : rawCacheWrite;
+  const freshInputTokens = event.provider === "codex" ? Math.max(0, rawInput - cachedSubset - cacheWriteTokens) : rawInput;
   const cacheReadTokens = event.provider === "codex" ? cachedSubset : numberValue(tokens.cacheReadInputTokens);
-  const cacheWriteTokens = numberValue(tokens.cacheCreationInputTokens) + numberValue(tokens.cacheCreation1hInputTokens);
   const outputTokens = numberValue(tokens.outputTokens);
   const reasoningOutputTokens = numberValue(tokens.reasoningOutputTokens);
   const totalTokens = numberValue(event.totalTokens);
@@ -676,7 +697,8 @@ function readStatsCache(statsCachePath) {
     const cacheReadTokens = numberValue(usage.cacheReadInputTokens);
     const cacheWriteTokens = numberValue(usage.cacheCreationInputTokens);
     const pricing = findClaudePricing(model);
-    const estimatedUsd = pricing
+    const hasPricing = Boolean(pricing && pricing.pricingKnown !== false && pricing.input != null && pricing.output != null);
+    const estimatedUsd = hasPricing
       ? roundUsd((freshInputTokens * pricing.input + cacheWriteTokens * pricing.cacheWrite5m + cacheReadTokens * pricing.cacheRead + outputTokens * pricing.output) / TOKENS_PER_MILLION)
       : null;
     return {
@@ -775,9 +797,20 @@ function createProgress(label, totalFiles, totalBytes, quiet) {
 
 function resolveRoots(args) {
   const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  const defaultAgy = path.resolve(process.env.AGY_ROOT || process.env.AI_SPEND_AGY_ROOT || path.join(os.homedir(), ".gemini", "antigravity-cli"));
+  const explicitCustomOtherRoots = Boolean((args.claudeRoot || args.codexRoot) && !args.agyRoot && args.includeAgy !== true);
+  let agyRoot = "";
+  if (args.includeAgy !== false) {
+    if (args.agyRoot) {
+      agyRoot = path.resolve(args.agyRoot);
+    } else if (args.provider === "agy" || !explicitCustomOtherRoots) {
+      agyRoot = defaultAgy;
+    }
+  }
   return {
     claudeRoot: path.resolve(args.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects")),
     codexRoot: path.resolve(args.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(codexHome, "sessions")),
+    agyRoot,
     statsCachePath: args.includeStatsCache
       ? path.resolve(args.statsCachePath || process.env.CLAUDE_STATS_CACHE || path.join(os.homedir(), ".claude", "stats-cache.json"))
       : "",
@@ -786,7 +819,7 @@ function resolveRoots(args) {
 
 async function scanProvider(provider, root, args, window, accumulator) {
   const fileFilter = makeFileFilter(provider, window);
-  const candidates = listJsonlFiles(root).filter(fileFilter);
+  const candidates = (provider === "agy" ? listAgyTranscriptFiles(root) : listJsonlFiles(root)).filter(fileFilter);
   const totalBytes = candidates.reduce((sum, file) => sum + numberValue(file.size), 0);
   const progress = createProgress(provider, candidates.length, totalBytes, args.quiet);
   const options = {
@@ -799,12 +832,14 @@ async function scanProvider(provider, root, args, window, accumulator) {
     options.includeSqlite = args.includeSqlite !== false;
     if (args.sqlitePath) options.sqlitePath = args.sqlitePath;
     if (args.sessionIndexPath) options.sessionIndexPath = args.sessionIndexPath;
-  } else if (args.sessionsMetaRoot) {
+  } else if (provider === "claude" && args.sessionsMetaRoot) {
     options.sessionsMetaRoot = args.sessionsMetaRoot;
   }
   const result = provider === "claude"
     ? await parseClaude(root, 0, options)
-    : await parseCodex(root, 0, options);
+    : provider === "agy"
+      ? await parseAgy(root, 0, options)
+      : await parseCodex(root, 0, options);
   const timing = progress.finish();
   const scanned = {
     provider,
@@ -820,6 +855,8 @@ async function scanProvider(provider, root, args, window, accumulator) {
   if (provider === "claude") {
     scanned.duplicateUsageRecords = numberValue(result.duplicateUsageRecords);
     scanned.mergedUsageRecords = numberValue(result.mergedUsageRecords);
+  } else if (provider === "agy") {
+    scanned.swarms = numberValue(result.swarms);
   } else {
     scanned.repeatedTokenCounts = numberValue(result.repeatedTokenCounts);
     scanned.replayedTokenCounts = numberValue(result.replayedTokenCounts);
@@ -830,11 +867,17 @@ async function scanProvider(provider, root, args, window, accumulator) {
   return { scanned, errors: result.errors || [] };
 }
 
-function selectedProviders(providerArg) {
+function selectedProviders(providerArg, roots) {
   const value = String(providerArg || "all").toLowerCase();
-  if (value === "all") return PROVIDERS.slice();
+  if (value === "all") {
+    const list = ["claude", "codex"];
+    if (roots && roots.agyRoot && fs.existsSync(roots.agyRoot)) {
+      list.push("agy");
+    }
+    return list;
+  }
   if (!PROVIDERS.includes(value)) {
-    throw new Error(`--provider must be one of claude, codex, all (got "${value}")`);
+    throw new Error(`--provider must be one of claude, codex, agy, all (got "${value}")`);
   }
   return [value];
 }
@@ -864,15 +907,15 @@ async function exportHistory(args) {
     since: assertDayKey(args.since, "--since"),
     until: assertDayKey(args.until, "--until"),
   };
-  const providers = selectedProviders(args.provider);
   const roots = resolveRoots(args);
+  const providers = selectedProviders(args.provider, roots);
   const existing = readLedger(outPath);
   const accumulator = createScanAccumulator(window);
   const startedAt = Date.now();
   const sourcesScanned = {};
   const errors = [];
   for (const provider of providers) {
-    const root = provider === "claude" ? roots.claudeRoot : roots.codexRoot;
+    const root = provider === "claude" ? roots.claudeRoot : provider === "agy" ? roots.agyRoot : roots.codexRoot;
     const outcome = await scanProvider(provider, root, args, window, accumulator);
     sourcesScanned[provider] = outcome.scanned;
     errors.push(...outcome.errors.map((error) => ({ provider, ...error })));
@@ -1013,21 +1056,27 @@ function buildSummaryMarkdown(ledger, ledgerPath) {
   lines.push("## Tokens per month by provider");
   lines.push("");
   const months = Array.from(new Set(rows.map((row) => row.day.slice(0, 7)))).sort();
+  const hasAgyRows = rows.some((row) => row.provider === "agy");
   lines.push(markdownTable(
-    ["Month", "Claude tokens", "Claude est. USD", "Codex tokens", "Codex est. USD", "Codex no-breakdown (SQLite)", "Total tokens"],
+    hasAgyRows
+      ? ["Month", "Claude tokens", "Claude est. USD", "Codex tokens", "Codex est. USD", "Codex no-breakdown (SQLite)", "AGY tokens", "Total tokens"]
+      : ["Month", "Claude tokens", "Claude est. USD", "Codex tokens", "Codex est. USD", "Codex no-breakdown (SQLite)", "Total tokens"],
     months.map((month) => {
       const monthRows = rows.filter((row) => row.day.startsWith(month));
       const claude = sumRows(monthRows.filter((row) => row.provider === "claude"));
       const codex = sumRows(monthRows.filter((row) => row.provider === "codex"));
-      return [
+      const agy = sumRows(monthRows.filter((row) => row.provider === "agy"));
+      const cols = [
         month,
         formatInt(claude.totalTokens),
         claude.totalTokens > 0 ? formatEstimate(claude) : "-",
         formatInt(codex.totalTokens),
         codex.totalTokens > 0 ? formatEstimate(codex) : "-",
         formatInt(codex.breakdownUnknownTokens),
-        formatInt(claude.totalTokens + codex.totalTokens),
       ];
+      if (hasAgyRows) cols.push(formatInt(agy.totalTokens));
+      cols.push(formatInt(claude.totalTokens + codex.totalTokens + agy.totalTokens));
+      return cols;
     }),
   ));
   lines.push("");
@@ -1090,7 +1139,7 @@ function buildSummaryMarkdown(ledger, ledgerPath) {
     const total = sumRows(rows.filter((row) => row.provider === provider));
     const sessions = (ledger.sessions || []).filter((session) => session.provider === provider);
     const subagentSessions = sessions.filter((session) => session.isSubagent).length;
-    const label = provider === "claude" ? "sidechain subagents" : "spawned/guardian sub-threads";
+    const label = provider === "claude" ? "sidechain subagents" : provider === "agy" ? "swarm workers / subagents" : "spawned/guardian sub-threads";
     lines.push(`- ${provider}: ${formatShare(total.subagentTokens, total.totalTokens)} of tokens (${formatInt(total.subagentTokens)} of ${formatInt(total.totalTokens)}) ran in ${label}; ${formatInt(subagentSessions)} of ${formatInt(sessions.length)} sessions.`);
   }
   lines.push("");
@@ -1215,7 +1264,9 @@ function buildSummaryMarkdown(ledger, ledgerPath) {
   for (const [provider, scanned] of Object.entries(ledger.sourcesScanned || {})) {
     const extras = provider === "claude"
       ? `duplicate usage records skipped ${formatInt(scanned.duplicateUsageRecords)} (merged final counts ${formatInt(scanned.mergedUsageRecords)})`
-      : `repeated token_count snapshots skipped ${formatInt(scanned.repeatedTokenCounts)}, fork-replayed parent events skipped ${formatInt(scanned.replayedTokenCounts)} (plus ${formatInt(scanned.burstTokenCounts)} by the timing fallback), SQLite-only threads ${formatInt(scanned.sqliteThreads)}`;
+      : provider === "agy"
+        ? `swarms ${formatInt(scanned.swarms)}`
+        : `repeated token_count snapshots skipped ${formatInt(scanned.repeatedTokenCounts)}, fork-replayed parent events skipped ${formatInt(scanned.replayedTokenCounts)} (plus ${formatInt(scanned.burstTokenCounts)} by the timing fallback), SQLite-only threads ${formatInt(scanned.sqliteThreads)}`;
     lines.push(`- ${provider}: ${formatInt(scanned.filesScanned)} of ${formatInt(scanned.filesOnDisk)} files (${(numberValue(scanned.bytesScanned) / BYTES_PER_MB / KB_PER_MB).toFixed(2)} GB) in ${formatElapsed(scanned.durationMs)} at ${scanned.scannedAt}, peak RSS ${formatInt(scanned.peakRssMb)} MB, ${formatInt(scanned.errors)} file errors; ${extras}.`);
   }
   lines.push("");
@@ -1271,6 +1322,7 @@ module.exports = {
   LEDGER_SCHEMA,
   ROW_COUNT_FIELDS,
   ROW_TOKEN_FIELDS,
+  agyProjectName,
   buildSummaryMarkdown,
   claudeProjectName,
   codexProjectName,

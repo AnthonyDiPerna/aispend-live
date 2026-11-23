@@ -1,16 +1,24 @@
 const assert = require("assert");
 const fs = require("fs");
+const http = require("http");
 const os = require("os");
 const path = require("path");
 
 const {
   buildSummary,
   buildObservedRateLimits,
+  cacheHitRatio,
+  contextTokenRatio,
+  createServer,
   estimateCost,
   estimateCredits,
+  extractEffortFromModel,
+  normalizeAgyUsage,
   normalizeClaudeUsage,
   normalizeCodexUsage,
   normalizeImportedUsage,
+  parseAgy,
+  parseAllUsage,
   parseClaude,
   parseCodex,
   parseImportedUsage,
@@ -486,6 +494,318 @@ async function run() {
   assert(!payloadText.includes("SECRET_SQLITE_PROMPT_TEXT"), "summary must not expose sqlite thread prompt text");
   assert(payloadText.includes("claude"));
   assert(payloadText.includes("codex"));
+
+  // --- New v0.7.0 tests: Codex cacheHitRatio/contextTokenRatio fix, /fast, Claude effort/speed/thinking, model catalog, parseAgy & /swarm, /api/guard-proxy ---
+  const codexHighCache = { inputTokens: 10000, cachedInputTokens: 9000, outputTokens: 500, totalTokens: 10500 };
+  assert(Math.abs(cacheHitRatio(codexHighCache) - 0.9) < 1e-9, "Codex cacheHitRatio must not double-count cachedInputTokens (>50% possible)");
+  assert(Math.abs(contextTokenRatio(codexHighCache) - (10000 / 10500)) < 1e-9, "Codex contextTokenRatio must stay <= 1");
+  const claudeCacheSample = { inputTokens: 1000, cacheCreationInputTokens: 200, cacheCreation1hInputTokens: 100, cacheReadInputTokens: 3000, cachedInputTokens: 0, outputTokens: 400, totalTokens: 4700 };
+  assert(Math.abs(cacheHitRatio(claudeCacheSample) - (3000 / 4300)) < 1e-9, "Claude cacheHitRatio stays exact");
+  assert(Math.abs(contextTokenRatio(claudeCacheSample) - (4300 / 4700)) < 1e-9, "Claude contextTokenRatio stays exact");
+
+  // Claude thinking_tokens & Codex cache_write_input_tokens normalization
+  const claudeThinking = normalizeClaudeUsage({
+    input_tokens: 100,
+    cache_read_input_tokens: 500,
+    output_tokens: 200,
+    output_tokens_details: { thinking_tokens: 80 },
+  });
+  assert.equal(claudeThinking.reasoningOutputTokens, 80, "Claude thinking_tokens preserved in reasoningOutputTokens");
+  assert.equal(claudeThinking.totalTokens, 800, "thinking_tokens is a subset of output_tokens and must not inflate totalTokens");
+  const codexCacheWrite = normalizeCodexUsage({
+    input_tokens: 1000,
+    cached_input_tokens: 800,
+    cache_write_input_tokens: 150,
+    output_tokens: 100,
+    total_tokens: 1100,
+  });
+  assert.equal(codexCacheWrite.cacheCreationInputTokens, 150, "Codex cache_write_input_tokens captured in cacheCreationInputTokens");
+  assert.equal(codexCacheWrite.totalTokens, 1100);
+
+  // Effort suffix & AGY disjoint token normalization
+  assert.equal(extractEffortFromModel("gemini-4-neon-xhigh"), "xhigh");
+  assert.equal(extractEffortFromModel("gemini-4-carbon-high"), "high");
+  assert.equal(extractEffortFromModel("gemini-3.8-flash-medium"), "medium");
+  assert.equal(extractEffortFromModel("claude-opus-5-5"), "");
+  const agyTokens = normalizeAgyUsage({ input_tokens: 1000, cache_read_tokens: 9000, output_tokens: 250 });
+  assert.equal(agyTokens.cacheReadInputTokens, 9000);
+  assert.equal(agyTokens.cachedInputTokens, 0);
+  assert.equal(agyTokens.totalTokens, 10250, "AGY input + cache_read + output are disjoint");
+  assert(Math.abs(cacheHitRatio(agyTokens) - 0.9) < 1e-9, "AGY cacheHitRatio uses disjoint cacheReadInputTokens");
+
+  // Unverified newer models must not fabricate costs or mis-match legacy regexes
+  const fable52Cost = estimateCost("claude", "claude-fable-5-2", { inputTokens: 1000000, outputTokens: 100000 });
+  assert.equal(fable52Cost.known, false, "claude-fable-5-2 pricing must stay unknown instead of mis-matching legacy fable-5");
+  assert.equal(fable52Cost.label, "Claude Fable 5.2");
+  assert.equal(fable52Cost.usd, 0);
+  const gpt62SolCost = estimateCost("codex", "gpt-6.2-sol", { inputTokens: 1000000, outputTokens: 100000 });
+  assert.equal(gpt62SolCost.known, false);
+  assert.equal(gpt62SolCost.label, "GPT-6.2 Sol");
+  const gpt62AstraCost = estimateCost("codex", "gpt-6.2-astra", { inputTokens: 1000000, outputTokens: 100000 });
+  assert.equal(gpt62AstraCost.known, false);
+  const neonCost = estimateCost("agy", "gemini-4-neon-xhigh", agyTokens);
+  assert.equal(neonCost.known, false);
+  assert.equal(neonCost.label, "Gemini 4 Neon");
+  for (const [prov, id] of [
+    ["claude", "claude-fable-5-2"],
+    ["codex", "gpt-6.2-sol"],
+    ["codex", "gpt-6.2-astra"],
+    ["agy", "gemini-4-neon"],
+    ["agy", "gemini-4-carbon"],
+    ["agy", "gemini-4-argon"],
+    ["agy", "gemini-4-hydrogen"],
+    ["agy", "gemini-3.8-flash"],
+  ]) {
+    const entry = summary.modelCatalog.find((m) => m.provider === prov && m.id === id);
+    assert(entry, `expected ${prov}:${id} in modelCatalog`);
+    assert.equal(entry.pricingKnown, false, `${prov}:${id} must have pricingKnown: false`);
+  }
+
+  // Claude effort/speed + Codex /fast (thread_settings_applied) + AGY /swarm fixture
+  const speedClaudeRoot = path.join(root, "speed-claude", "projects");
+  writeJsonl(path.join(speedClaudeRoot, "proj-fast", "claude-fast.jsonl"), [
+    {
+      type: "assistant",
+      timestamp: recentIso,
+      sessionId: "claude-fast",
+      cwd: "C:\\devland\\aispend-live",
+      effort: "high",
+      perTurnEffort: "max",
+      message: {
+        id: "msg_fast_1",
+        role: "assistant",
+        model: "claude-fable-5-2",
+        output_config: { effort: "high" },
+        usage: {
+          input_tokens: 400,
+          cache_read_input_tokens: 1600,
+          output_tokens: 200,
+          output_tokens_details: { thinking_tokens: 60 },
+          speed: "fast",
+          service_tier: "standard",
+        },
+      },
+    },
+  ]);
+
+  const speedCodexRoot = path.join(root, "speed-codex", "sessions");
+  writeJsonl(path.join(speedCodexRoot, "2026", "11", "22", "rollout-fast.jsonl"), [
+    {
+      type: "session_meta",
+      timestamp: recentIso,
+      payload: { id: "codex-fast-session", cwd: "C:\\devland\\aispend-live", model_provider: "openai" },
+    },
+    {
+      timestamp: recentIso,
+      ordinal: 2,
+      type: "event_msg",
+      payload: {
+        type: "thread_settings_applied",
+        thread_id: "codex-fast-session",
+        thread_settings: {
+          model: "gpt-6.2-sol",
+          service_tier: "priority",
+          reasoning_effort: "xhigh",
+          cwd: "C:\\devland\\aispend-live",
+        },
+      },
+    },
+    {
+      timestamp: recentIso,
+      ordinal: 3,
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          last_token_usage: {
+            input_tokens: 5000,
+            cached_input_tokens: 4000,
+            cache_write_input_tokens: 200,
+            output_tokens: 500,
+            reasoning_output_tokens: 100,
+            total_tokens: 5500,
+          },
+          total_token_usage: {
+            input_tokens: 5000,
+            cached_input_tokens: 4000,
+            cache_write_input_tokens: 200,
+            output_tokens: 500,
+            reasoning_output_tokens: 100,
+            total_tokens: 5500,
+          },
+        },
+      },
+    },
+  ]);
+
+  // AGY fixture with coordinator + swarm worker (missing per-step model -> member fallback) + standalone subagent + SQLite metadata
+  const agyRoot = path.join(root, "agy");
+  const coordId = "11111111-1111-1111-1111-111111111111";
+  const workerId = "22222222-2222-2222-2222-222222222222";
+  const subId = "33333333-3333-3333-3333-333333333333";
+  fs.mkdirSync(path.join(agyRoot, "brain", coordId, ".system_generated", "swarm"), { recursive: true });
+  fs.writeFileSync(
+    path.join(agyRoot, "brain", coordId, ".system_generated", "swarm", "swarm.json"),
+    JSON.stringify({ version: 1, backend: "local", swarm_id: coordId, created_at: recentIso }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(agyRoot, "brain", coordId, ".system_generated", "swarm", "members.json"),
+    JSON.stringify({
+      title: "SECRET_AGY_SWARM_TITLE",
+      members: {
+        coordinator: { conversation_id: coordId, model: "gemini-4-neon-xhigh", role: "coordinator" },
+        "data-engine": { conversation_id: workerId, applied_model: "gemini-4-carbon-high", role: "worker" },
+      },
+    }),
+    "utf8",
+  );
+  writeJsonl(path.join(agyRoot, "brain", coordId, ".system_generated", "swarm", "board.jsonl"), [
+    { seq: 1, agent: "coordinator", text: "SECRET_AGY_BOARD_TEXT" },
+  ]);
+  fs.mkdirSync(path.join(agyRoot, "brain", coordId, ".system_generated", "subagents"), { recursive: true });
+  fs.writeFileSync(
+    path.join(agyRoot, "brain", coordId, ".system_generated", "subagents", `${subId}.json`),
+    JSON.stringify({
+      conversationId: subId,
+      state: "SUBAGENT_STATE_ALIVE",
+      subagentDescriptor: { typeName: "researcher", role: "SECRET_AGY_SUBAGENT_ROLE" },
+      workspaceUris: ["file:///C:/devland/aispend-live"],
+    }),
+    "utf8",
+  );
+  writeJsonl(path.join(agyRoot, "brain", coordId, ".system_generated", "logs", "transcript.jsonl"), [
+    { step_index: 0, type: "USER_INPUT", created_at: recentIso, text: "SECRET_AGY_PROMPT" },
+    { step_index: 1, type: "PLANNER_RESPONSE", status: "DONE", created_at: recentIso, model: "gemini-4-neon-xhigh", input_tokens: 1000, cache_read_tokens: 4000, output_tokens: 500, thinking: "SECRET_AGY_THINKING" },
+  ]);
+  writeJsonl(path.join(agyRoot, "brain", workerId, ".system_generated", "logs", "transcript.jsonl"), [
+    { step_index: 0, type: "SYSTEM_MESSAGE", created_at: recentIso, text: "SECRET_AGY_WORKER_PROMPT" },
+    { step_index: 1, type: "PLANNER_RESPONSE", status: "DONE", created_at: recentIso, input_tokens: 2000, cache_read_tokens: 8000, output_tokens: 1000 },
+  ]);
+  writeJsonl(path.join(agyRoot, "brain", subId, ".system_generated", "logs", "transcript.jsonl"), [
+    { step_index: 1, type: "PLANNER_RESPONSE", status: "DONE", created_at: recentIso, model: "gemini-3.8-flash-medium", input_tokens: 500, cache_read_tokens: 1500, output_tokens: 100 },
+  ]);
+
+  const agyDb = new DatabaseSync(path.join(agyRoot, "conversation_summaries.db"));
+  agyDb.exec(`
+    CREATE TABLE conversation_summaries (
+      conversation_id TEXT PRIMARY KEY,
+      title TEXT,
+      preview TEXT,
+      step_count INTEGER,
+      last_modified_time TEXT,
+      workspace_uris TEXT,
+      status TEXT,
+      project_id TEXT,
+      agent_name TEXT,
+      parent_conversation_id TEXT,
+      nesting_depth INTEGER,
+      killed INTEGER
+    );
+  `);
+  const insertAgySummary = agyDb.prepare(`
+    INSERT INTO conversation_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertAgySummary.run(coordId, "SECRET_AGY_SQLITE_TITLE", "SECRET_AGY_SQLITE_PREVIEW", 10, recentIso, '["file:///C:/devland/aispend-live"]', "CASCADE_RUN_STATUS_RUNNING", "default-cli-project", "", null, 0, 0);
+  insertAgySummary.run(workerId, "SECRET_AGY_WORKER_TITLE", "SECRET_AGY_WORKER_PREVIEW", 5, recentIso, '["file:///C:/devland/aispend-live"]', "CASCADE_RUN_STATUS_IDLE", "default-cli-project", "data-engine", coordId, 1, 0);
+  insertAgySummary.run(subId, "SECRET_AGY_SUB_TITLE", "SECRET_AGY_SUB_PREVIEW", 3, recentIso, '["file:///C:/devland/aispend-live"]', "CASCADE_RUN_STATUS_IDLE", "default-cli-project", "research", coordId, 1, 0);
+  agyDb.close();
+
+  const speedClaude = await parseClaude(speedClaudeRoot, 0, { sessionsMetaRoot: path.join(root, "nope") });
+  const speedCodex = await parseCodex(speedCodexRoot, 0, { includeSqlite: false, sessionIndexPath: path.join(root, "nope.jsonl") });
+  const agy = await parseAgy(agyRoot, 0);
+
+  assert.equal(speedClaude.events[0].reasoningEffort, "high");
+  assert.equal(speedClaude.events[0].serviceTier, "fast");
+  assert.equal(speedClaude.events[0].tokens.reasoningOutputTokens, 60);
+  assert.equal(speedClaude.events[0].costKnown, false, "claude-fable-5-2 must stay unpriced");
+
+  assert.equal(speedCodex.events[0].model, "gpt-6.2-sol");
+  assert.equal(speedCodex.events[0].serviceTier, "fast", "Codex thread_settings_applied service_tier=priority maps to fast");
+  assert.equal(speedCodex.events[0].reasoningEffort, "xhigh");
+  assert.equal(speedCodex.events[0].tokens.cacheCreationInputTokens, 200);
+  assert(Math.abs(speedCodex.sessions[0].cacheHitRatio - 0.8) < 1e-9, "Codex session cacheHitRatio can exceed 50% (80%)");
+
+  assert.equal(agy.sessions.length, 3);
+  assert.equal(agy.swarms, 1);
+  const agyCoord = agy.sessions.find((s) => s.id === coordId);
+  const agyWorker = agy.sessions.find((s) => s.id === workerId);
+  const agySub = agy.sessions.find((s) => s.id === subId);
+  assert(agyCoord && !agyCoord.isSubagent && agyCoord.swarmId === coordId && agyCoord.project === "aispend-live" && agyCoord.liveStatus === "running");
+  assert.equal(agyCoord.totalTokens, 5500);
+  assert.equal(agyCoord.reasoningEffort, "xhigh");
+  assert(agyWorker && agyWorker.isSubagent && agyWorker.subagentKind === "swarm_worker" && agyWorker.swarmId === coordId);
+  assert.equal(agyWorker.model, "gemini-4-carbon-high", "missing per-step AGY model falls back to swarm member model");
+  assert.equal(agyWorker.reasoningEffort, "high");
+  assert.equal(agyWorker.totalTokens, 11000);
+  assert(Math.abs(agyWorker.cacheHitRatio - 0.8) < 1e-9);
+  assert(agySub && agySub.isSubagent && agySub.subagentKind === "subagent" && !agySub.swarmId);
+  assert.equal(agySub.reasoningEffort, "medium");
+  assert.equal(agySub.totalTokens, 2100);
+
+  const v07Summary = buildSummary([speedClaude, speedCodex, agy], { days: 7, provider: "all" });
+  assert(v07Summary.roots.agy && v07Summary.roots.agy.provider === "agy");
+  assert.equal(v07Summary.speedStats.fastTurns, 2);
+  assert.equal(v07Summary.speedStats.fastTokens, 2200 + 5500);
+  assert.equal(v07Summary.speedStats.byProvider.codex.fastTokens, 5500);
+  assert.equal(v07Summary.speedStats.byProvider.claude.fastTokens, 2200);
+  assert.equal(v07Summary.swarmStats.swarmCount, 1);
+  assert.equal(v07Summary.swarmStats.swarmWorkerSessions, 1);
+  assert.equal(v07Summary.swarmStats.swarmWorkerTokens, 11000);
+  assert.equal(v07Summary.swarmStats.subagentTokens, 11000 + 2100);
+  assert.equal(v07Summary.swarmStats.totalAgyTokens, 5500 + 11000 + 2100);
+  assert(Math.abs(v07Summary.swarmStats.swarmShareOfAgy - (11000 / 18600)) < 1e-9);
+  const v07Text = JSON.stringify(v07Summary);
+  assert(!v07Text.includes("SECRET_AGY_"), "AGY summary must never expose raw prompts, board text, or sqlite titles/previews");
+
+  // parseAllUsage gracefully skips missing AGY root or includeAgy: false
+  const skippedAgy = await parseAllUsage({
+    days: 7,
+    claudeRoot: speedClaudeRoot,
+    codexRoot: speedCodexRoot,
+    agyRoot: path.join(root, "missing-agy"),
+    includeSqlite: false,
+    sessionsMetaRoot: path.join(root, "nope"),
+    sessionIndexPath: path.join(root, "nope.jsonl"),
+  });
+  assert.equal(skippedAgy.find((s) => s.provider === "agy").events.length, 0);
+  const includedAgy = await parseAllUsage({
+    days: 7,
+    claudeRoot: speedClaudeRoot,
+    codexRoot: speedCodexRoot,
+    agyRoot,
+    includeSqlite: false,
+    sessionsMetaRoot: path.join(root, "nope"),
+    sessionIndexPath: path.join(root, "nope.jsonl"),
+  });
+  assert.equal(includedAgy.find((s) => s.provider === "agy").events.length, 3);
+
+  // /api/guard-proxy route forwards Guard /api/state (including optimizer) on same origin
+  const mockGuard = http.createServer((req, res) => {
+    if (req.url === "/api/state") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, optimizer: { strategy: "accelerate", headline: "Use AGY /swarm" } }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  await new Promise((resolve) => mockGuard.listen(0, "127.0.0.1", resolve));
+  const dashServer = createServer();
+  await new Promise((resolve) => dashServer.listen(0, "127.0.0.1", resolve));
+  const prevGuardUrl = process.env.AI_SPEND_GUARD_URL;
+  process.env.AI_SPEND_GUARD_URL = `http://127.0.0.1:${mockGuard.address().port}`;
+  try {
+    const proxyRes = await fetch(`http://127.0.0.1:${dashServer.address().port}/api/guard-proxy`);
+    assert.equal(proxyRes.status, 200);
+    const proxyBody = await proxyRes.json();
+    assert.equal(proxyBody.optimizer.strategy, "accelerate");
+  } finally {
+    if (prevGuardUrl === undefined) delete process.env.AI_SPEND_GUARD_URL;
+    else process.env.AI_SPEND_GUARD_URL = prevGuardUrl;
+    await new Promise((resolve) => dashServer.close(resolve));
+    await new Promise((resolve) => mockGuard.close(resolve));
+  }
 
   fs.rmSync(root, { recursive: true, force: true });
   console.log("AI spend dashboard tests passed");

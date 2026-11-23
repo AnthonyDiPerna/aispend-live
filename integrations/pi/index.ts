@@ -195,7 +195,7 @@ export default function guard(pi: ExtensionAPI) {
 
   pi.registerVirtualModel({
     provider:'aispend',id:'guard',name:'AI Spend Guard',
-    thinkingLevels:['low','medium','high'],contextWindow:200000,maxTokens:16000,
+    thinkingLevels:['low','medium','high','xhigh'],contextWindow:200000,maxTokens:16000,
     async route(request,ctx) {
       taskId ||= signature(ctx.sessionManager.getSessionId());
       if(localFailure)throw new Error(`AI Spend Guard billing guard paused: ${localFailure}`);
@@ -379,24 +379,27 @@ export default function guard(pi: ExtensionAPI) {
   // Priority order: pick in a list (mouse-clickable in fullscreen Pi, arrows otherwise), name it, or let
   // "auto" apply use-it-or-lose-it: usable allowances first, soonest reset first; unusable ones last.
   // Model aliases a person would type. Resolved against the models Pi actually has at request time.
-  const MODEL_ALIASES:Record<string,[string,string|null]>={argon:['agy','argon'],hydrogen:['agy','hydrogen'],flash:['agy','flash'],gemini:['agy',null],antigravity:['agy',null],agy:['agy',null],
+  const MODEL_ALIASES:Record<string,[string,string|null]>={neon:['agy','neon'],carbon:['agy','carbon'],argon:['agy','argon'],hydrogen:['agy','hydrogen'],flash:['agy','flash'],gemini:['agy',null],antigravity:['agy',null],agy:['agy',null],
     opus:['claude','opus'],fable:['claude','fable'],sonnet:['claude','sonnet'],haiku:['claude','haiku'],claude:['claude',null],
-    sol:['codex','sol'],luna:['codex','luna'],astra:['codex','astra'],codex:['codex',null],gpt:['codex',null],openai:['codex',null]};
+    sol:['codex','sol'],luna:['codex','luna'],astra:['codex','astra'],terra:['codex','terra'],spark:['codex','spark'],codex:['codex',null],gpt:['codex',null],openai:['codex',null]};
   function matchRule(text:string){
     const t=text.toLowerCase();
     const hit=(policy.routingRules||[]).filter((r:any)=>t.includes(r.match)).sort((a:any,b:any)=>b.match.length-a.match.length)[0];
     return hit?{provider:hit.provider,model:hit.model,match:hit.match}:undefined;
   }
-  // "all translations use argon", "website updates -> argon", "code changes on opus"
+  // Explicit rule directives only: "all translations use argon", "website updates -> neon", "code reviews always use opus"
   function parseRuleRequest(text:string):{match:string,provider:string,model:string|null}|null{
     const t=text.trim().toLowerCase();
-    if(t.length>120 || t.startsWith('/'))return null;
-    const m=/^(?:all |every |any )?(.{2,60}?)\s+(?:should |always |must )?(?:use|uses|go to|goes to|run on|runs on|on|with|->|=>|→)\s+(?:the )?([a-z0-9. -]{2,40})$/.exec(t);
+    if(t.length>100 || t.startsWith('/') || t.includes('\n') || /[?!]/.test(t))return null;
+    const m=/^(?:(?:all|every)\s+(.{2,50}?)\s+(?:(?:should|always|must)\s+)?(?:use|uses|go to|goes to|run on|runs on|->|=>|→)|(.{2,50}?)\s+(?:->|=>|→)|(.{2,50}?)\s+(?:always|should|must)\s+(?:use|uses|go to|goes to|run on|runs on))\s+(?:the\s+)?([a-z0-9._-]{2,40}(?:\s+(?:model|models|please))?)$/.exec(t);
     if(!m)return null;
-    const alias=m[2].replace(/\b(model|models|please)\b/g,'').trim().split(/\s+/)[0];
+    const rawMatch=(m[1]||m[2]||m[3]||'').trim();
+    const alias=m[4].replace(/\b(model|models|please)\b/g,'').trim().split(/\s+/)[0];
     const target=MODEL_ALIASES[alias];if(!target)return null;
-    const match=m[1].replace(/^(my|the|our)\s+/,'').replace(/\s+(tasks?|work|requests?|changes?|updates?)$/,(s)=>s).trim();
-    if(match.length<2)return null;
+    const match=rawMatch.replace(/^(my|the|our)\s+/,'').trim();
+    if(match.length<2 || match.length>60)return null;
+    if(match.split(/\s+/).filter(Boolean).length>6)return null;
+    if(/\b(is|are|was|were|be|been|exhausted|depleted|can|cannot|can't|couldn't|failed|failing|error|broken|stuck|limit|quota|only|because|since|when|if|but|that|which|it|they|we|you|i)\b/.test(match))return null;
     return {match,provider:target[0],model:target[1]};
   }
   async function saveRule(rule:{match:string,provider:string,model:string|null},ctx:ExtensionContext){
@@ -411,7 +414,7 @@ export default function guard(pi: ExtensionAPI) {
   }
   // Plain-text priority requests ("use agy then codex then claude", "codex first", "prefer claude over codex")
   // are applied locally and never sent to a model. Only short, idle, typed messages qualify.
-  const ALIASES:[RegExp,string][]=[[/\b(claude|anthropic|fable|opus|sonnet)\b/g,'claude'],[/\b(codex|openai|gpt|chatgpt)\b/g,'codex'],[/\b(agy|antigravity|gemini|argon|google)\b/g,'agy']];
+  const ALIASES:[RegExp,string][]=[[/\b(claude|anthropic|fable|opus|sonnet|haiku)\b/g,'claude'],[/\b(codex|openai|gpt|chatgpt|sol|luna|astra|terra|spark)\b/g,'codex'],[/\b(agy|antigravity|gemini|argon|neon|carbon|hydrogen|flash|google)\b/g,'agy']];
   function parseOrderRequest(text:string):string[]|null{
     const t=text.trim().toLowerCase();
     if(t.length>140 || t.split(String.fromCharCode(10)).length>1 || t.startsWith('/'))return null;
@@ -432,7 +435,7 @@ export default function guard(pi: ExtensionAPI) {
     const t=event.text.trim().toLowerCase();
     const block=t.length<=80 && !t.startsWith('/') && /^(block|don'?t (touch|use)|do not (touch|use)|no|stop using|unblock)\b/.test(t)?t:null;
     if(block){
-      const ids=[...new Set([...block.matchAll(/\b(claude|codex|agy|antigravity|gemini|argon)\b/g)].map(m=>/^(agy|antigravity|gemini|argon)$/.test(m[1])?'agy':m[1]))];
+      const ids=[...new Set([...block.matchAll(/\b(claude|codex|agy|antigravity|gemini|argon|neon|carbon|hydrogen)\b/g)].map(m=>/^(agy|antigravity|gemini|argon|neon|carbon|hydrogen)$/.test(m[1])?'agy':m[1]))];
       if(ids.length){const clear=block.startsWith('unblock');const next=clear?(policy.blockedProviders||[]).filter((b:string)=>!ids.includes(b)):[...new Set([...(policy.blockedProviders||[]),...ids])].slice(0,2);
         try{const state=await api('/api/policy',{blockedProviders:next});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));ctx.ui.notify((next.length?'Blocked: '+next.map((b:string)=>ORDER_LABELS[b]).join(', '):'No subscription is blocked.')+' Set from your message without a model call.','info');}
         catch(error:any){ctx.ui.notify(`Guard block not changed: ${error.message}`,'error');}
@@ -447,7 +450,7 @@ export default function guard(pi: ExtensionAPI) {
       // Ordinary work: a matching rule steers this task from its next request on. An inline directive
       // ("fix that - use codex", "switch to codex and finish everything") steers it too, then the
       // message still goes to the model.
-      const inline=/(?:^|[\s,.;:()\-])(?:switch(?:ing)? to|use|using|on|with|route to|move to|go to|via)\s+(?:the\s+)?(argon|hydrogen|flash|gemini|antigravity|agy|opus|fable|sonnet|haiku|claude|sol|luna|astra|codex|gpt|openai)\b(?!\s*(?:tool|api|sdk|cli|key|token|command|binary|repo|folder|file|docs?))/i.exec(event.text);
+      const inline=/(?:^|[\s,.;:()\-])(?:switch(?:ing)? to|use|using|on|with|route to|move to|go to|via)\s+(?:the\s+)?(neon|carbon|argon|hydrogen|flash|gemini|antigravity|agy|opus|fable|sonnet|haiku|claude|sol|luna|astra|terra|spark|codex|gpt|openai)\b(?!\s*(?:tool|api|sdk|cli|key|token|command|binary|repo|folder|file|docs?))/i.exec(event.text);
       const directive=inline?MODEL_ALIASES[inline[1].toLowerCase()]:undefined;
       const rule=directive?{provider:directive[0],model:directive[1],match:inline![0].trim()}:matchRule(event.text);
       if(rule && (taskRule?.provider!==rule.provider || taskRule?.model!==rule.model)){taskRule=rule;ctx.ui.notify(`Rule "${rule.match}": routing this task to ${ORDER_LABELS[rule.provider]}${rule.model?' ('+rule.model+')':''}.`,'info');}
@@ -463,7 +466,7 @@ export default function guard(pi: ExtensionAPI) {
       const labels:any={claude:'Claude',codex:'Codex',agy:'AGY (Antigravity)'};
       const ids=Object.keys(labels);
       let state=await discover(ctx);
-      const words=args.trim().toLowerCase().split(/[s,>]+/).filter(Boolean);
+      const words=args.trim().toLowerCase().split(/[\s,>]+/).filter(Boolean);
       let order:string[]=[],why='';
       if(words[0]==='auto'){
         const reserve=state.policy?.reservePercent??10;
@@ -550,14 +553,14 @@ export default function guard(pi: ExtensionAPI) {
       const rm=/^(?:remove|delete|clear)\s+(.+)$/i.exec(text);
       if(rm){const key=rm[1].trim().toLowerCase();const rules=(policy.routingRules||[]).filter((r:any)=>r.match!==key);const state=await api('/api/policy',{routingRules:rules});policy=state.policy;ctx.ui.notify(`Removed rule "${key}".`,'info');return;}
       const rule=parseRuleRequest(text.includes('->')||text.includes('→')?text:text.replace(/\s+(use|on|with)\s+/,' -> '));
-      if(!rule)throw Error('Use: /guard-rule <what> -> <argon|opus|fable|sonnet|sol|luna|claude|codex|agy>');
+      if(!rule)throw Error('Use: /guard-rule <what> -> <neon|carbon|argon|hydrogen|flash|opus|fable|sonnet|sol|luna|astra|terra|spark|claude|codex|agy>');
       await saveRule(rule,ctx);
     }catch(error:any){ctx.ui.notify(`Guard rule not saved: ${error.message}`,'error');}},
   });
   pi.registerCommand('guard-block',{
     description:'Block a subscription from routing (/guard-block claude); /guard-block none clears',
     handler:async(args,ctx)=>{try{
-      const words=args.trim().toLowerCase().split(/[s,]+/).filter(Boolean).map(w=>w.startsWith('ag')||w.startsWith('ant')||w.startsWith('gem')?'agy':w);
+      const words=args.trim().toLowerCase().split(/[\s,]+/).filter(Boolean).map(w=>w.startsWith('ag')||w.startsWith('ant')||w.startsWith('gem')?'agy':w);
       const blocked=words.includes('none')?[]:words;
       if(blocked.some(b=>!['claude','codex','agy'].includes(b)))throw Error('Use /guard-block claude, /guard-block codex agy, or /guard-block none');
       const state=await api('/api/policy',{blockedProviders:blocked});policy=state.policy;ctx.ui.setStatus('aispend',statusLine(state));
@@ -587,5 +590,35 @@ export default function guard(pi: ExtensionAPI) {
   pi.registerCommand('guard-hold',{
     description:'Cancel automatic resumption while waiting for allowance; /guard-resume continues manually',
     handler:async(_args,ctx)=>{waitingForAllowance=false;ctx.ui.notify('Automatic allowance resumption is on hold. Use /guard-resume when ready.','info');},
+  });
+  pi.registerCommand('guard-check',{
+    description:'Multi-subscription optimizer verdict: /swarm sizing for AGY, /fast & effort for Codex, Claude tiers, next unlock & order',
+    handler:async(_args,ctx)=>{try{
+      let payload:any;
+      try{payload=await api('/api/checkin');}
+      catch{payload=await api('/api/state?task='+taskId);}
+      const opt=payload?.optimizer;
+      if(!opt){ctx.ui.notify('Optimizer verdict is unavailable from this controller. Run npm run check -- --live for a direct check-in.','warning');return;}
+      const order=(opt.recommendedOrder||[]).map((id:string)=>ORDER_LABELS[id]||id).join(' > ');
+      const lines:string[]=[
+        `[${String(opt.strategy||'balanced').toUpperCase()}] ${opt.headline}`,
+        `Order: ${order}${opt.nextUnlock?' · Next unlock: '+opt.nextUnlock.label:''}`,
+      ];
+      for(const p of opt.providers||[]){
+        const pct=p.remainingPercent===null?'?':`${Math.round(p.remainingPercent)}%`;
+        const lanes=p.provider==='agy' && Array.isArray(p.windows)
+          ?p.windows.filter((w:any)=>w.windowId==='gemini:weekly' || w.windowId==='claude-gpt:weekly').map((w:any)=>`${w.windowId.startsWith('claude-gpt')?'Claude/GPT':'Gemini'} ${Math.round(w.remainingPercent)}%`)
+          :[];
+        const laneText=lanes.length?` [${lanes.join(', ')}]`:'';
+        lines.push(`• ${p.label} (${pct}, ${p.utilizationState})${laneText}: ${p.playbook?.headline||p.status}`);
+      }
+      if(Array.isArray(opt.alerts) && opt.alerts.length){
+        lines.push('Alerts: '+opt.alerts.slice(0,3).map((a:any)=>a.title).join(' · '));
+      }
+      if(Array.isArray(opt.quickCommands) && opt.quickCommands.length){
+        lines.push('Commands: '+opt.quickCommands.slice(0,3).map((c:any)=>`${c.tool}: ${c.command}`).join(' · '));
+      }
+      ctx.ui.notify(lines.join('\n'),'info');
+    }catch(error:any){ctx.ui.notify(`Guard check-in unavailable: ${error.message}`,'error');}},
   });
 }

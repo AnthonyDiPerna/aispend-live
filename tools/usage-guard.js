@@ -78,7 +78,7 @@ function cleanPolicy(input = {}) {
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
   if(input.autoRecover!==undefined){if(typeof input.autoRecover!=='boolean')throw Error('autoRecover must be true or false');result.autoRecover=input.autoRecover;}
   if(!Number.isInteger(result.maxAutoRepairs))throw Error('maxAutoRepairs must be an integer');
-  if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
+  if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high','xhigh'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
   return result;
 }
 
@@ -187,7 +187,7 @@ function effectivePolicy(configured, pressure) {
     policy.maxContextTokens=Math.min(policy.maxContextTokens,60000);
     policy.maxOutputTokens=Math.min(policy.maxOutputTokens,2048);
     policy.maxToolOutputChars=Math.min(policy.maxToolOutputChars,8000);
-    if(['medium','high'].includes(policy.maxThinkingLevel))policy.maxThinkingLevel='low';
+    if(['medium','high','xhigh'].includes(policy.maxThinkingLevel))policy.maxThinkingLevel='low';
   }else if(policy.usageMode==='continuous' && pressure){
     policy.maxContextTokens=Math.min(policy.maxContextTokens,80000);
     policy.maxOutputTokens=Math.min(policy.maxOutputTokens,3072);
@@ -213,7 +213,7 @@ function buildPlan(state, now = Date.now()) {
   const makeProviders = plans=>policy.providerOrder.map(provider=>{
     const bindings = state.bindings?.[provider];
     const model=String(bindings?.model || '').toLowerCase();
-    const family=provider==='agy'?(model.includes('gemini')?'gemini':model?'claude-gpt':undefined):['opus','sonnet','haiku','fable'].find(f=>model.includes(f));
+    const family=provider==='agy'?(/gemini|argon|neon|carbon|hydrogen|flash/.test(model)?'gemini':model?'claude-gpt':undefined):['opus','sonnet','haiku','fable'].find(f=>model.includes(f));
     const windows=plans.filter(w=>w.provider===provider).map(w=>({...w,applies:!w.modelFamily || !family || w.modelFamily===family || (w.modelFamily==='gemini-argon' && model.includes('argon'))}));
     const rows=windows.filter(w=>w.applies);
     const status = rows.length ? rows.reduce((a,b)=>severity.indexOf(a)>severity.indexOf(b.status)?a:b.status,'ready') : 'unknown';

@@ -4,8 +4,8 @@ const path = require("path");
 const { buildWorkflowGuidance, buildSummary, parseAllUsage } = require("./ai-spend-dashboard-server");
 
 const PUBLIC_INSIGHT_TITLES = new Set([
-  "Claude dominates this range", "Codex dominates this range", "Subagent token share",
-  "24 hour burn pace", "Current hour is spiking", "Claude burn is mostly context",
+  "Claude dominates this range", "Codex dominates this range", "Antigravity dominates this range", "AGY dominates this range",
+  "Subagent token share", "24 hour burn pace", "Current hour is spiking", "Claude burn is mostly context",
   "Codex cache reuse", "No obvious spike",
 ]);
 const PUBLIC_ACTION_TITLES = new Set([
@@ -54,6 +54,60 @@ function numberValue(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function ratioValue(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : fallback;
+}
+
+function sanitizeSpeedStats(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const byProvider = {};
+  if (raw.byProvider && typeof raw.byProvider === "object") {
+    for (const provider of ["claude", "codex", "agy"]) {
+      const item = raw.byProvider[provider];
+      if (!item || typeof item !== "object") continue;
+      byProvider[provider] = {
+        fastTokens: numberValue(item.fastTokens),
+        ultrafastTokens: numberValue(item.ultrafastTokens),
+        standardTokens: numberValue(item.standardTokens),
+        fastTurns: numberValue(item.fastTurns),
+        ultrafastTurns: numberValue(item.ultrafastTurns),
+      };
+    }
+  }
+  const fastTokens = numberValue(raw.fastTokens);
+  const ultrafastTokens = numberValue(raw.ultrafastTokens);
+  const standardTokens = numberValue(raw.standardTokens);
+  const unknownSpeedTokens = numberValue(raw.unknownSpeedTokens);
+  const known = fastTokens + ultrafastTokens + standardTokens;
+  const computedShare = known > 0 ? (fastTokens + ultrafastTokens) / known : 0;
+  return {
+    fastTokens,
+    ultrafastTokens,
+    standardTokens,
+    unknownSpeedTokens,
+    fastShare: ratioValue(raw.fastShare, computedShare),
+    fastTurns: numberValue(raw.fastTurns),
+    ultrafastTurns: numberValue(raw.ultrafastTurns),
+    byProvider,
+  };
+}
+
+function sanitizeSwarmStats(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const swarmWorkerTokens = numberValue(raw.swarmWorkerTokens);
+  const totalAgyTokens = numberValue(raw.totalAgyTokens);
+  const computedShare = totalAgyTokens > 0 ? Math.min(1, swarmWorkerTokens / totalAgyTokens) : 0;
+  return {
+    swarmCount: numberValue(raw.swarmCount),
+    swarmWorkerSessions: numberValue(raw.swarmWorkerSessions),
+    swarmWorkerTokens,
+    swarmShareOfAgy: ratioValue(raw.swarmShareOfAgy, computedShare),
+    subagentTokens: numberValue(raw.subagentTokens),
+    totalAgyTokens,
+  };
+}
+
 function cacheReuse(tokens) {
   const inputLike = numberValue(tokens.inputTokens)
     + numberValue(tokens.cachedInputTokens)
@@ -74,8 +128,10 @@ function disjointBreakdown(provider, row) {
   const freshInputTokens = provider === "codex"
     ? Math.max(0, rawInput - cachedInputTokens)
     : rawInput;
-  const cacheWriteTokens = numberValue(tokens.cacheCreationInputTokens)
-    + numberValue(tokens.cacheCreation1hInputTokens);
+  const cacheWriteTokens = provider === "agy"
+    ? 0
+    : numberValue(tokens.cacheCreationInputTokens)
+      + numberValue(tokens.cacheCreation1hInputTokens);
   const outputTokens = numberValue(tokens.outputTokens);
   const knownBreakdown = freshInputTokens + cachedInputTokens + cacheWriteTokens + outputTokens;
   const unknownBreakdownTokens = Math.max(0, numberValue(row.totalTokens) - knownBreakdown);
@@ -138,6 +194,13 @@ function parseArgs(argv) {
   return out;
 }
 
+function sourceLabel(provider) {
+  if (provider === "claude") return "Claude JSONL";
+  if (provider === "codex") return "Codex JSONL / state SQLite";
+  if (provider === "agy") return "Antigravity JSONL / SQLite";
+  return "Normalized JSON / JSONL import";
+}
+
 function buildPublicDemo(summary, sources, days) {
   const totalTokens = numberValue(summary.totals.totalTokens);
   const catalogByKey = new Map((summary.modelCatalog || []).map((row) => [`${row.provider}:${row.id}`, row]));
@@ -194,11 +257,7 @@ function buildPublicDemo(summary, sources, days) {
   const sourceCoverage = sources
     .filter((source) => numberValue(source.files) > 0 || (source.events || []).length > 0)
     .map((source) => ({
-      source: source.provider === "claude"
-        ? "Claude JSONL"
-        : source.provider === "codex"
-          ? "Codex JSONL / state SQLite"
-          : "Normalized JSON / JSONL import",
+      source: sourceLabel(source.provider),
       files: numberValue(source.files),
       events: (source.events || []).length,
       sessions: (source.sessions || []).length,
@@ -216,6 +275,9 @@ function buildPublicDemo(summary, sources, days) {
     detail: item.detail,
     steps: item.doNow,
   }));
+  const speedStats = sanitizeSpeedStats(summary.speedStats);
+  const swarmStats = sanitizeSwarmStats(summary.swarmStats);
+  const subagentStats = summary.subagentStats || {};
   return {
     schema: "ai-spend-live-public-demo/v1",
     releaseVersion: require('../package.json').version,
@@ -247,7 +309,7 @@ function buildPublicDemo(summary, sources, days) {
       weekly: pace(summary.budgetPace.weekly),
     },
     observedLimits: (summary.observedRateLimits || []).map((row, index) => ({
-      limitId: `${["claude", "codex"].includes(row.provider) ? row.provider : "local"}:${row.windowMinutes || "window"}:${index + 1}`,
+      limitId: `${["claude", "codex", "agy"].includes(row.provider) ? row.provider : "local"}:${row.windowMinutes || "window"}:${index + 1}`,
       windowMinutes: row.windowMinutes,
       usedPercent: row.usedPercent,
       projectedPercent: row.projectedPercent,
@@ -255,10 +317,12 @@ function buildPublicDemo(summary, sources, days) {
       resetKnown: Boolean(row.resetAt),
     })),
     subagents: {
-      tokens: summary.subagentStats.subagentTokens,
-      share: summary.subagentStats.subagentShare,
-      sessions: summary.subagentStats.subagentSessionCount,
+      tokens: numberValue(subagentStats.subagentTokens),
+      share: ratioValue(subagentStats.subagentShare, 0),
+      sessions: numberValue(subagentStats.subagentSessionCount),
     },
+    ...(speedStats ? { speedStats } : {}),
+    ...(swarmStats ? { swarmStats } : {}),
     workflow,
     ...publicGuidance(summary),
     alertExamples: buildAlertExamples(),
@@ -282,4 +346,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildModelDaily, buildPublicDemo, disjointBreakdown, publicCostBreakdown };
+module.exports = { buildModelDaily, buildPublicDemo, disjointBreakdown, publicCostBreakdown, sanitizeSpeedStats, sanitizeSwarmStats };

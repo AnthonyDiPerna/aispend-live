@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="application-version" content="0.6.4">
+<meta name="application-version" content="0.7.0">
 <title>Playground · AI Spend Guard — Plan through your next reset</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050505'/%3E%3Cpath d='M8 24V16h4v8m4 0V8h4v16' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="usage-guard.css">
 </head>
 <body><main>
-<header><a class="brand" href="index.html">AI Spend <span class="tag">/ Guard 0.3.3</span></a><nav class="topnav" aria-label="Main"><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
+<header><a class="brand" href="index.html">AI Spend <span class="tag">/ Guard 0.4.0</span></a><nav class="topnav" aria-label="Main"><a href="#playbook">Playbook</a><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
 <div id="demoBanner" class="banner hidden">Public playground · Synthetic readings. Changes stay in this tab and reset on reload. No accounts are connected and no model calls are possible.</div>
 <div class="intro"><span class="tag">Your subscriptions. One work plan.</span><h1>Make your allowance<br>last through the week.</h1>
-<p class="lead">Plan around each subscription’s reset. Use the allowance you have, reduce unnecessary work, and plan the next handoff before the current subscription runs dry.</p>
+<p class="lead">Plan around each subscription’s reset. Use the allowance you have, maximize value across Antigravity, Codex, and Claude, and plan the next handoff before the current subscription runs dry.</p>
 <div class="toolbar"><button id="sync" class="secondary">Refresh playground</button><span id="updated" class="caption">Loading playground…</span></div>
 </div><div id="error" class="banner error hidden" role="alert"></div>
 <div class="workspace-label"><span>allowance / overview</span><span class="optional" id="routingOrder">CLAUDE &rarr; CODEX &rarr; AGY</span></div><section id="decision" class="decision" aria-live="polite"><div><h2>Loading your reset plan…</h2></div></section>
+<section class="section box playbook-section" id="playbook" aria-live="polite">
+<div class="playbook-topbar">
+<div><span class="tag">Max-Value Playbook (/swarm · /fast · Tiers)</span><h2 id="optimizerHeadline">Calculating multi-subscription strategy…</h2></div>
+<div class="playbook-meta-right"><span id="optimizerStrategy" class="opt-pill">Balanced</span><span id="optimizerUnlock" class="opt-unlock hidden"></span></div>
+</div>
+<div id="optimizerOrder" class="opt-order"></div>
+<div id="optimizerAlerts" class="opt-alerts"></div>
+<div id="optimizerCards" class="opt-grid"></div>
+<div id="optimizerQuick" class="opt-quick"></div>
+<p id="optimizerNote" class="notes"></p>
+</section>
 <section class="section box" id="continuity"><div class="row"><h2>How do you want to work?</h2><span class="tag" id="modeLabel"></span></div>
 <div class="work-modes" role="group" aria-label="Usage mode"><button class="secondary" data-mode="continuous"><strong>Keep working</strong><span>Use available allowance. Trim waste automatically.</span></button><button class="secondary" data-mode="preserve"><strong>Stretch to the next reset</strong><span>Smaller context. Lower effort.</span></button><button class="secondary" data-mode="max"><strong>Use it now</strong><span>Use your preferred subscription down to its limit.</span></button></div>
 <p id="continuityPlan" class="notes"></p><p class="notes">Pacing is a warning in these modes. Exhausted or stale allowances still stop requests. Task budgets remain in force, and switching modes never enables API spending.</p></section>
@@ -51,7 +62,7 @@
 <label>Repeated operation tripwire<input name="repeatedToolLimit" type="number" min="2" max="10" required></label>
 <label>Concurrent guarded requests<input name="maxConcurrentRequests" type="number" min="1" max="8" required></label>
 <label>Task time budget (minutes)<input name="maxTaskMinutes" type="number" min="5" max="1440" required></label>
-<label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option>medium</option><option>high</option></select></label>
+<label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option></select></label>
 <label>Subagent calls per task<input name="maxSubagentCalls" type="number" min="0" max="20" required></label>
 <label>Requested output tokens<input name="maxOutputTokens" type="number" min="512" max="32000" required></label>
 <label class="full">Paid API fallback<select name="allowApiSpend"><option value="false">Off — subscriptions only</option><option value="true">On — use the selected API model after subscriptions</option></select></label>
@@ -61,7 +72,7 @@
 <section class="box"><h2>Test the reset logic</h2><p class="caption">An isolated scenario: Claude is consuming its allowance too quickly; Codex has room. This does not change your readings or rules.</p><div class="simcontrols" style="margin-top:16px"><label>Hours ahead<input id="simHours" type="number" value="0" min="0" max="336"></label><button id="simulate" class="secondary">Run scenario</button><button id="pastReset" class="secondary">Jump past Claude reset</button></div><div id="simulation" class="simresult" aria-live="polite"></div>
 <details class="section" id="connect"><summary>Connect Pi</summary><ol class="setup"><li>Start the local controller with <code>npm run guard</code>.</li><li>Install the extension using <code>integrations/pi/README.md</code>.</li><li>Sign in to each provider in Pi, then run <code>/guard</code>. Models are selected automatically.</li><li>Guard activates <code>aispend/guard</code>. Every routed request checks these rules.</li></ol><p class="caption">Reading an allowance and connecting a Pi model are separate. Antigravity monitoring works through agy; routing needs a compatible Pi subscription connector. API fallback requires explicit dollar caps. Radius is a separate gateway, not a transfer of your plan allowances.</p></details>
 </section></div>
-<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> activates protection and shows balances, resets, and measured impact.</p><p><code>/guard preserve</code> stretches toward the next reset. <code>/guard max</code> prioritizes using current allowance. <code>/guard continuous</code> restores the default.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
+<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> activates protection and shows balances, resets, and measured impact.</p><p><code>/guard-check</code> prints the live multi-subscription optimizer verdict (<code>/swarm</code>, <code>/fast</code>, tiers, next unlock).</p><p><code>/guard preserve</code> stretches toward the next reset. <code>/guard max</code> prioritizes using current allowance. <code>/guard continuous</code> restores the default.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
 <section class="section box"><h2>Guarded tasks</h2><div id="tasks" class="tasks"></div><p class="notes">Task IDs are hashed. The dashboard receives counters and decisions, not prompts, tool output, credentials, or repository paths. Renewing a task budget is a deliberate local action; it does not refill a provider allowance.</p></section>
 <section class="section box"><h2>Recent decisions</h2><div id="activity" class="activity"></div></section>
 <footer class="foot">In interactive Pi, allowance pauses wait for a fresh reading and resume automatically. Use <code>/guard-hold</code> to cancel waiting. Repeated operations get one bounded repair; exhausted budgets and repeated repair failures pause for review. No savings percentage is promised; cached tokens are useful when the context is still relevant.</footer>
@@ -93,6 +104,11 @@ const DEFAULT_POLICY = Object.freeze({
   apiTaskBudgetUsd: 0,
   maxOutputTokens: 4096,
   providerOrder: ['claude', 'codex', 'agy'],
+  blockedProviders: [],
+  routingRules: [],
+  autoFix: true,
+  fallbackModels: true,
+  contextAdvisoryProviders: ['antigravity', 'antigravity-acp'],
 });
 const PROVIDERS = ['claude', 'codex', 'agy', 'api'];
 const LIMITS = {
@@ -118,11 +134,31 @@ function cleanPolicy(input = {}) {
     if (!Array.isArray(input.providerOrder) || input.providerOrder.length !== 3 || new Set(input.providerOrder).size !== 3 || input.providerOrder.some(p=>!['claude','codex','agy'].includes(p))) throw new Error('providerOrder must contain claude, codex, and agy once each');
     result.providerOrder = [...input.providerOrder];
   }
+  if (input.blockedProviders !== undefined) {
+    if (!Array.isArray(input.blockedProviders) || input.blockedProviders.some(p=>!['claude','codex','agy'].includes(p)) || input.blockedProviders.length>2) throw new Error('blockedProviders may list up to two of claude, codex, agy');
+    result.blockedProviders = [...new Set(input.blockedProviders)];
+  }
+  if (input.contextAdvisoryProviders !== undefined) {
+    if (!Array.isArray(input.contextAdvisoryProviders) || input.contextAdvisoryProviders.length > 10 || input.contextAdvisoryProviders.some(p => !/^[a-z0-9._:\/-]{2,80}$/.test(String(p)))) throw new Error('contextAdvisoryProviders must list provider ids');
+    result.contextAdvisoryProviders = [...new Set(input.contextAdvisoryProviders.map(String))];
+  }
+  if (input.routingRules !== undefined) {
+    if (!Array.isArray(input.routingRules) || input.routingRules.length > 20) throw new Error('routingRules may hold up to 20 rules');
+    result.routingRules = input.routingRules.map(rule => {
+      const match = String(rule?.match || '').trim().toLowerCase();
+      if (match.length < 2 || match.length > 60 || !['claude','codex','agy'].includes(rule?.provider)) throw new Error('Each rule needs match text (2-60 chars) and a provider: claude, codex, agy');
+      const model = rule.model === undefined || rule.model === null || rule.model === '' ? null : String(rule.model).trim().toLowerCase();
+      if (model !== null && !/^[a-z0-9._:\/-]{2,80}$/.test(model)) throw new Error('Rule model must be a model id or alias');
+      return {match, provider: rule.provider, model};
+    });
+  }
+  if(input.fallbackModels!==undefined){if(typeof input.fallbackModels!=='boolean')throw Error('fallbackModels must be true or false');result.fallbackModels=input.fallbackModels;}
+  if(input.autoFix!==undefined){if(typeof input.autoFix!=='boolean')throw Error('autoFix must be true or false');result.autoFix=input.autoFix;}
   if(input.allowApiSpend!==undefined){if(typeof input.allowApiSpend!=='boolean')throw Error('allowApiSpend must be true or false');result.allowApiSpend=input.allowApiSpend;}
   if(input.autoTune!==undefined){if(typeof input.autoTune!=='boolean')throw Error('autoTune must be true or false');result.autoTune=input.autoTune;}
   if(input.autoRecover!==undefined){if(typeof input.autoRecover!=='boolean')throw Error('autoRecover must be true or false');result.autoRecover=input.autoRecover;}
   if(!Number.isInteger(result.maxAutoRepairs))throw Error('maxAutoRepairs must be an integer');
-  if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
+  if(input.maxThinkingLevel!==undefined){if(!['off','low','medium','high','xhigh'].includes(input.maxThinkingLevel))throw Error('Invalid thinking ceiling');result.maxThinkingLevel=input.maxThinkingLevel;}
   return result;
 }
 
@@ -231,7 +267,7 @@ function effectivePolicy(configured, pressure) {
     policy.maxContextTokens=Math.min(policy.maxContextTokens,60000);
     policy.maxOutputTokens=Math.min(policy.maxOutputTokens,2048);
     policy.maxToolOutputChars=Math.min(policy.maxToolOutputChars,8000);
-    if(['medium','high'].includes(policy.maxThinkingLevel))policy.maxThinkingLevel='low';
+    if(['medium','high','xhigh'].includes(policy.maxThinkingLevel))policy.maxThinkingLevel='low';
   }else if(policy.usageMode==='continuous' && pressure){
     policy.maxContextTokens=Math.min(policy.maxContextTokens,80000);
     policy.maxOutputTokens=Math.min(policy.maxOutputTokens,3072);
@@ -257,7 +293,7 @@ function buildPlan(state, now = Date.now()) {
   const makeProviders = plans=>policy.providerOrder.map(provider=>{
     const bindings = state.bindings?.[provider];
     const model=String(bindings?.model || '').toLowerCase();
-    const family=provider==='agy'?(model.includes('gemini')?'gemini':model?'claude-gpt':undefined):['opus','sonnet','haiku','fable'].find(f=>model.includes(f));
+    const family=provider==='agy'?(/gemini|argon|neon|carbon|hydrogen|flash/.test(model)?'gemini':model?'claude-gpt':undefined):['opus','sonnet','haiku','fable'].find(f=>model.includes(f));
     const windows=plans.filter(w=>w.provider===provider).map(w=>({...w,applies:!w.modelFamily || !family || w.modelFamily===family || (w.modelFamily==='gemini-argon' && model.includes('argon'))}));
     const rows=windows.filter(w=>w.applies);
     const status = rows.length ? rows.reduce((a,b)=>severity.indexOf(a)>severity.indexOf(b.status)?a:b.status,'ready') : 'unknown';
@@ -275,6 +311,7 @@ function buildPlan(state, now = Date.now()) {
   const apiBinding=state.bindings?.api;
   providers.push({provider:'api',status:policy.allowApiSpend && policy.apiDailyBudgetUsd>0 && policy.apiTaskBudgetUsd>0?'ready':'disabled',windows:[],configured:Boolean(apiBinding),binding:apiBinding || null,message:policy.allowApiSpend?'Paid fallback. Every request reserves an estimated cost against daily and task caps.':'Paid fallback is off. Enable it explicitly and set both dollar caps.'});
   for(const p of providers){
+    if((policy.blockedProviders||[]).includes(p.provider)){p.status='blocked';p.message='Blocked by you. Guard will not route here until you unblock it.';}
     p.allowanceEligible=p.status==='ready' || (policy.usageMode!=='strict' && ['pace','reserve'].includes(p.status));
     p.routable=p.allowanceEligible&&p.configured;
   }
@@ -302,17 +339,33 @@ function decide(plan, task = {}, now = Date.now()) {
   if ((task.requests || 0) >= policy.maxRequestsPerTask) return pause('request-budget','Task request budget reached. Review the saved session before raising its budget.');
   if ((task.totalTokens || 0) >= policy.maxTokensPerTask) return pause('token-budget','Task token budget reached. This is a local work limit, not a provider quota.');
   if ((task.repeatedTools || 0) >= policy.repeatedToolLimit) return pause('repeated-tools','Repeated identical tool results detected. Inspect the checkpoint before continuing.');
-  if ((task.contextTokens || 0) > policy.maxContextTokens) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
+  const overContext = (task.contextTokens || 0) > policy.maxContextTokens;
   const available = new Set(task.availableProviders || []);
   const eligible = plan.providers.filter(p=>p.allowanceEligible && p.configured && available.has(p.provider) &&
     (!Array.isArray(task.availableModels) || task.availableModels.includes(p.binding.provider+'/'+p.binding.model)))
     .sort((a,b)=>routeRank(a,policy)-routeRank(b,policy));
-  // Stay on the current provider through tool continuations to retain its cache.
-  const selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || eligible[0] : eligible[0];
+  // A task rule names the provider (and optionally a model) for this task. It wins when that
+  // provider is eligible; tool continuations still stay on the current provider to keep its cache.
+  const preferred = task.preferredProvider ? eligible.find(p=>p.provider===task.preferredProvider) : null;
+  let selected = task.continuation ? eligible.find(p=>p.provider===task.currentProvider) || preferred || eligible[0] : preferred || eligible[0];
+  if (selected && preferred === selected && task.preferredModel && selected.binding) {
+    const wanted = String(task.preferredModel).toLowerCase();
+    const candidates = (task.availableModels || []).filter(m => m.startsWith(selected.binding.provider + '/')).map(m => m.slice(selected.binding.provider.length + 1));
+    const exact = candidates.find(m => m.toLowerCase() === wanted);
+    const alias = exact || candidates.filter(m => m.toLowerCase().includes(wanted)).sort().reverse()[0];
+    if (alias) selected = {...selected, binding: {...selected.binding, model: alias}};
+  }
+  // The context ceiling is enforced by compaction, which only works where Pi holds the history.
+  // A CLI bridge that keeps its own conversation gets a warning and a fresh-session hint instead.
+  if (overContext) {
+    const advisory = selected && (policy.contextAdvisoryProviders || []).includes(selected.binding?.provider);
+    if (!advisory) return {action:'compact',code:'context',reason:'Context exceeds the configured ceiling. Save a focused checkpoint and compact once before continuing.'};
+  }
   if (!selected) return pause('allowance',policy.usageMode==='strict'?'No configured subscription has a fresh, on-pace allowance in strict mode.':'No configured route has fresh, positive allowance. Refresh readings, redeem an available reset in the provider, or wait for a confirmed refill.');
   return {action:task.currentProvider && task.currentProvider!==selected.provider?'switch':'continue', code:'ready',
     provider:selected.provider, binding:selected.binding,warning:['pace','reserve'].includes(selected.status)?selected.message:null,
-    reason:(task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
+    contextAdvisory:overContext?`Context is above the ${policy.maxContextTokens.toLocaleString()}-token ceiling and this route cannot be compacted from Pi. Finish the step, then /guard-new for a fresh session from a handoff.`:null,
+    reason:(preferred===selected?`Task rule: use ${selected.provider}${task.preferredModel?' ('+selected.binding.model+')':''}.`:task.currentProvider===selected.provider?'Continue on this provider and preserve its prompt cache.':selected.provider==='api'?'Subscription routes are unavailable; use the explicitly enabled API budget.':`Use ${selected.provider}; fresh allowance is available.`)+(selected.status!=='ready'?' Pacing is advisory in this mode; work protections remain active.':''),
     decidedAt:new Date(now).toISOString()};
 }
 
@@ -359,19 +412,25 @@ function buildAdvice(state, now = Date.now()) {
   const learned = age >= 0 && age <= 6 * 3600000 && requests >= 20;
   const metrics = learned ? insight.providers.flatMap(row => row.metrics) : [];
   const high = (id, threshold) => metrics.some(row => row.id === id && Number.isFinite(row.percent) && row.percent >= threshold);
+  // Insights describe every session on the machine (native Claude Code, Codex, AGY). Guarded Pi tasks are
+  // a different population, so a bound is tightened only when Pi's own tasks show the same pattern.
+  const piTasks = Object.values(state.tasks || {}).filter(t => t.startedAt && now - Date.parse(t.startedAt) <= 24 * 3600000);
+  const piLargeContext = piTasks.some(t => (t.contextTokens || 0) > 100000);
+  const piSubagents = piTasks.some(t => (t.subagentCalls || 0) > 0);
   if (high('context', 40)) {
-    tighten('maxContextTokens', 80000, 'Large contexts dominate recent usage. Checkpoint at 80k tokens to carry less history forward.');
+    if (piLargeContext) tighten('maxContextTokens', 80000, 'Large contexts dominate recent usage, including guarded Pi tasks. Checkpoint at 80k tokens to carry less history forward.');
+    else reasons.push('Large contexts dominate native sessions on this machine. Guarded Pi tasks have stayed smaller, so their ceiling is unchanged.');
   }
   if (high('long', 40)) {
     reasons.push('Long session spans include idle time. Checkpoint at milestones; duration alone does not justify a shorter hard stop.');
   }
   if (high('subagents', 30)) {
-    tighten('maxSubagentCalls', 0, 'Subagents account for a substantial share of recorded tokens. Keep routine work in one agent.');
-    tighten('maxConcurrentRequests', 1, 'Keep one guarded request in flight to reduce parallel allowance burn.');
+    if (piSubagents) tighten('maxSubagentCalls', 0, 'Subagents account for a substantial share of recorded tokens, including guarded Pi tasks. Keep routine work in one agent.');
+    else reasons.push('Subagents dominate native sessions on this machine; guarded Pi tasks have not fanned out, so their limits are unchanged.');
   }
   if (metrics.some(row => row.id === 'effort' && row.percent >= 40 && row.coveragePercent >= 50)) {
     reasons.push('High reasoning effort is common where recorded. Medium remains the automatic ceiling.');
-    if (policy.maxThinkingLevel === 'high') { changes.maxThinkingLevel = 'medium'; }
+    if (['high', 'xhigh'].includes(policy.maxThinkingLevel)) { changes.maxThinkingLevel = 'medium'; }
   }
   if (policy.usageMode==='strict' && buildPlan(state, now).providers.some(row => row.status === 'pace')) {
     tighten('maxRequestsPerTask', 25, 'Measured allowance burn would reach a reserve before reset. Use shorter task batches.');
@@ -399,7 +458,7 @@ function defaultBindings(models, current) {
     if (result[group]) { continue; }
     const candidates = models.filter(model => model.group === group && model.auth === 'subscription');
     // Prefer a balanced family when present; names are drawn only from authenticated discovery.
-    const preferred = candidates.find(model => /sonnet|(?:^|-)sol(?:-|$)|flash/i.test(model.id)) || candidates[0];
+    const preferred = candidates.find(model => /sonnet|(?:^|-)(?:sol|terra)(?:-|$)|neon|carbon|flash/i.test(model.id)) || candidates[0];
     if (preferred) { result[group] = {provider: preferred.provider, model: preferred.id}; }
   }
   return result;
@@ -456,9 +515,1124 @@ function impactReport(state) {
 }
 globalThis.GuardImpact={recordImpact,attributeTrimReplay,impactReport};
 })();
+(function(){const module={exports:{}};const exports=module.exports;const require=id=>id==="./usage-guard"?GuardPolicy:{};
+// Deterministic Multi-Subscription Value Optimizer (Claude + Codex + Antigravity/AGY).
+// Zero Node-only imports so export-guard-demo.js can bundle this directly into public/guard.html.
+
+const PROVIDER_LABELS = {
+  claude: 'Claude',
+  codex: 'Codex',
+  agy: 'Antigravity (AGY)',
+};
+
+const SHORT_LABELS = {
+  claude: 'Claude',
+  codex: 'Codex',
+  agy: 'AGY',
+};
+
+const SUBSCRIPTION_IDS = ['claude', 'codex', 'agy'];
+
+function round1(value) {
+  return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
+}
+
+function clampPct(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function formatSpan(hours) {
+  if (!Number.isFinite(hours) || hours < 0) return '?';
+  if (hours === 0) return '0m';
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  const totalHours = Math.round(hours);
+  if (totalHours < 48) return `${totalHours}h`;
+  const days = Math.floor(totalHours / 24);
+  const remHours = totalHours % 24;
+  return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
+}
+
+function windowLabel(provider, win) {
+  const id = String(win.windowId || '').toLowerCase();
+  const family = String(win.modelFamily || '').toLowerCase();
+  const isWeekly = win.windowMinutes >= 1440 || id.includes('week') || id === 'codex:primary';
+  const spanLabel = isWeekly ? 'weekly' : '5h session';
+
+  if (provider === 'agy') {
+    if (family === 'gemini-argon' || id.startsWith('gemini-argon')) return `Gemini Argon ${spanLabel}`;
+    if (family === 'claude-gpt' || id.startsWith('claude-gpt')) return `Claude/GPT ${spanLabel}`;
+    if (family === 'gemini' || id.startsWith('gemini')) return `Gemini ${spanLabel}`;
+    return `AGY ${spanLabel}`;
+  }
+  if (provider === 'claude') {
+    if (family) return `${family[0].toUpperCase()}${family.slice(1)} ${spanLabel}`;
+    return isWeekly ? 'All models weekly' : '5h session';
+  }
+  if (provider === 'codex') {
+    if (id.includes('secondary') || (!isWeekly && win.windowMinutes <= 600)) return '5h session';
+    return isWeekly ? 'Weekly limit' : 'Session limit';
+  }
+  return id || spanLabel;
+}
+
+function isFreshWindow(win) {
+  return Boolean(win) && !['stale', 'verify-reset'].includes(win.status);
+}
+
+function normalizeWindows(provider, rawWindows) {
+  return (Array.isArray(rawWindows) ? rawWindows : []).map((w) => {
+    const remainingPercent = round1(clampPct(w.remainingPercent ?? (100 - (w.usedPercent ?? 100))));
+    const usedPercent = round1(clampPct(w.usedPercent ?? (100 - remainingPercent)));
+    const hoursLeft = Number.isFinite(w.hoursLeft) ? Math.max(0, round1(w.hoursLeft)) : null;
+    return {
+      windowId: String(w.windowId || 'unknown'),
+      modelFamily: w.modelFamily || null,
+      label: windowLabel(provider, w),
+      remainingPercent,
+      usedPercent,
+      hoursLeft,
+      resetAt: w.resetAt || null,
+      status: w.status || 'unknown',
+      applies: Boolean(w.applies),
+      windowMinutes: Number.isFinite(w.windowMinutes) ? w.windowMinutes : (String(w.windowId || '').includes('week') ? 10080 : 300),
+      slopePercentPerHour: Number.isFinite(w.slopePercentPerHour) ? w.slopePercentPerHour : null,
+      depletionHours: Number.isFinite(w.depletionHours) ? w.depletionHours : null,
+      usablePercent: Number.isFinite(w.usablePercent) ? w.usablePercent : null,
+    };
+  });
+}
+
+function pickBottleneck(windows) {
+  if (!windows.length) return null;
+  return [...windows].sort((a, b) => {
+    if (a.remainingPercent !== b.remainingPercent) return a.remainingPercent - b.remainingPercent;
+    return (b.windowMinutes || 0) - (a.windowMinutes || 0);
+  })[0];
+}
+
+function pickWeekly(windows) {
+  const weekly = windows.filter((w) => (w.windowMinutes || 0) >= 1440 || w.windowId.toLowerCase().includes('week'));
+  return pickBottleneck(weekly.length ? weekly : windows);
+}
+
+function calcTargetPerDay(win, reservePercent) {
+  if (!win || !isFreshWindow(win) || !Number.isFinite(win.hoursLeft) || win.hoursLeft <= 0) return null;
+  const usable = Math.max(0, win.remainingPercent - reservePercent);
+  if (usable <= 0) return 0;
+  if (win.hoursLeft <= 24) return round1(usable);
+  return round1(usable / (win.hoursLeft / 24));
+}
+
+function calcProjectedUnused(win) {
+  if (!win || !isFreshWindow(win)) return null;
+  if (win.remainingPercent <= 0) return 0;
+  if (!Number.isFinite(win.hoursLeft) || win.hoursLeft <= 0) return round1(win.remainingPercent);
+
+  if (win.slopePercentPerHour !== null && Number.isFinite(win.slopePercentPerHour)) {
+    const projectedBurn = Math.max(0, win.slopePercentPerHour) * win.hoursLeft;
+    return round1(Math.max(0, win.remainingPercent - projectedBurn));
+  }
+
+  const totalWindowHours = (win.windowMinutes || 10080) / 60;
+  const elapsedHours = Math.max(0, totalWindowHours - win.hoursLeft);
+  if (elapsedHours >= 2) {
+    const avgSlope = win.usedPercent / elapsedHours;
+    return round1(Math.max(0, win.remainingPercent - avgSlope * win.hoursLeft));
+  }
+  return null;
+}
+
+function classifyUtilization({ status, remainingPercent, usablePercent, hoursLeft, projectedUnusedAtReset, primaryWin, reservePercent }) {
+  if (status === 'blocked') return 'blocked';
+  if (!primaryWin || ['unknown', 'stale', 'verify-reset'].includes(status)) return 'unknown';
+  if (remainingPercent <= 0 || status === 'depleted') return 'exhausted';
+  if (
+    remainingPercent < 20 ||
+    usablePercent <= 0 ||
+    status === 'reserve' ||
+    (status === 'pace' && remainingPercent < 30) ||
+    (primaryWin.depletionHours !== null && Number.isFinite(hoursLeft) && primaryWin.depletionHours < hoursLeft * 0.55 && remainingPercent < 35)
+  ) {
+    return 'hot';
+  }
+  if (status !== 'pace') {
+    if (remainingPercent >= 50) return 'surplus';
+    if (remainingPercent >= 30 && Number.isFinite(hoursLeft) && hoursLeft <= 48) return 'surplus';
+    if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25 && remainingPercent >= 25) return 'surplus';
+  }
+  // If reservePercent is unusually high (e.g. 40%), ensure healthy headroom above reserve isn't missed.
+  if (status === 'ready' && remainingPercent - reservePercent >= 45) return 'surplus';
+  return 'on-pace';
+}
+
+function getInsightMetric(insights, provider, metricId) {
+  const row = (insights?.providers || []).find((p) => p.provider === provider);
+  if (!row) return null;
+  const metric = (row.metrics || []).find((m) => m.id === metricId);
+  return metric && Number.isFinite(metric.percent) ? metric.percent : null;
+}
+
+function extractBankedResets(plan, provider) {
+  const row = (plan?.resetCredits || []).find((c) => c.provider === provider);
+  if (!row) {
+    return { availableCount: null, usableCount: null, status: 'unknown', action: null, nextExpiryAt: null, message: null };
+  }
+  return {
+    availableCount: Number.isInteger(row.availableCount) ? row.availableCount : null,
+    usableCount: Number.isInteger(row.usableCount) ? row.usableCount : null,
+    status: row.status || 'unknown',
+    action: row.action || null,
+    nextExpiryAt: row.planningExpiryAt || row.nextExpiryAt || null,
+    message: row.message || null,
+  };
+}
+
+function analyzeAgyLanes(windows) {
+  const isArgon = (w) => w.modelFamily === 'gemini-argon' || w.windowId.toLowerCase().startsWith('gemini-argon');
+  const isClaudeGpt = (w) => w.modelFamily === 'claude-gpt' || w.windowId.toLowerCase().startsWith('claude-gpt');
+  const isGemini = (w) => !isArgon(w) && !isClaudeGpt(w);
+
+  const geminiAll = windows.filter(isGemini);
+  const claudeGptAll = windows.filter(isClaudeGpt);
+  const argonAll = windows.filter(isArgon);
+
+  const geminiFresh = geminiAll.filter(isFreshWindow);
+  const claudeGptFresh = claudeGptAll.filter(isFreshWindow);
+  const argonFresh = argonAll.filter(isFreshWindow);
+
+  const geminiPrimary = pickBottleneck(geminiFresh.length ? geminiFresh : geminiAll);
+  const geminiWeekly = pickWeekly(geminiFresh.length ? geminiFresh : geminiAll);
+  const geminiSession = geminiFresh.find((w) => w.windowMinutes < 1440) || geminiAll.find((w) => w.windowMinutes < 1440) || null;
+
+  const cgPrimary = pickBottleneck(claudeGptFresh.length ? claudeGptFresh : claudeGptAll);
+  const cgWeekly = pickWeekly(claudeGptFresh.length ? claudeGptFresh : claudeGptAll);
+  const cgSession = claudeGptFresh.find((w) => w.windowMinutes < 1440) || claudeGptAll.find((w) => w.windowMinutes < 1440) || null;
+
+  const argonPrimary = pickBottleneck(argonFresh.length ? argonFresh : argonAll);
+  const argonDepleted = Boolean(argonPrimary && isFreshWindow(argonPrimary) && argonPrimary.remainingPercent <= 0);
+
+  return {
+    geminiPrimary,
+    geminiWeekly,
+    geminiSession,
+    geminiFresh: geminiFresh.length > 0,
+    cgPrimary,
+    cgWeekly,
+    cgSession,
+    cgFresh: claudeGptFresh.length > 0,
+    argonPrimary,
+    argonDepleted,
+  };
+}
+
+function summarizeProvider(plan, providerId, reservePercent) {
+  const raw = (plan?.providers || []).find((p) => p.provider === providerId) || {
+    provider: providerId,
+    status: 'unknown',
+    windows: [],
+    binding: null,
+  };
+  const allWindows = normalizeWindows(providerId, raw.windows);
+  const bankedResets = extractBankedResets(plan, providerId);
+  const isBlocked = raw.status === 'blocked';
+
+  let primaryWin = null;
+  let weeklyWin = null;
+  let effectiveStatus = raw.status || 'unknown';
+  let agyLanes = null;
+
+  if (providerId === 'agy') {
+    agyLanes = analyzeAgyLanes(allWindows);
+    const model = String(raw.binding?.model || '').toLowerCase();
+    const prefersCg = Boolean(model) && !/(?:gemini|argon|neon|carbon|hydrogen|flash)/.test(model);
+
+    if (prefersCg && agyLanes.cgFresh && agyLanes.cgPrimary.remainingPercent > 0) {
+      primaryWin = agyLanes.cgPrimary;
+      weeklyWin = agyLanes.cgWeekly;
+    } else if (agyLanes.geminiFresh && (agyLanes.geminiPrimary.remainingPercent > 0 || !agyLanes.cgFresh || agyLanes.cgPrimary.remainingPercent <= 0)) {
+      primaryWin = agyLanes.geminiPrimary;
+      weeklyWin = agyLanes.geminiWeekly;
+    } else if (agyLanes.cgFresh) {
+      primaryWin = agyLanes.cgPrimary;
+      weeklyWin = agyLanes.cgWeekly;
+    } else {
+      primaryWin = agyLanes.geminiPrimary || agyLanes.cgPrimary || agyLanes.argonPrimary || pickBottleneck(allWindows);
+      weeklyWin = agyLanes.geminiWeekly || agyLanes.cgWeekly || pickWeekly(allWindows);
+    }
+
+    if (!isBlocked) {
+      // Do not let a retired/stale legacy Argon window mark healthy Gemini/Claude-GPT lanes stale or depleted.
+      if (primaryWin && isFreshWindow(primaryWin)) {
+        effectiveStatus = primaryWin.status;
+      } else if (primaryWin) {
+        effectiveStatus = primaryWin.status;
+      } else {
+        effectiveStatus = 'unknown';
+      }
+    }
+  } else {
+    const applicable = allWindows.filter((w) => w.applies);
+    const pool = applicable.length ? applicable : allWindows;
+    const freshPool = pool.filter(isFreshWindow);
+    const globalDepleted = freshPool.find((w) => !w.modelFamily && w.remainingPercent <= 0);
+    if (globalDepleted) {
+      primaryWin = globalDepleted;
+      weeklyWin = pickWeekly(freshPool);
+      if (!isBlocked) effectiveStatus = 'depleted';
+    } else if (freshPool.length) {
+      primaryWin = pickBottleneck(freshPool);
+      weeklyWin = pickWeekly(freshPool);
+      if (!isBlocked) effectiveStatus = primaryWin.status;
+    } else {
+      primaryWin = pickBottleneck(pool);
+      weeklyWin = pickWeekly(pool);
+      if (!isBlocked) effectiveStatus = primaryWin ? primaryWin.status : 'unknown';
+    }
+  }
+
+  const hasFresh = Boolean(primaryWin && isFreshWindow(primaryWin));
+  const planningWin = hasFresh && weeklyWin && isFreshWindow(weeklyWin) && primaryWin.remainingPercent >= 25
+    ? weeklyWin
+    : primaryWin;
+  const remainingPercent = hasFresh ? primaryWin.remainingPercent : null;
+  const usablePercent = hasFresh ? round1(Math.max(0, primaryWin.remainingPercent - reservePercent)) : null;
+  const resetAt = planningWin ? planningWin.resetAt : null;
+  const hoursLeft = planningWin && Number.isFinite(planningWin.hoursLeft) ? planningWin.hoursLeft : null;
+  const burnPercentPerHour = hasFresh && primaryWin.slopePercentPerHour !== null ? round1(primaryWin.slopePercentPerHour) : null;
+  const targetPercentPerDay = hasFresh ? calcTargetPerDay(weeklyWin || primaryWin, reservePercent) : null;
+  const projectedUnusedAtReset = hasFresh ? calcProjectedUnused(weeklyWin || primaryWin) : null;
+
+  let utilizationState = classifyUtilization({
+    status: effectiveStatus,
+    remainingPercent: remainingPercent ?? 0,
+    usablePercent: usablePercent ?? 0,
+    hoursLeft,
+    projectedUnusedAtReset,
+    primaryWin: hasFresh ? primaryWin : null,
+    reservePercent,
+  });
+
+  // For AGY: if Gemini is healthy/surplus OR Claude/GPT has big surplus while Gemini isn't dead, reflect surplus accurately.
+  if (providerId === 'agy' && agyLanes && !isBlocked) {
+    const gRem = agyLanes.geminiFresh ? agyLanes.geminiPrimary.remainingPercent : null;
+    const gHours = agyLanes.geminiFresh ? agyLanes.geminiWeekly?.hoursLeft ?? agyLanes.geminiPrimary.hoursLeft : null;
+    const cgRem = agyLanes.cgFresh ? agyLanes.cgPrimary.remainingPercent : null;
+    if (utilizationState === 'on-pace' && ((gRem !== null && gRem >= 30 && gHours !== null && gHours <= 48) || (cgRem !== null && cgRem >= 65))) {
+      utilizationState = 'surplus';
+    }
+  }
+
+  const publicWindows = allWindows.map(({ windowId, modelFamily, label, remainingPercent: rem, usedPercent, hoursLeft: hrs, resetAt: rst, status, applies }) => ({
+    windowId,
+    modelFamily,
+    label,
+    remainingPercent: rem,
+    usedPercent,
+    hoursLeft: hrs,
+    resetAt: rst,
+    status,
+    applies,
+  }));
+
+  return {
+    provider: providerId,
+    label: PROVIDER_LABELS[providerId] || providerId,
+    status: effectiveStatus,
+    utilizationState,
+    remainingPercent,
+    usablePercent,
+    resetAt,
+    hoursLeft,
+    burnPercentPerHour,
+    targetPercentPerDay,
+    projectedUnusedAtReset,
+    windows: publicWindows,
+    bankedResets,
+    _meta: { primaryWin, weeklyWin, agyLanes },
+  };
+}
+
+function buildAgyPlaybook(summary, others, insights) {
+  const { utilizationState, hoursLeft, projectedUnusedAtReset } = summary;
+  const lanes = summary._meta.agyLanes || {};
+  const gRem = lanes.geminiFresh ? lanes.geminiPrimary.remainingPercent : null;
+  const gHours = lanes.geminiFresh ? (lanes.geminiWeekly?.hoursLeft ?? lanes.geminiPrimary.hoursLeft) : null;
+  const gSess = lanes.geminiSession && isFreshWindow(lanes.geminiSession) ? lanes.geminiSession.remainingPercent : null;
+  const cgRem = lanes.cgFresh ? lanes.cgPrimary.remainingPercent : null;
+  const cgHours = lanes.cgFresh ? (lanes.cgWeekly?.hoursLeft ?? lanes.cgPrimary.hoursLeft) : null;
+  const cgSess = lanes.cgSession && isFreshWindow(lanes.cgSession) ? lanes.cgSession.remainingPercent : null;
+
+  const claudeTight = ['exhausted', 'hot', 'blocked'].includes(others.claude?.utilizationState);
+  const codexTight = ['exhausted', 'hot', 'blocked'].includes(others.codex?.utilizationState);
+  const swarmInsight = getInsightMetric(insights, 'agy', 'swarm');
+
+  if (utilizationState === 'blocked') {
+    return {
+      mode: 'pause',
+      headline: 'Antigravity (AGY) is manually blocked',
+      badges: ['Blocked'],
+      guidance: ['Unblock AGY when you want to route work or run /swarm there.'],
+      commands: ['/guard-block none'],
+    };
+  }
+  if (utilizationState === 'unknown') {
+    return {
+      mode: 'pause',
+      headline: 'Refresh AGY /usage to unlock /swarm and lane sizing',
+      badges: ['Awaiting reading'],
+      guidance: ['Run agy --print /usage (or npm run check -- --live) to read both Gemini and Claude/GPT buckets.'],
+      commands: ['agy --print /usage'],
+    };
+  }
+  if (utilizationState === 'exhausted') {
+    const earliest = [lanes.geminiPrimary, lanes.cgPrimary].filter(Boolean).sort((a, b) => (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity))[0];
+    const span = formatSpan(earliest?.hoursLeft ?? hoursLeft);
+    return {
+      mode: 'pause',
+      headline: `AGY Gemini and Claude/GPT lanes are exhausted — resets in ${span}`,
+      badges: ['Exhausted', `Resets in ${span}`],
+      guidance: [`Pause /swarm and single-agent AGY runs until the next window refills in ${span}.`],
+      commands: ['agy --print /usage'],
+    };
+  }
+
+  // Case: Gemini lane is tight/exhausted (<25%), but separate Claude/GPT lane is wide open (>=30%)
+  if (gRem !== null && gRem < 25 && cgRem !== null && cgRem >= 30) {
+    const mode = cgRem >= 50 ? 'accelerate' : 'steady';
+    return {
+      mode,
+      headline: `Gemini lane is low (${Math.round(gRem)}%) — pivot to AGY Claude/GPT lane (${Math.round(cgRem)}% left)`,
+      badges: ['Gemini low: pause /swarm', `Claude/GPT lane ${Math.round(cgRem)}%`],
+      guidance: [
+        `Scale Gemini /swarm down to 1 worker or pause Gemini until reset (${formatSpan(gHours)}).`,
+        `Use AGY's separate Claude/GPT bucket (${Math.round(cgRem)}% weekly${cgSess !== null ? `, ${Math.round(cgSess)}% 5h` : ''}) for Opus/coding tasks.`,
+      ],
+      commands: ['/model claude-opus-5-5-high'],
+    };
+  }
+
+  const geminiSurplus = gRem !== null && (gRem >= 50 || (gRem >= 30 && gHours !== null && gHours <= 48));
+  const geminiHot = (gRem !== null && gRem < 25) || (gSess !== null && gSess < 25);
+
+  if (geminiSurplus && !geminiHot) {
+    const badges = ['/swarm 3-4 workers + verifier', 'Gemini Neon / Hydrogen'];
+    if (cgRem !== null && cgRem >= 40) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+    if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25) badges.push(`~${Math.round(projectedUnusedAtReset)}% unused risk`);
+
+    const guidance = [
+      `Gemini has ${Math.round(gRem)}% left${gSess !== null ? ` (${Math.round(gSess)}% 5h)` : ''} — fire up /swarm with 3–4 parallel workers + a verifier on Gemini Neon or Hydrogen.`,
+    ];
+    if (cgRem !== null && cgRem >= 40) {
+      const overflowNote = claudeTight || codexTight
+        ? ` while native ${claudeTight && codexTight ? 'Claude & Codex are tight' : claudeTight ? 'Claude is exhausted/tight' : 'Codex is tight'}`
+        : '';
+      guidance.push(`AGY's separate Claude/GPT lane has ${Math.round(cgRem)}% left${cgSess !== null ? ` (${Math.round(cgSess)}% 5h)` : ''}${overflowNote} — route Opus-tier planning or overflow coding there.`);
+    }
+    if (lanes.argonDepleted) {
+      guidance.push('Gemini Argon family cap is depleted — target Neon, Hydrogen, or Flash instead.');
+    }
+    if (swarmInsight !== null && swarmInsight < 15) {
+      guidance.push(`Recent AGY swarm usage is only ${Math.round(swarmInsight)}% of tokens — parallelizing big tasks gets far more value before reset.`);
+    }
+
+    const commands = ['/swarm', '/model gemini-4-neon-high'];
+    if (cgRem !== null && cgRem >= 40 && (claudeTight || codexTight)) {
+      commands.push('/model claude-opus-5-5-high');
+    }
+
+    const headline = cgRem !== null && cgRem >= 50 && (claudeTight || codexTight)
+      ? `Run /swarm (3–4 workers + verifier) on Gemini (${Math.round(gRem)}%) + tap AGY Claude/GPT lane (${Math.round(cgRem)}%)`
+      : `Green light for /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen (${Math.round(gRem)}% left)`;
+
+    return { mode: 'accelerate', headline, badges, guidance, commands };
+  }
+
+  if (geminiHot || utilizationState === 'hot') {
+    const badges = ['Scale /swarm to 1-2', 'Hydrogen / Flash'];
+    if (cgRem !== null && cgRem >= 30) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+    const guidance = [
+      `AGY Gemini is below 25% (${gRem !== null ? Math.round(gRem) + '% weekly' : ''}${gSess !== null ? `, ${Math.round(gSess)}% 5h` : ''}) — scale /swarm down to 1–2 workers or drop to Hydrogen/Flash.`,
+    ];
+    if (cgRem !== null && cgRem >= 30) {
+      guidance.push(`AGY's Claude/GPT bucket still has ${Math.round(cgRem)}% left — offload critical coding there while Gemini cools down.`);
+    } else {
+      guidance.push(`Wait ${formatSpan(hoursLeft)} for the next AGY refill before launching large swarms.`);
+    }
+    return {
+      mode: 'conserve',
+      headline: `AGY tight (${Math.round(summary.remainingPercent ?? 0)}% left) — scale /swarm down to 1–2 workers or use Hydrogen/Flash`,
+      badges,
+      guidance,
+      commands: ['/model gemini-4-hydrogen-high', '/model gemini-3.8-flash-medium'],
+    };
+  }
+
+  // Steady / on-pace (25–49%)
+  const badges = ['/swarm 1-2 workers', 'Neon / Hydrogen'];
+  if (cgRem !== null && cgRem >= 40) badges.push(`Claude/GPT lane ${Math.round(cgRem)}%`);
+  const guidance = [
+    `AGY Gemini is on pace (${gRem !== null ? Math.round(gRem) : Math.round(summary.remainingPercent ?? 0)}% left) — keep /swarm to 1–2 focused workers on Hydrogen/Neon.`,
+  ];
+  if (cgRem !== null && cgRem >= 40) {
+    guidance.push(`Separate AGY Claude/GPT lane has ${Math.round(cgRem)}% left (${formatSpan(cgHours)} to reset) for extra Claude/GPT capacity.`);
+  }
+  return {
+    mode: 'steady',
+    headline: `Steady AGY pace (${Math.round(summary.remainingPercent ?? 0)}% left) — 1–2 worker /swarm on Neon/Hydrogen`,
+    badges,
+    guidance,
+    commands: ['/swarm', '/model gemini-4-hydrogen-high'],
+  };
+}
+
+function buildCodexPlaybook(summary, insights) {
+  const { utilizationState, remainingPercent, hoursLeft, projectedUnusedAtReset, bankedResets } = summary;
+  const usableCredits = bankedResets.usableCount || 0;
+  const fastInsight = getInsightMetric(insights, 'codex', 'fast');
+  const effortInsight = getInsightMetric(insights, 'codex', 'effort');
+  const span = formatSpan(hoursLeft);
+
+  if (utilizationState === 'blocked') {
+    return {
+      mode: 'pause',
+      headline: 'Codex is manually blocked',
+      badges: ['Blocked'],
+      guidance: ['Unblock Codex when you want to route work there again.'],
+      commands: ['/guard-block none'],
+    };
+  }
+  if (utilizationState === 'unknown') {
+    return {
+      mode: 'pause',
+      headline: 'Refresh Codex /usage to check /fast and effort headroom',
+      badges: ['Awaiting reading'],
+      guidance: ['Run codex /usage or npm run check -- --live to read your weekly limit and banked resets.'],
+      commands: ['/usage'],
+    };
+  }
+  if (utilizationState === 'exhausted') {
+    if (usableCredits > 0) {
+      return {
+        mode: 'pause',
+        headline: `Codex exhausted — ${usableCredits} banked reset credit ready (or wait ${span})`,
+        badges: ['Exhausted', `${usableCredits} banked reset`, '/fast OFF'],
+        guidance: [
+          `Redeem 1 banked reset in Codex /usage if you need Codex immediately; otherwise wait ${span} and keep the credit banked.`,
+          'Turn /fast OFF before resuming if you need the refilled window to last all week.',
+        ],
+        commands: ['/usage', '/fast off'],
+      };
+    }
+    return {
+      mode: 'pause',
+      headline: `Codex exhausted — wait ${span} for reset`,
+      badges: ['Exhausted', `Resets in ${span}`],
+      guidance: [
+        `Hold Codex for ${span} until the weekly allowance refills.`,
+        'Shift coding work to AGY or Claude in the meantime.',
+      ],
+      commands: ['/usage'],
+    };
+  }
+  if (utilizationState === 'surplus') {
+    const expiringSoon = Number.isFinite(hoursLeft) && hoursLeft <= 48;
+    const badges = ['/fast ON (priority)', 'Effort: high / xhigh', 'Sol / Astra'];
+    if (expiringSoon) badges.push(`Resets in ${span}`);
+    if (usableCredits > 0) badges.push(`${usableCredits} banked reset`);
+    const guidance = [
+      `Safe to enable /fast (priority speed) and high/xhigh reasoning effort on Sol or Astra (${Math.round(remainingPercent)}% left, resets in ${span}).`,
+    ];
+    if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 20) {
+      guidance.push(`At current pace, ~${Math.round(projectedUnusedAtReset)}% will expire unused — put Codex first for heavy builds and reviews.`);
+    }
+    if (usableCredits > 0) {
+      guidance.push(`${usableCredits} banked reset credit also available as a safety net${bankedResets.nextExpiryAt ? ` (check expiry in /usage)` : ''}.`);
+    }
+    return {
+      mode: 'accelerate',
+      headline: expiringSoon
+        ? `Codex surplus expiring in ${span} (${Math.round(remainingPercent)}% left) — run /fast ON + high/xhigh on Sol/Astra`
+        : `High Codex headroom (${Math.round(remainingPercent)}% left) — /fast ON and high/xhigh safe on Sol/Astra`,
+      badges,
+      guidance,
+      commands: ['/fast', '/effort xhigh', '/model gpt-6.2-sol'],
+    };
+  }
+  if (utilizationState === 'hot') {
+    const badges = ['/fast OFF (2x-8x burn)', 'Terra / Luna or wait', `Resets in ${span}`];
+    if (usableCredits > 0) badges.push(`${usableCredits} banked reset`);
+    const guidance = [
+      `Turn /fast OFF immediately — priority speed multiplies burn 2x–8x and only ${Math.round(remainingPercent)}% remains before the ${span} reset.`,
+      `Step down to Terra or Luna with low/medium effort, or hold Codex for ${span} and use AGY.`,
+    ];
+    if (usableCredits > 0) {
+      guidance.push(`${usableCredits} banked reset credit available in /usage if an urgent deadline cannot wait ${span}.`);
+    }
+    if (fastInsight !== null && fastInsight >= 20) {
+      guidance.push(`Local logs show ${Math.round(fastInsight)}% of recent Codex tokens used /fast — turning it off stops the rapid drain.`);
+    }
+    return {
+      mode: 'conserve',
+      headline: `Codex low (${Math.round(remainingPercent)}% left, resets in ${span}) — turn /fast OFF, use Terra/Luna or wait`,
+      badges,
+      guidance,
+      commands: ['/fast off', '/effort low', '/model gpt-6.1-terra'],
+    };
+  }
+
+  // On-pace
+  const badges = ['Standard speed (/fast off)', 'Effort: medium / high'];
+  if (usableCredits > 0) badges.push(`${usableCredits} banked reset`);
+  const guidance = [
+    `Codex is on pace (${Math.round(remainingPercent)}% left, resets in ${span}) — run standard speed with medium/high effort on Sol/Astra.`,
+    'Reserve /fast for short latency-critical sprints so the 2x+ multiplier does not eat the week early.',
+  ];
+  if (effortInsight !== null && effortInsight >= 50) {
+    guidance.push(`${Math.round(effortInsight)}% of recent Codex tokens ran at xhigh/max effort — drop routine edits to medium.`);
+  }
+  return {
+    mode: 'steady',
+    headline: `Codex on pace (${Math.round(remainingPercent)}% left) — standard speed, medium/high effort`,
+    badges,
+    guidance,
+    commands: ['/fast off', '/effort medium'],
+  };
+}
+
+function buildClaudePlaybook(summary, others, insights) {
+  const { utilizationState, remainingPercent, hoursLeft, projectedUnusedAtReset, bankedResets } = summary;
+  const agyCg = others.agy?._meta?.agyLanes?.cgFresh ? others.agy._meta.agyLanes.cgPrimary : null;
+  const agyCgRem = agyCg && agyCg.remainingPercent > 0 ? agyCg.remainingPercent : null;
+  const codexRem = others.codex?.utilizationState !== 'exhausted' && others.codex?.remainingPercent !== null ? others.codex.remainingPercent : null;
+  const subagentInsight = getInsightMetric(insights, 'claude', 'subagents');
+  const contextInsight = getInsightMetric(insights, 'claude', 'context');
+  const span = formatSpan(hoursLeft);
+
+  if (utilizationState === 'blocked') {
+    return {
+      mode: 'pause',
+      headline: 'Claude is manually blocked',
+      badges: ['Blocked'],
+      guidance: ['Unblock Claude when you want to route tasks back to it.'],
+      commands: ['/guard-block none'],
+    };
+  }
+  if (utilizationState === 'unknown') {
+    return {
+      mode: 'pause',
+      headline: 'Refresh Claude /usage to check Opus/Fable vs Sonnet headroom',
+      badges: ['Awaiting reading'],
+      guidance: ['Sign in to Claude Code or run npm run check -- --live to fetch live weekly/session limits.'],
+      commands: ['/usage'],
+    };
+  }
+  if (utilizationState === 'exhausted') {
+    const badges = ['Exhausted', `Resets in ${span}`];
+    const guidance = [`Hold native Claude until its allowance resets in ${span}.`];
+    const commands = [];
+    if (agyCgRem !== null && agyCgRem >= 30) {
+      badges.push(`Shift to AGY Claude/GPT (${Math.round(agyCgRem)}%)`);
+      guidance.push(`Shift Opus/coding work to AGY's Claude/GPT lane (${Math.round(agyCgRem)}% left) right now.`);
+      commands.push('/model claude-opus-5-5-high');
+    } else if (codexRem !== null && codexRem >= 20) {
+      badges.push(`Shift to Codex (${Math.round(codexRem)}%)`);
+      guidance.push(`Shift coding tasks to Codex (${Math.round(codexRem)}% left) while Claude resets.`);
+    }
+    const scopedOpen = summary.windows.find((w) => w.modelFamily && w.remainingPercent > 0);
+    if (scopedOpen) {
+      guidance.push(`Note: ${scopedOpen.label} still shows ${Math.round(scopedOpen.remainingPercent)}%, but the overall weekly cap at 0% blocks Claude until ${span}.`);
+    }
+    if ((bankedResets.usableCount || 0) > 0) {
+      guidance.push(`${bankedResets.usableCount} banked reset credit reported on Claude.`);
+    }
+    if (!commands.length) commands.push('/usage');
+    return {
+      mode: 'pause',
+      headline: agyCgRem !== null && agyCgRem >= 30
+        ? `Claude exhausted (${span} to reset) — shift Opus/coding to AGY Claude/GPT lane (${Math.round(agyCgRem)}% left)`
+        : `Claude exhausted — hold until reset in ${span}`,
+      badges,
+      guidance,
+      commands,
+    };
+  }
+  if (utilizationState === 'surplus') {
+    const badges = ['Opus / Fable', 'Parallel subagents OK', '/clear between tasks'];
+    const guidance = [
+      `Claude has ${Math.round(remainingPercent)}% left (resets in ${span}) — use Opus/Fable for planning, deep review, and parallel subagents.`,
+      'Run /clear when switching unrelated topics so cache stays focused instead of carrying stale context.',
+    ];
+    if (projectedUnusedAtReset !== null && projectedUnusedAtReset >= 25) {
+      guidance.push(`At current pace, ~${Math.round(projectedUnusedAtReset)}% could expire unused — prioritize Claude for high-leverage design and review.`);
+    }
+    return {
+      mode: 'accelerate',
+      headline: `Claude surplus (${Math.round(remainingPercent)}% left) — Opus/Fable planning + parallel subagents open`,
+      badges,
+      guidance,
+      commands: ['/model opus', '/clear'],
+    };
+  }
+  if (utilizationState === 'hot') {
+    const badges = ['Conserve / /clear', 'Sonnet / Haiku only', 'Subagents OFF'];
+    const guidance = [
+      `Claude is tight (${Math.round(remainingPercent)}% left, resets in ${span}) — turn off subagent fan-out, run /clear aggressively, and stick to Sonnet/Haiku for small checks.`,
+    ];
+    if (agyCgRem !== null && agyCgRem >= 30) {
+      guidance.push(`Shift heavy Opus/coding work to AGY's Claude/GPT lane (${Math.round(agyCgRem)}% left) instead of burning Claude's last ${Math.round(remainingPercent)}%.`);
+    } else if (codexRem !== null && codexRem >= 25) {
+      guidance.push(`Shift heavy coding work to Codex (${Math.round(codexRem)}% left) until Claude resets.`);
+    }
+    return {
+      mode: 'conserve',
+      headline: `Claude tight (${Math.round(remainingPercent)}% left, resets in ${span}) — hold heavy Opus work, use /clear or overflow`,
+      badges,
+      guidance,
+      commands: ['/clear', '/model haiku'],
+    };
+  }
+
+  // On-pace
+  const badges = ['Opus plan / Sonnet exec', '/clear on switch'];
+  const guidance = [
+    `Claude is on pace (${Math.round(remainingPercent)}% left, resets in ${span}) — use Opus/Fable for plans & review, Sonnet for bounded execution.`,
+    'Run /clear between milestones to keep prompt context under 150k tokens.',
+  ];
+  if (subagentInsight !== null && subagentInsight >= 35) {
+    guidance.push(`Subagents drove ${Math.round(subagentInsight)}% of recent Claude tokens — keep routine edits in a single thread.`);
+  } else if (contextInsight !== null && contextInsight >= 45) {
+    guidance.push(`${Math.round(contextInsight)}% of recent Claude tokens ran above 150k context — compact or /clear earlier.`);
+  }
+  return {
+    mode: 'steady',
+    headline: `Claude on pace (${Math.round(remainingPercent)}% left) — Opus/Fable for plans, Sonnet for execution`,
+    badges,
+    guidance,
+    commands: ['/model sonnet', '/clear'],
+  };
+}
+
+function rankProviders(summaries) {
+  function tier(s) {
+    if (s.utilizationState === 'surplus') {
+      const expiring = Number.isFinite(s.hoursLeft) && s.hoursLeft <= 48;
+      return expiring ? 0 : 1;
+    }
+    if (s.utilizationState === 'on-pace') return 2;
+    if (s.utilizationState === 'hot') return 3;
+    if (s.utilizationState === 'exhausted') return (s.bankedResets.usableCount || 0) > 0 ? 4 : 5;
+    if (s.utilizationState === 'unknown') return 6;
+    return 7; // blocked
+  }
+
+  return [...summaries].sort((a, b) => {
+    const ta = tier(a);
+    const tb = tier(b);
+    if (ta !== tb) return ta - tb;
+
+    const ha = Number.isFinite(a.hoursLeft) ? a.hoursLeft : Infinity;
+    const hb = Number.isFinite(b.hoursLeft) ? b.hoursLeft : Infinity;
+    const ra = a.remainingPercent ?? -1;
+    const rb = b.remainingPercent ?? -1;
+
+    if (ta === 0) {
+      // Expiring surplus: soonest reset first, then highest projected unused value.
+      if (ha !== hb) return ha - hb;
+      return (b.projectedUnusedAtReset ?? rb) - (a.projectedUnusedAtReset ?? ra);
+    }
+    if (ta === 1) {
+      // Surplus (>48h): highest expiring unused value or soonest reset with real headroom.
+      const ua = a.projectedUnusedAtReset ?? 0;
+      const ub = b.projectedUnusedAtReset ?? 0;
+      if (Math.abs(ub - ua) >= 15) return ub - ua;
+      if (ha !== hb) return ha - hb;
+      return rb - ra;
+    }
+    if (ta === 2) {
+      // On-pace: use-it-or-lose-it (soonest reset first), tie-break by remaining %.
+      if (ha !== hb) return ha - hb;
+      return rb - ra;
+    }
+    if (ta === 3) {
+      // Hot: higher remaining % first, then soonest reset.
+      if (rb !== ra) return rb - ra;
+      return ha - hb;
+    }
+    // Exhausted / unknown / blocked: earliest unlock first.
+    if (ha !== hb) return ha - hb;
+    return SUBSCRIPTION_IDS.indexOf(a.provider) - SUBSCRIPTION_IDS.indexOf(b.provider);
+  });
+}
+
+function findNextUnlock(summaries) {
+  const candidates = [];
+  for (const s of summaries) {
+    if (s.utilizationState === 'blocked') continue;
+    const constrained = ['exhausted', 'hot'].includes(s.utilizationState);
+    for (const w of s.windows) {
+      if (!w.resetAt || !Number.isFinite(w.hoursLeft) || w.hoursLeft <= 0) continue;
+      if (['stale', 'verify-reset'].includes(w.status)) continue;
+      const isDepletedOrLow = w.remainingPercent <= 20;
+      candidates.push({
+        provider: s.provider,
+        windowId: w.windowId,
+        resetAt: w.resetAt,
+        hoursLeft: w.hoursLeft,
+        label: `${SHORT_LABELS[s.provider]} ${w.label} resets in ${formatSpan(w.hoursLeft)}`,
+        priority: constrained && isDepletedOrLow ? 0 : constrained ? 1 : 2,
+      });
+    }
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.priority - b.priority || a.hoursLeft - b.hoursLeft);
+  const best = candidates[0];
+  return {
+    provider: best.provider,
+    windowId: best.windowId,
+    resetAt: best.resetAt,
+    hoursLeft: best.hoursLeft,
+    label: best.label,
+  };
+}
+
+function buildAlerts(summaries, byId, strategy) {
+  const alerts = [];
+  const agy = byId.agy;
+  const codex = byId.codex;
+  const claude = byId.claude;
+
+  // 1. Expiring surplus alerts (use-it-or-lose-it)
+  for (const s of summaries) {
+    if (s.utilizationState === 'surplus') {
+      const expiringSoon = Number.isFinite(s.hoursLeft) && s.hoursLeft <= 48;
+      const unused = s.projectedUnusedAtReset;
+      if (expiringSoon || (unused !== null && unused >= 25)) {
+        const cmd = s.provider === 'agy' ? '/swarm' : s.provider === 'codex' ? '/fast' : '/model opus';
+        alerts.push({
+          kind: 'surplus',
+          severity: 'opportunity',
+          provider: s.provider,
+          title: expiringSoon
+            ? `${SHORT_LABELS[s.provider]} surplus expiring in ${formatSpan(s.hoursLeft)}`
+            : `${SHORT_LABELS[s.provider]} has high unused headroom (~${Math.round(unused)}% projected unused)`,
+          detail: s.provider === 'codex'
+            ? `${Math.round(s.remainingPercent)}% remaining with ${formatSpan(s.hoursLeft)} left — turn /fast ON and run high/xhigh effort on Sol/Astra to capture full value.`
+            : s.provider === 'agy'
+              ? `${Math.round(s.remainingPercent)}% remaining on AGY — launch /swarm (3–4 workers + verifier) on Gemini Neon/Hydrogen.`
+              : `${Math.round(s.remainingPercent)}% remaining on Claude — use Opus/Fable and parallel subagents before reset.`,
+          command: cmd,
+        });
+      }
+    }
+  }
+
+  // 2. AGY Claude/GPT lane hidden-value opportunity
+  const agyLanes = agy?._meta?.agyLanes;
+  if (agy && agy.utilizationState !== 'blocked' && agyLanes?.cgFresh && agyLanes.cgPrimary.remainingPercent >= 50) {
+    const cgRem = Math.round(agyLanes.cgPrimary.remainingPercent);
+    const nativeTight = ['exhausted', 'hot'].includes(claude?.utilizationState) || ['exhausted', 'hot'].includes(codex?.utilizationState);
+    if (nativeTight || cgRem >= 80) {
+      alerts.push({
+        kind: 'lane-opportunity',
+        severity: 'opportunity',
+        provider: 'agy',
+        title: `AGY Claude/GPT lane is ${cgRem}% free`,
+        detail: nativeTight
+          ? `Native ${claude?.utilizationState === 'exhausted' ? 'Claude is exhausted' : 'Claude/Codex are tight'}, while AGY's separate Claude/GPT bucket still has ${cgRem}% remaining.`
+          : `AGY's separate Claude/GPT bucket is almost untouched (${cgRem}% left) alongside your Gemini quota.`,
+        command: '/model claude-opus-5-5-high',
+      });
+    }
+  }
+
+  // 3. AGY /swarm ready (when not already covered by expiring surplus)
+  if (agy && agy.utilizationState === 'surplus' && !alerts.some((a) => a.provider === 'agy' && a.kind === 'surplus') && agyLanes?.geminiFresh && agyLanes.geminiPrimary.remainingPercent >= 50) {
+    alerts.push({
+      kind: 'swarm-ready',
+      severity: 'opportunity',
+      provider: 'agy',
+      title: `AGY Gemini ready for /swarm (${Math.round(agyLanes.geminiPrimary.remainingPercent)}% left)`,
+      detail: 'Plenty of Gemini weekly & session headroom — run 3–4 parallel /swarm workers + verifier on Neon or Hydrogen.',
+      command: '/swarm',
+    });
+  }
+
+  // 4. Codex /fast danger when hot
+  if (codex && codex.utilizationState === 'hot') {
+    alerts.push({
+      kind: 'fast-burn',
+      severity: 'warn',
+      provider: 'codex',
+      title: `Turn Codex /fast OFF (${Math.round(codex.remainingPercent)}% left)`,
+      detail: `/fast multiplies Codex quota burn 2x–8x. With ${formatSpan(codex.hoursLeft)} until reset, switch to standard speed on Terra/Luna or wait.`,
+      command: '/fast off',
+    });
+  }
+
+  // 5. Banked reset credit alerts
+  for (const s of summaries) {
+    const usable = s.bankedResets.usableCount || 0;
+    if (usable > 0 && (['exhausted', 'hot'].includes(s.utilizationState) || s.bankedResets.action === 'consider-reset')) {
+      alerts.push({
+        kind: 'banked-reset',
+        severity: s.utilizationState === 'exhausted' ? 'opportunity' : 'info',
+        provider: s.provider,
+        title: `${SHORT_LABELS[s.provider]} has ${usable} banked reset credit${usable === 1 ? '' : 's'}`,
+        detail: s.utilizationState === 'exhausted'
+          ? `Redeem in ${SHORT_LABELS[s.provider]} /usage to unlock immediately, or wait ${formatSpan(s.hoursLeft)} to save the credit.`
+          : `Banked reset available if current ${Math.round(s.remainingPercent ?? 0)}% runs dry before reset.`,
+        command: '/usage',
+      });
+    }
+  }
+
+  // 6. Exhausted alerts
+  for (const s of summaries) {
+    if (s.utilizationState === 'exhausted') {
+      alerts.push({
+        kind: 'exhausted',
+        severity: strategy === 'wait' ? 'critical' : 'warn',
+        provider: s.provider,
+        title: `${SHORT_LABELS[s.provider]} exhausted (resets in ${formatSpan(s.hoursLeft)})`,
+        detail: (s.playbook.guidance || []).slice(0, 2).join(' ') || s.playbook.headline,
+        command: s.playbook.commands[0] || null,
+      });
+    }
+  }
+
+  // 7. Stale / unknown alerts
+  for (const s of summaries) {
+    if (s.utilizationState === 'unknown') {
+      alerts.push({
+        kind: 'stale',
+        severity: 'info',
+        provider: s.provider,
+        title: `${SHORT_LABELS[s.provider]} allowance needs a fresh reading`,
+        detail: `No fresh ${SHORT_LABELS[s.provider]} reading is available; refresh collectors before routing automatically.`,
+        command: 'npm run check -- --live',
+      });
+    }
+  }
+
+  return alerts;
+}
+
+function buildQuickCommands(ranked, byId) {
+  const cmds = [];
+  const push = (item) => {
+    if (cmds.length >= 5) return;
+    if (cmds.some((c) => c.tool === item.tool && c.command === item.command)) return;
+    cmds.push(item);
+  };
+
+  const agy = byId.agy;
+  const codex = byId.codex;
+  const claude = byId.claude;
+  const agyLanes = agy?._meta?.agyLanes;
+
+  for (const s of ranked) {
+    if (s.provider === 'agy' && s.utilizationState === 'surplus') {
+      if (agyLanes?.geminiFresh && agyLanes.geminiPrimary.remainingPercent >= 50) {
+        push({
+          tool: 'agy',
+          label: 'Launch AGY /swarm',
+          command: '/swarm',
+          why: `Gemini has ${Math.round(agyLanes.geminiPrimary.remainingPercent)}% left — run 3–4 workers + verifier`,
+        });
+      }
+      if (agyLanes?.cgFresh && agyLanes.cgPrimary.remainingPercent >= 40 && (['exhausted', 'hot'].includes(claude?.utilizationState) || ['exhausted', 'hot'].includes(codex?.utilizationState))) {
+        push({
+          tool: 'agy',
+          label: 'Tap AGY Claude/GPT lane',
+          command: '/model claude-opus-5-5-high',
+          why: `AGY Claude/GPT bucket is ${Math.round(agyLanes.cgPrimary.remainingPercent)}% free`,
+        });
+      }
+    } else if (s.provider === 'codex' && s.utilizationState === 'surplus') {
+      push({
+        tool: 'codex',
+        label: 'Enable Codex /fast',
+        command: '/fast',
+        why: `${Math.round(s.remainingPercent)}% left (resets in ${formatSpan(s.hoursLeft)}) — high/xhigh safe`,
+      });
+      push({
+        tool: 'codex',
+        label: 'Raise Codex effort',
+        command: '/effort xhigh',
+        why: 'Maximize surplus quality on Sol/Astra before reset',
+      });
+    } else if (s.provider === 'claude' && s.utilizationState === 'surplus') {
+      push({
+        tool: 'claude',
+        label: 'Use Claude Opus',
+        command: '/model opus',
+        why: `${Math.round(s.remainingPercent)}% left — Opus/Fable + parallel subagents open`,
+      });
+    }
+  }
+
+  if (codex?.utilizationState === 'hot') {
+    push({
+      tool: 'codex',
+      label: 'Turn Codex /fast OFF',
+      command: '/fast off',
+      why: `Only ${Math.round(codex.remainingPercent)}% left (${formatSpan(codex.hoursLeft)} to reset) — prevent 2x–8x burn`,
+    });
+  } else if (codex?.utilizationState === 'exhausted' && (codex.bankedResets.usableCount || 0) > 0) {
+    push({
+      tool: 'codex',
+      label: 'Check Codex banked reset',
+      command: '/usage',
+      why: `${codex.bankedResets.usableCount} banked reset credit available to redeem`,
+    });
+  }
+
+  if (claude?.utilizationState === 'hot') {
+    push({
+      tool: 'claude',
+      label: 'Reset Claude context',
+      command: '/clear',
+      why: `Only ${Math.round(claude.remainingPercent)}% left — stop >150k context burn`,
+    });
+  }
+
+  if (agy?.utilizationState === 'hot') {
+    push({
+      tool: 'agy',
+      label: 'Step down AGY model',
+      command: '/model gemini-3.8-flash-medium',
+      why: 'Gemini below 25% — conserve until session/weekly refill',
+    });
+  }
+
+  push({
+    tool: 'pi',
+    label: 'Auto-order Pi Guard',
+    command: '/guard-order auto',
+    why: `Applies ${ranked.map((r) => SHORT_LABELS[r.provider]).join(' > ')} priority`,
+  });
+  push({
+    tool: 'cli',
+    label: 'Live check-in',
+    command: 'npm run check',
+    why: 'Instant terminal cockpit across AGY, Codex, and Claude',
+  });
+
+  return cmds;
+}
+
+function buildHeadline(strategy, primary, secondary, byId, nextUnlock) {
+  const agy = byId.agy;
+  const codex = byId.codex;
+  const claude = byId.claude;
+
+  if (strategy === 'wait' || !primary) {
+    const withCredit = Object.values(byId).find((s) => s.utilizationState === 'exhausted' && (s.bankedResets.usableCount || 0) > 0);
+    if (withCredit) {
+      return `All subscriptions exhausted — redeem ${SHORT_LABELS[withCredit.provider]} banked reset in /usage${nextUnlock ? ` or wait ${formatSpan(nextUnlock.hoursLeft)}` : ''}`;
+    }
+    if (nextUnlock) {
+      return `All subscriptions unavailable — wait ${formatSpan(nextUnlock.hoursLeft)} for ${SHORT_LABELS[nextUnlock.provider]} reset`;
+    }
+    return 'No fresh subscription allowances available — refresh readings with npm run check -- --live';
+  }
+
+  const parts = [];
+  if (primary.provider === 'agy') {
+    const lanes = agy._meta.agyLanes || {};
+    const gRem = lanes.geminiFresh ? Math.round(lanes.geminiPrimary.remainingPercent) : null;
+    const cgRem = lanes.cgFresh ? Math.round(lanes.cgPrimary.remainingPercent) : null;
+    if (primary.utilizationState === 'surplus' && gRem !== null && gRem >= 50) {
+      parts.push(`Run AGY /swarm (${gRem}% Gemini${cgRem !== null && cgRem >= 40 ? ` · ${cgRem}% Claude/GPT open` : ''})`);
+    } else if (cgRem !== null && cgRem >= 30 && (gRem === null || gRem < 25)) {
+      parts.push(`Use AGY Claude/GPT lane (${cgRem}% left)`);
+    } else {
+      parts.push(`Lead with AGY (${Math.round(primary.remainingPercent ?? 0)}% left)`);
+    }
+  } else if (primary.provider === 'codex') {
+    if (primary.utilizationState === 'surplus') {
+      const expiring = Number.isFinite(primary.hoursLeft) && primary.hoursLeft <= 48;
+      parts.push(`Burn Codex ${expiring ? `surplus first (${Math.round(primary.remainingPercent)}% left, resets in ${formatSpan(primary.hoursLeft)})` : `headroom (${Math.round(primary.remainingPercent)}% left)`} — /fast ON + high/xhigh`);
+    } else if (primary.utilizationState === 'hot') {
+      parts.push(`Codex tight (${Math.round(primary.remainingPercent)}% left) — /fast OFF`);
+    } else {
+      parts.push(`Lead with Codex (${Math.round(primary.remainingPercent)}% left) — standard speed`);
+    }
+  } else if (primary.provider === 'claude') {
+    if (primary.utilizationState === 'surplus') {
+      parts.push(`Lead with Claude Opus/Fable (${Math.round(primary.remainingPercent)}% left) + subagents`);
+    } else if (primary.utilizationState === 'hot') {
+      parts.push(`Claude tight (${Math.round(primary.remainingPercent)}% left) — Sonnet/Haiku + /clear`);
+    } else {
+      parts.push(`Lead with Claude (${Math.round(primary.remainingPercent)}% left) — Opus plan / Sonnet exec`);
+    }
+  }
+
+  if (codex && primary.provider !== 'codex' && codex.utilizationState === 'hot') {
+    parts.push(`keep Codex /fast OFF (${Math.round(codex.remainingPercent)}% left, resets in ${formatSpan(codex.hoursLeft)})`);
+  }
+  if (claude && primary.provider !== 'claude' && claude.utilizationState === 'exhausted') {
+    parts.push(`hold Claude (${formatSpan(claude.hoursLeft)} to reset)`);
+  } else if (secondary && secondary.utilizationState === 'surplus' && secondary.provider !== 'codex') {
+    parts.push(`${SHORT_LABELS[secondary.provider]} ready (${Math.round(secondary.remainingPercent ?? 0)}%)`);
+  }
+
+  return parts.join(' · ');
+}
+
+function buildOptimizationPlan(plan, insights = null, now = Date.now()) {
+  const reservePercent = Number.isFinite(plan?.policy?.reservePercent) ? plan.policy.reservePercent : 10;
+  const rawSummaries = SUBSCRIPTION_IDS.map((id) => summarizeProvider(plan, id, reservePercent));
+  const byId = Object.fromEntries(rawSummaries.map((s) => [s.provider, s]));
+
+  // Attach context-aware playbooks (each provider sees the health of the others).
+  byId.agy.playbook = buildAgyPlaybook(byId.agy, byId, insights);
+  byId.codex.playbook = buildCodexPlaybook(byId.codex, insights);
+  byId.claude.playbook = buildClaudePlaybook(byId.claude, byId, insights);
+
+  const ranked = rankProviders(rawSummaries);
+  const recommendedOrder = ranked.map((s) => s.provider);
+  const usable = ranked.filter((s) => ['surplus', 'on-pace', 'hot'].includes(s.utilizationState));
+  const primary = usable[0] || null;
+  const secondary = usable[1] || null;
+
+  let strategy = 'wait';
+  if (primary) {
+    if (primary.utilizationState === 'surplus') strategy = 'accelerate';
+    else if (primary.utilizationState === 'on-pace') strategy = 'balanced';
+    else strategy = 'conserve';
+  }
+
+  const nextUnlock = findNextUnlock(rawSummaries);
+  const alerts = buildAlerts(ranked, byId, strategy);
+  const quickCommands = buildQuickCommands(ranked, byId);
+  const headline = buildHeadline(strategy, primary, secondary, byId, nextUnlock);
+
+  const providers = ranked.map(({ _meta, ...clean }) => clean);
+
+  return {
+    generatedAt: new Date(now).toISOString(),
+    headline,
+    strategy,
+    primaryProvider: primary ? primary.provider : null,
+    secondaryProvider: secondary ? secondary.provider : null,
+    nextUnlock,
+    alerts,
+    providers,
+    recommendedOrder,
+    quickCommands,
+    note: 'Deterministic multi-subscription pacing from live provider allowance windows. Allowances never pool across subscriptions; confirm resets with a fresh reading.',
+  };
+}
+
+module.exports = { buildOptimizationPlan, formatSpan };
+
+globalThis.GuardOptimizer=module.exports;})();
 
 const {initialState,cleanPolicy,buildPlan,mergeObservations}=GuardPolicy;
 const {buildAdvice,applyAdvice}=GuardAdvice;
+const {buildOptimizationPlan}=GuardOptimizer;
 function demoState(now = Date.now()) {
   const state = initialState();
   const settings = [['claude',82,86,48], ['codex',26.8,27,96], ['agy',15,16,24]];
@@ -482,10 +1656,14 @@ function demoModels() {
 let playgroundState=demoState();
 playgroundState.bindings={claude:{provider:'claude-code',model:'example-claude-balanced'},codex:{provider:'openai',model:'example-codex-balanced'}};
 applyAdvice(playgroundState);
-function playgroundView(){return {demo:true,...buildPlan(playgroundState),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries({"pi":{"label":"Pi / Guard","gate":"Every routed model request","automatic":"Routing, effort caps, output limit requests, tool trimming, compaction, one loop repair","limits":"Only aispend/guard; in-flight work can overshoot. Codex subscription transport does not enforce the requested output ceiling."},"claude":{"label":"Claude Code hooks","gate":"Prompts, tools and post-tool batches","automatic":"Mode-aware allowance checks, tool-loop repair, fan-out blocking","limits":"No model routing or output replacement. Request count is a prompt/batch approximation; internal retries and compaction are outside this gate."},"codex":{"label":"Codex hooks","gate":"Prompts and tools","automatic":"Mode-aware allowance checks, tool-loop repair, fan-out blocking; model usage reporting","limits":"PreModelRequest is diagnostic only. Cannot stop every model call, clamp effort or compact automatically."},"agy":{"label":"Antigravity hooks","gate":"Before each invocation and tool","automatic":"Allowance/request/time gates, repeated-failure repair, fan-out blocking","limits":"No routing, automatic compaction, output trimming or exact token/cost telemetry in these hooks."}}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
+function playgroundView(){
+  const plan=buildPlan(playgroundState);
+  return {demo:true,...plan,optimizer:buildOptimizationPlan(plan,playgroundState.insights),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries({"pi":{"label":"Pi / Guard","gate":"Every routed model request","automatic":"Routing, effort caps, output limit requests, tool trimming, compaction, one loop repair","limits":"Only aispend/guard; in-flight work can overshoot. Codex subscription transport does not enforce the requested output ceiling."},"claude":{"label":"Claude Code hooks","gate":"Prompts, tools and post-tool batches","automatic":"Mode-aware allowance checks, tool-loop repair, fan-out blocking","limits":"No model routing or output replacement. Request count is a prompt/batch approximation; internal retries and compaction are outside this gate."},"codex":{"label":"Codex hooks","gate":"Prompts and tools","automatic":"Mode-aware allowance checks, tool-loop repair, fan-out blocking; model usage reporting","limits":"PreModelRequest is diagnostic only. Cannot stop every model call, clamp effort or compact automatically."},"agy":{"label":"Antigravity hooks","gate":"Before each invocation and tool","automatic":"Allowance/request/time gates, repeated-failure repair, fan-out blocking","limits":"No routing, automatic compaction, output trimming or exact token/cost telemetry in these hooks."}}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};
+}
 async function playgroundApi(route,body){
   if(route==='/api/state'||route==='/api/sync')return playgroundView();
-  if(route==='/api/simulate')return {demo:true,simulation:true,...buildPlan(demoState(),Date.now()+Number(body.hours)*3600000)};
+  if(route==='/api/checkin'){const v=playgroundView();return {demo:true,generatedAt:new Date().toISOString(),recommendedProvider:v.recommendedProvider,optimizer:v.optimizer,windows:v.providers,collectors:{}};}
+  if(route==='/api/simulate'){const simNow=Date.now()+Number(body.hours)*3600000;const simPlan=buildPlan(demoState(),simNow);return {demo:true,simulation:true,...simPlan,optimizer:buildOptimizationPlan(simPlan,playgroundState.insights,simNow)};}
   if(route==='/api/policy')playgroundState.policy=cleanPolicy({...playgroundState.policy,...body});
   else if(route==='/api/advice')applyAdvice(playgroundState,Date.now(),true);
   else if(route==='/api/binding'){
@@ -507,18 +1685,93 @@ async function playgroundApi(route,body){
 
 
 const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const names={claude:'Claude',codex:'Codex',agy:'Antigravity',api:'API fallback'}, nf=new Intl.NumberFormat(), date=value=>new Date(value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}), pct=n=>Number(n).toFixed(1)+'%';
+const names={claude:'Claude',codex:'Codex',agy:'Antigravity',api:'API fallback'}, nf=new Intl.NumberFormat(), date=value=>{if(value==null||value==='')return 'Unknown';const ms=typeof value==='number'?value:value instanceof Date?value.getTime():Date.parse(value);return Number.isFinite(ms)?new Date(ms).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Unknown';}, pct=n=>n==null||!Number.isFinite(Number(n))?'—':Number(n).toFixed(1)+'%';
+const spanHours=(h,resetAt)=>{let val=(h!=null&&h!==''&&Number.isFinite(Number(h)))?Number(h):null;if(val===null&&resetAt!=null&&resetAt!==''){const ms=typeof resetAt==='number'?resetAt:resetAt instanceof Date?resetAt.getTime():Date.parse(resetAt);if(Number.isFinite(ms))val=(ms-Date.now())/3600000;}if(val===null||!Number.isFinite(val))return 'reset unknown';if(val<=0)return 'reset passed';if(val<1)return Math.max(1,Math.round(val*60))+'m';if(val<48)return (val<10?val.toFixed(1):Math.round(val))+'h';const tot=Math.round(val),d=Math.floor(tot/24),r=tot%24;return r?d+'d '+r+'h':d+'d';};
 let current, formLoaded=false;
 async function api(route,body){return playgroundApi(route,body);}
 function failure(error){$('error').textContent=error.message;$('error').classList.remove('hidden');}
+async function copyChip(cmd,btn){if(!cmd)return;try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(cmd);else{const ta=document.createElement('textarea');ta.value=cmd;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}if(btn){const orig=btn.dataset.orig||btn.textContent;btn.dataset.orig=orig;btn.classList.add('copied');btn.textContent='Copied ✓';clearTimeout(btn._t);btn._t=setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig;},1200);}}catch{}}
+document.addEventListener('click',event=>{const chip=event.target.closest('[data-copy]');if(chip)copyChip(chip.getAttribute('data-copy'),chip);});
+function bankedOf(p,data){if(typeof p.bankedResets==='number'&&Number.isFinite(p.bankedResets))return p.bankedResets;if(p.bankedResets&&typeof p.bankedResets==='object'){const v=p.bankedResets.usableCount??p.bankedResets.availableCount;if(typeof v==='number'&&Number.isFinite(v))return v;}const c=(data.resetCredits||[]).find(x=>x.provider===p.provider);return typeof c?.usableCount==='number'?c.usableCount:typeof c?.availableCount==='number'?c.availableCount:null;}
+function laneName(w){if(w.label)return w.label;const fam=String(w.modelFamily||'').toLowerCase(),id=String(w.windowId||'').toLowerCase();const f=fam==='claude-gpt'?'Claude / GPT':fam==='gemini-argon'?'Gemini Argon':fam==='gemini'?'Gemini':fam==='fable'?'Fable':fam||'All models';const s=id.includes('session')||w.windowMinutes===300?'5h Session':id.includes('weekly')||w.windowMinutes>=1440?'Weekly':id||'Window';return f+' · '+s;}
+function renderPlaybook(data){
+const opt=data.optimizer;
+const box=$('playbook');
+if(!opt){
+  box.dataset.strategy='balanced';
+  $('optimizerHeadline').textContent='Multi-subscription playbook unavailable in this snapshot';
+  $('optimizerStrategy').className='opt-pill';$('optimizerStrategy').textContent='Awaiting optimizer';
+  $('optimizerUnlock').classList.add('hidden');
+  $('optimizerOrder').innerHTML='';
+  $('optimizerAlerts').innerHTML='';
+  $('optimizerCards').innerHTML='<p class="caption">Refresh allowances or run <code>npm run check -- --live</code> to view the per-subscription /swarm, /fast, and tier recommendations.</p>';
+  $('optimizerQuick').innerHTML='';
+  $('optimizerNote').textContent='';
+  return;
+}
+const strat=String(opt.strategy||'balanced').toLowerCase();
+const stratLabels={accelerate:'ACCELERATE · SURPLUS',balanced:'BALANCED',conserve:'CONSERVE',wait:'WAIT · RESET'};
+box.dataset.strategy=strat;
+$('optimizerHeadline').textContent=opt.headline||'Multi-subscription strategy ready';
+$('optimizerStrategy').className='opt-pill opt-'+strat;
+$('optimizerStrategy').textContent=stratLabels[strat]||strat.toUpperCase();
+if(opt.nextUnlock&&(opt.nextUnlock.resetAt||opt.nextUnlock.hoursLeft!=null||opt.nextUnlock.label)){
+  $('optimizerUnlock').classList.remove('hidden');
+  const uLabel=String(opt.nextUnlock.label||'').trim(), uSpan=spanHours(opt.nextUnlock.hoursLeft,opt.nextUnlock.resetAt);
+  const hasSpan=/\b(resets?\s+in|reset\s+passed|in\s+\d+(?:\.\d+)?\s*[dhm])\b/i.test(uLabel);
+  $('optimizerUnlock').textContent='Next unlock: '+(uLabel?(hasSpan?uLabel:uLabel+' in '+uSpan):(names[opt.nextUnlock.provider]||opt.nextUnlock.provider)+' in '+uSpan);
+}else{$('optimizerUnlock').classList.add('hidden');}
+const order=Array.isArray(opt.recommendedOrder)&&opt.recommendedOrder.length?opt.recommendedOrder:(opt.providers||[]).map(p=>p.provider);
+$('optimizerOrder').innerHTML='<span class="caption">Recommended order:</span> '+order.map((p,i)=>'<span class="opt-rank'+(i===0?' opt-rank-first':'')+'">'+(i+1)+'. '+esc(names[p]||p)+'</span>').join(' <span class="caption">→</span> ');
+$('optimizerAlerts').innerHTML=(opt.alerts||[]).map(a=>{
+  const sev=String(a.severity||a.kind||'info').toLowerCase();
+  const cls=sev.includes('crit')||sev==='high'||sev==='error'?'opt-alert-crit':sev.includes('warn')||sev==='medium'?'opt-alert-warn':'opt-alert-opp';
+  return '<div class="opt-alert '+cls+'"><div><strong>'+esc(a.title||a.kind||'Signal')+'</strong><p class="caption">'+esc(a.detail||'')+'</p></div>'+(a.command?'<button type="button" class="cmd-chip" data-copy="'+esc(a.command)+'">'+esc(a.command)+'</button>':'')+'</div>';
+}).join('');
+const provMap=new Map((opt.providers||[]).map(p=>[p.provider,p]));
+const ordered=[];for(const id of order)if(provMap.has(id)){ordered.push(provMap.get(id));provMap.delete(id);}for(const rest of provMap.values())ordered.push(rest);
+$('optimizerCards').innerHTML=ordered.map(p=>{
+  const util=String(p.utilizationState||p.status||'unknown').toLowerCase(), pb=p.playbook||{}, pbMode=String(pb.mode||'steady').toLowerCase();
+  const isPrimary=opt.primaryProvider===p.provider, banked=bankedOf(p,data);
+  const rem=p.remainingPercent!=null&&Number.isFinite(Number(p.remainingPercent))?Number(p.remainingPercent):null;
+  const fill=rem!=null?Math.max(0,Math.min(100,rem)):0;
+  const tone=rem!=null?(rem<=10?'opt-fill-crit':rem<=25?'opt-fill-warn':'opt-fill-'+p.provider):'';
+  const lanes=(p.windows||[]).map(w=>{
+    const wRem=w.remainingPercent!=null&&Number.isFinite(Number(w.remainingPercent))?Number(w.remainingPercent):(w.usedPercent!=null?Math.max(0,100-Number(w.usedPercent)):null);
+    const wFill=wRem!=null?Math.max(0,Math.min(100,wRem)):0;
+    const fam=String(w.modelFamily||'').toLowerCase();
+    const laneCls=fam==='claude-gpt'?'opt-lane-cg':fam.includes('gemini')?'opt-lane-gem':'';
+    return '<div class="opt-lane '+laneCls+'"><div class="row"><span class="caption">'+esc(laneName(w))+'</span><strong>'+(wRem!=null?pct(wRem)+' left':'—')+'</strong></div><div class="meter opt-meter"><span class="'+(wRem!=null&&wRem<=10?'opt-fill-crit':wRem!=null&&wRem<=25?'opt-fill-warn':'opt-fill-'+(fam==='claude-gpt'?'claude':p.provider))+'" style="width:'+wFill+'%"></span></div><div class="row"><span class="caption">'+(w.resetAt?'Reset '+date(w.resetAt):'Reset unknown')+'</span><span class="caption mono">'+esc(spanHours(w.hoursLeft,w.resetAt))+'</span></div></div>';
+  }).join('')||'<p class="caption">No windows measured yet.</p>';
+  const stats=[
+    ['Reset',spanHours(p.hoursLeft,p.resetAt)],
+    ['Target/day',p.targetPercentPerDay!=null&&Number.isFinite(Number(p.targetPercentPerDay))?Number(p.targetPercentPerDay).toFixed(1)+'%':'—'],
+    ['Burn/hr',p.burnPercentPerHour!=null&&Number.isFinite(Number(p.burnPercentPerHour))?Number(p.burnPercentPerHour).toFixed(1)+'%':'—'],
+    p.provider==='codex'&&banked!=null?['Banked',banked+' avail']:['Proj. unused',p.projectedUnusedAtReset!=null&&Number.isFinite(Number(p.projectedUnusedAtReset))?Math.round(Number(p.projectedUnusedAtReset))+'%':'—']
+  ].map(([k,v])=>'<div><span class="caption">'+k+'</span><strong class="mono">'+esc(v)+'</strong></div>').join('');
+  return '<article class="opt-card'+(isPrimary?' opt-card-primary':'')+'"><div class="cardhead"><div><h3>'+esc(p.label||names[p.provider]||p.provider)+(isPrimary?' <span class="opt-primary-tag">Primary</span>':'')+'</h3></div><span class="status opt-state-'+esc(util)+'">'+esc(util.replace(/-/g,' '))+'</span></div>'+
+    '<div class="opt-rem"><strong class="mono">'+(rem!=null?pct(rem):'—')+'</strong><span class="caption">'+(p.usablePercent!=null?pct(p.usablePercent)+' usable':esc(p.status||''))+(banked!=null&&p.provider!=='codex'?' · '+banked+' banked':'')+'</span></div>'+
+    '<div class="meter"><span class="'+tone+'" style="width:'+fill+'%"></span></div>'+
+    '<div class="opt-stats">'+stats+'</div>'+
+    '<div class="opt-lanes">'+lanes+'</div>'+
+    '<div class="opt-pb"><div class="row"><strong>'+esc(pb.headline||'Playbook')+'</strong><span class="status opt-state-'+esc(pbMode)+'">'+esc(pbMode)+'</span></div>'+
+    ((pb.badges||[]).length?'<div class="opt-badges">'+pb.badges.map(b=>'<span class="opt-badge">'+esc(b)+'</span>').join('')+'</div>':'')+
+    ((pb.guidance||[]).length?'<ul class="opt-guidance">'+pb.guidance.map(g=>'<li>'+esc(g)+'</li>').join('')+'</ul>':'')+
+    ((pb.commands||[]).length?'<div class="opt-chips">'+pb.commands.map(c=>'<button type="button" class="cmd-chip" data-copy="'+esc(c)+'">'+esc(c)+'</button>').join('')+'</div>':'')+
+    '</div></article>';
+}).join('');
+$('optimizerQuick').innerHTML=(opt.quickCommands||[]).length?'<div class="opt-quick-head"><span class="tag">Copyable quick commands</span></div><div class="opt-quick-grid">'+opt.quickCommands.map(q=>'<div class="opt-quick-item"><div class="row"><strong>'+esc(q.label||q.tool||'Command')+'</strong><span class="caption">'+esc(q.tool||'')+'</span></div><button type="button" class="cmd-chip" data-copy="'+esc(q.command||'')+'">'+esc(q.command||'')+'</button>'+(q.why?'<p class="caption">'+esc(q.why)+'</p>':'')+'</div>').join('')+'</div>':'';
+$('optimizerNote').textContent=opt.note||'';
+}
 function render(data){current=data;$('error').classList.add('hidden');$('demoBanner').classList.toggle('hidden',!data.demo);$('updated').textContent=`Updated ${date(data.generatedAt)} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
 const selected=data.providers.find(p=>p.provider===data.recommendedProvider), bound=selected?.configured;
 $('decision').innerHTML=`<div><span class="tag">${data.demo?'Example plan':'Current plan'}</span><h2>${selected?(bound?`Use ${names[selected.provider]}`:`${names[selected.provider]} has allowance`):'Refresh readings or queue the next task'}</h2><p>${selected?(bound?'Guard uses fresh positive allowance and keeps useful context stable through tool follow-ups. Mode, work limits and the selected route determine each request.':selected.provider==='agy'?'A supported Antigravity subscription connector is not available in this installation. This reading is for planning; guarded work stays paused until a supported provider is ready.':'Connect a subscription model below before Guard can route work to this allowance.'):'No provider has a fresh allowance that fits the plan. Existing work stays saved; a scheduled reset alone does not unlock spending.'}</p></div><div><span class="big">${data.policy.reservePercent}%</span><br><span class="caption">${data.policy.usageMode==='strict'?'reserved per allowance':'reserve target · advisory'}</span></div>`;
+renderPlaybook(data);
 $('providers').innerHTML=data.providers.map(p=>{
 const c=data.collectors?.[p.provider];
 return '<article class="card"><div class="cardhead"><h3>'+names[p.provider]+'</h3><span class="status '+esc(p.status)+'">'+esc(p.status.replace('-',' '))+'</span></div><p class="caption" style="margin-top:10px">'+esc(p.message)+'</p>'+
 (c?'<div class="collector caption">'+esc(c.status)+' · '+(c.lastSuccessAt?'checked '+date(c.lastSuccessAt):'awaiting first reading')+(c.error?'<br>'+esc(c.error):'')+(c.nextAttemptAt?'<br>Next check '+date(c.nextAttemptAt):'')+'</div>':'')+
-p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(w.modelFamily||'All models')+' · '+(w.windowMinutes>=1440?'Weekly':'Five-hour')+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
+p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(laneName(w))+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
 (p.provider!=='api' && !p.windows.length?'<div class="window caption">No measured allowance yet.</div>':'')+
 '<details class="binding"><summary>'+(data.demo?'Try example models':p.configured?'Model selected · change':'Connect a model')+'</summary><label>'+(data.demo?'Example model':'Preferred Pi model')+'<select data-bind="'+p.provider+'"><option value="">'+(data.demo?'Select an example model':esc(p.binding?.model||'No connected model yet'))+'</option>'+(data.models||[]).filter(m=>m.group===p.provider).map(m=>'<option value="'+esc(m.provider+'|'+m.id)+'"'+(p.binding?.provider===m.provider && p.binding?.model===m.id?' selected':'')+'>'+esc(m.label||m.id)+'</option>').join('')+'</select></label><p class="caption">'+(data.demo?'Illustrative choices only. Your real model list comes from Pi.':p.configured?'Selected for guarded requests.':p.provider==='agy'?'Allowance monitoring is separate; routing needs a compatible Pi connector.':'Sign in with /login in Pi, then run /guard. Available subscription models are selected automatically.')+'</p></details></article>';
 }).join('');renderLive(data);renderImpact(data);renderContinuity(data);
@@ -548,7 +1801,7 @@ $('routingOrder').textContent=data.policy.providerOrder.map(p=>names[p]).join(' 
 $('reportedInsights').innerHTML=Object.entries(data.reportedInsights||{}).map(([provider,s])=>'<details class="section"><summary>'+esc(names[provider])+' native snapshot'+(s.recordedAt?' · saved '+date(s.recordedAt):'')+'</summary><p class="caption">'+esc(s.source)+'; retained for reference, not a live quota reading.</p>'+s.metrics.map(m=>'<p>'+pct(m.percent)+' · '+esc(m.label)+'</p>').join('')+(s.contextTokens!==null?'<p>Context: '+nf.format(s.contextTokens)+' tokens</p>':'')+(s.referenceCostUsd!==null?'<p>Session API-price reference: '+usd(s.referenceCostUsd)+'</p>':'')+'</details>').join('');
 $('spend').innerHTML=[['API estimate today',usd(a.apiEstimateUsd)],['Reserved for API requests',usd(a.apiReservedUsd)],['Subscription reference cost',usd(a.subscriptionReferenceUsd)],['Requests in guarded tasks',nf.format((data.tasks||[]).reduce((n,t)=>n+t.requests,0))]].map(([label,value])=>'<div><span class="caption">'+label+'</span><div class="big">'+value+'</div></div>').join('')+'<p class="caption full">API cap: '+usd(data.policy.apiDailyBudgetUsd)+' / day. '+Number(a.unknownCostRequests||0)+' requests have incomplete cost telemetry. Subscription reference cost is an API-price comparison, not a charge.</p>';
 const insight=data.insights;
-$('insights').innerHTML=insight?'<p class="caption">'+(data.demo?'Synthetic example · ':'Last 24 hours · analyzed ')+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+names[p.provider]+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
+$('insights').innerHTML=insight?'<p class="caption">'+(data.demo?'Synthetic example · ':'Last 24 hours · analyzed ')+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+esc(names[p.provider]||p.provider)+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
 }
 
 function renderImpact(data){

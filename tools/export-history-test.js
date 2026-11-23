@@ -317,6 +317,39 @@ async function run() {
   assert(summary.includes("n/a (no pricing)"), "unknown pricing shows n/a in the summary");
   assert(!summary.includes("SECRET_PROMPT"));
 
+  // Optional AGY history export check
+  const agyRoot = path.join(root, "agy");
+  const agyCoord = "aaaa1111-1111-1111-1111-111111111111";
+  const agyWorker = "bbbb2222-2222-2222-2222-222222222222";
+  fs.mkdirSync(path.join(agyRoot, "brain", agyCoord, ".system_generated", "swarm"), { recursive: true });
+  fs.writeFileSync(
+    path.join(agyRoot, "brain", agyCoord, ".system_generated", "swarm", "members.json"),
+    JSON.stringify({ members: { worker1: { conversation_id: agyWorker, model: "gemini-4-neon-xhigh", role: "worker" } } }),
+    "utf8",
+  );
+  writeJsonl(path.join(agyRoot, "brain", agyWorker, ".system_generated", "logs", "transcript.jsonl"), [
+    { step_index: 0, type: "USER_INPUT", created_at: "2026-10-22T12:00:00.000Z", text: "SECRET_AGY_HISTORY_PROMPT" },
+    { step_index: 1, type: "PLANNER_RESPONSE", status: "DONE", created_at: "2026-10-22T12:01:00.000Z", input_tokens: 500, cache_read_tokens: 4500, output_tokens: 200 },
+  ]);
+  const agyOut = path.join(root, "out", "agy-ledger.json");
+  await exportHistory({ out: agyOut, provider: "agy", agyRoot, includeStatsCache: false, quiet: true });
+  const agyLedger = JSON.parse(fs.readFileSync(agyOut, "utf8"));
+  assert.equal(agyLedger.rows.length, 1);
+  assert.equal(agyLedger.rows[0].provider, "agy");
+  assert.equal(agyLedger.rows[0].model, "gemini-4-neon-xhigh");
+  assert.equal(agyLedger.rows[0].freshInputTokens, 500);
+  assert.equal(agyLedger.rows[0].cacheReadTokens, 4500);
+  assert.equal(agyLedger.rows[0].outputTokens, 200);
+  assert.equal(agyLedger.rows[0].totalTokens, 5200);
+  assert.equal(agyLedger.rows[0].subagentTokens, 5200);
+  assert.strictEqual(agyLedger.rows[0].estimatedUsd, null);
+  assert.deepEqual(agyLedger.rows[0].effortTokens, { xhigh: 5200 });
+  assert(!JSON.stringify(agyLedger).includes("SECRET_AGY_HISTORY_PROMPT"));
+  assert(!JSON.stringify(agyLedger).includes(agyWorker));
+  const agyMd = buildSummaryMarkdown(agyLedger, agyOut);
+  assert(agyMd.includes("AGY tokens"));
+  assert(agyMd.includes("gemini-4-neon-xhigh"));
+
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`History export tests passed (${first.ledger.rows.length} fixture rows)`);
 }

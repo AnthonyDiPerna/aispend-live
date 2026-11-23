@@ -1,432 +1,925 @@
 {
   "schema": "ai-spend-live-public-demo/v1",
-  "releaseVersion": "0.6.3",
-  "generatedOn": "2026-11-08",
-  "period": "Recent 7-day example",
+  "releaseVersion": "0.7.0",
+  "generatedOn": "2026-11-23",
+  "period": "Recent 30-day example",
   "privacy": "Aggregate example only: no prompts, titles, paths, session IDs, environment values, or credentials.",
   "coverageNote": "This example reflects supported local sources only; it is not an all-cloud or all-chat tracker.",
   "coverage": [
     {
       "source": "Claude JSONL",
-      "files": 134,
-      "events": 22845,
-      "sessions": 131
+      "files": 353,
+      "events": 68624,
+      "sessions": 353
     },
     {
       "source": "Codex JSONL / state SQLite",
-      "files": 3784,
-      "events": 18865,
-      "sessions": 614
+      "files": 2298,
+      "events": 64946,
+      "sessions": 2240
+    },
+    {
+      "source": "Antigravity JSONL / SQLite",
+      "files": 92,
+      "events": 6517,
+      "sessions": 83
     }
   ],
   "totals": {
-    "tokens": 8103888147,
-    "turns": 34209,
-    "sessions": 701,
-    "breakdownUnknownTokens": 0,
-    "cacheReuse": 0.9831345230125192,
+    "tokens": 36473744994,
+    "turns": 139329,
+    "sessions": 2644,
+    "breakdownUnknownTokens": 122353269,
+    "cacheReuse": 0.9828967331735496,
     "cacheReuseScope": "known token breakdown only",
-    "estimatedApiUsd": 3119.0095257999806,
-    "inputTokens": 58493434,
-    "cachedInputTokens": 7945776806,
-    "cacheWriteTokens": 77814785,
-    "outputTokens": 21803122,
-    "estimatedInputUsd": 2633.9240126000063,
-    "estimatedOutputUsd": 485.0855132
+    "estimatedApiUsd": 10157.735767990118,
+    "inputTokens": 310518932,
+    "cachedInputTokens": 35637784894,
+    "cacheWriteTokens": 309609840,
+    "outputTokens": 93478059,
+    "estimatedInputUsd": 8722.328031390001,
+    "estimatedOutputUsd": 1435.4077366
   },
   "models": [
     {
       "key": "claude:claude-opus-5-5",
       "provider": "claude",
       "model": "claude-opus-5-5",
-      "tokens": 5380799823,
-      "turns": 15454,
-      "share": 0.6639775531689603,
-      "inputTokens": 31508,
-      "cachedInputTokens": 5296967733,
-      "outputTokens": 13782724,
-      "cacheWriteTokens": 70017858,
+      "tokens": 20872289277,
+      "turns": 53883,
+      "share": 0.5722551736991508,
+      "inputTokens": 110194,
+      "cachedInputTokens": 20583423250,
+      "outputTokens": 45715550,
+      "cacheWriteTokens": 243040283,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 1409.6088686000053,
-      "estimatedOutputUsd": 275.65448,
-      "estimatedApiUsd": 1685.2633486000052,
+      "estimatedInputUsd": 5337.038853999998,
+      "estimatedOutputUsd": 914.311,
+      "estimatedApiUsd": 6251.349853999997,
       "pricingKnown": true
+    },
+    {
+      "key": "claude:claude-fable-5-2",
+      "provider": "claude",
+      "model": "claude-fable-5-2",
+      "tokens": 4296297351,
+      "turns": 11457,
+      "share": 0.11779150596426961,
+      "inputTokens": 25242,
+      "cachedInputTokens": 4231561337,
+      "outputTokens": 14046911,
+      "cacheWriteTokens": 50663861,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
     },
     {
       "key": "codex:gpt-5.6-luna",
       "provider": "codex",
       "model": "gpt-5.6-luna",
-      "tokens": 1075997945,
-      "turns": 7400,
-      "share": 0.13277551781095678,
-      "inputTokens": 18007559,
-      "cachedInputTokens": 1054796800,
-      "outputTokens": 3193586,
+      "tokens": 2822739898,
+      "turns": 19761,
+      "share": 0.07739100820232049,
+      "inputTokens": 44738637,
+      "cachedInputTokens": 2770773248,
+      "outputTokens": 7228013,
       "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 24.697447799999953,
-      "estimatedOutputUsd": 3.8323031999999997,
-      "estimatedApiUsd": 28.52975099999995,
+      "estimatedInputUsd": 64.36319235999994,
+      "estimatedOutputUsd": 8.6736156,
+      "estimatedApiUsd": 73.03680795999995,
       "pricingKnown": true
     },
     {
       "key": "codex:gpt-6-astra",
       "provider": "codex",
       "model": "gpt-6-astra",
-      "tokens": 733923390,
-      "turns": 4902,
-      "share": 0.09056435339272212,
-      "inputTokens": 10839520,
-      "cachedInputTokens": 720859264,
-      "outputTokens": 2224606,
+      "tokens": 2273339397,
+      "turns": 14217,
+      "share": 0.062328104705836176,
+      "inputTokens": 31229454,
+      "cachedInputTokens": 2121090304,
+      "outputTokens": 6230588,
       "cacheWriteTokens": 0,
-      "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 829.2544640000012,
-      "estimatedOutputUsd": 111.2303,
-      "estimatedApiUsd": 940.4847640000013,
+      "unknownBreakdownTokens": 114789051,
+      "estimatedInputUsd": 2472.005506000002,
+      "estimatedOutputUsd": 311.5294,
+      "estimatedApiUsd": 2783.5349060000017,
       "pricingKnown": true
     },
     {
-      "key": "claude:claude-fable-5-1",
-      "provider": "claude",
-      "model": "claude-fable-5-1",
-      "tokens": 442898668,
-      "turns": 1464,
-      "share": 0.054652613654836514,
-      "inputTokens": 10410,
-      "cachedInputTokens": 433606402,
-      "outputTokens": 1672357,
-      "cacheWriteTokens": 7609499,
+      "key": "codex:gpt-6.2-sol",
+      "provider": "codex",
+      "model": "gpt-6.2-sol",
+      "tokens": 1056863251,
+      "turns": 7184,
+      "share": 0.028976000440148277,
+      "inputTokens": 10170416,
+      "cachedInputTokens": 1045287424,
+      "outputTokens": 1405411,
+      "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 254.66742800000029,
-      "estimatedOutputUsd": 83.61785,
-      "estimatedApiUsd": 338.2852780000003,
-      "pricingKnown": true
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
     },
     {
       "key": "codex:codex-auto-review",
       "provider": "codex",
       "model": "codex-auto-review",
-      "tokens": 296782719,
-      "turns": 4083,
-      "share": 0.036622262501225016,
-      "inputTokens": 27696878,
-      "cachedInputTokens": 268693248,
-      "outputTokens": 392593,
+      "tokens": 1015019228,
+      "turns": 14033,
+      "share": 0.027828763626191185,
+      "inputTokens": 102793364,
+      "cachedInputTokens": 904942848,
+      "outputTokens": 1373062,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 5909954,
+      "estimatedInputUsd": 241.60956099999987,
+      "estimatedOutputUsd": 13.73062,
+      "estimatedApiUsd": 255.34018099999986,
+      "pricingKnown": true
+    },
+    {
+      "key": "agy:gemini-4-neon-xhigh",
+      "provider": "agy",
+      "model": "gemini-4-neon-xhigh",
+      "tokens": 796823976,
+      "turns": 2834,
+      "share": 0.02184650838928328,
+      "inputTokens": 39873833,
+      "cachedInputTokens": 751090046,
+      "outputTokens": 5860097,
       "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 68.2077534999998,
-      "estimatedOutputUsd": 3.92593,
-      "estimatedApiUsd": 72.13368349999979,
-      "pricingKnown": true
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
     },
     {
       "key": "codex:gpt-6.1-sol",
       "provider": "codex",
       "model": "gpt-6.1-sol",
-      "tokens": 115950697,
-      "turns": 449,
-      "share": 0.014308032748813803,
-      "inputTokens": 1246014,
-      "cachedInputTokens": 114339456,
-      "outputTokens": 365227,
+      "tokens": 779395207,
+      "turns": 3809,
+      "share": 0.021368664148093703,
+      "inputTokens": 9915758,
+      "cachedInputTokens": 767314944,
+      "outputTokens": 2164505,
       "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 22.47265599999999,
-      "estimatedOutputUsd": 3.65227,
-      "estimatedApiUsd": 26.12492599999999,
+      "estimatedInputUsd": 136.73350860000005,
+      "estimatedOutputUsd": 21.64505,
+      "estimatedApiUsd": 158.37855860000005,
+      "pricingKnown": true
+    },
+    {
+      "key": "codex:gpt-6.2-astra",
+      "provider": "codex",
+      "model": "gpt-6.2-astra",
+      "tokens": 704636786,
+      "turns": 4015,
+      "share": 0.019319013885629625,
+      "inputTokens": 6658916,
+      "cachedInputTokens": 697391616,
+      "outputTokens": 586254,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "claude:claude-fable-5-1",
+      "provider": "claude",
+      "model": "claude-fable-5-1",
+      "tokens": 653650919,
+      "turns": 2105,
+      "share": 0.017921135301777396,
+      "inputTokens": 25674,
+      "cachedInputTokens": 638702663,
+      "outputTokens": 3023768,
+      "cacheWriteTokens": 11898814,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 386.5153682500005,
+      "estimatedOutputUsd": 151.1884,
+      "estimatedApiUsd": 537.7037682500005,
+      "pricingKnown": true
+    },
+    {
+      "key": "agy:gemini-4-carbon-high",
+      "provider": "agy",
+      "model": "gemini-4-carbon-high",
+      "tokens": 279609263,
+      "turns": 967,
+      "share": 0.0076660420542501535,
+      "inputTokens": 20823378,
+      "cachedInputTokens": 257203140,
+      "outputTokens": 1582745,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-neon-high",
+      "provider": "agy",
+      "model": "gemini-4-neon-high",
+      "tokens": 185431398,
+      "turns": 606,
+      "share": 0.0050839692504979625,
+      "inputTokens": 10494455,
+      "cachedInputTokens": 173874980,
+      "outputTokens": 1061963,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "codex:gpt-6-sol",
+      "provider": "codex",
+      "model": "gpt-6-sol",
+      "tokens": 181242992,
+      "turns": 1427,
+      "share": 0.004969135799732515,
+      "inputTokens": 1286024,
+      "cachedInputTokens": 179475840,
+      "outputTokens": 481128,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 38.46721600000008,
+      "estimatedOutputUsd": 4.81128,
+      "estimatedApiUsd": 43.27849600000008,
+      "pricingKnown": true
+    },
+    {
+      "key": "agy:gemini-4-argon-high",
+      "provider": "agy",
+      "model": "gemini-4-argon-high",
+      "tokens": 172595775,
+      "turns": 621,
+      "share": 0.004732055209257846,
+      "inputTokens": 8974347,
+      "cachedInputTokens": 162967171,
+      "outputTokens": 654257,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-neon-medium",
+      "provider": "agy",
+      "model": "gemini-4-neon-medium",
+      "tokens": 106584810,
+      "turns": 485,
+      "share": 0.002922233788099725,
+      "inputTokens": 9996680,
+      "cachedInputTokens": 96152705,
+      "outputTokens": 435425,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-argon-medium",
+      "provider": "agy",
+      "model": "gemini-4-argon-medium",
+      "tokens": 83374752,
+      "turns": 527,
+      "share": 0.002285884052041141,
+      "inputTokens": 4770290,
+      "cachedInputTokens": 78193915,
+      "outputTokens": 410547,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "claude:claude-sonnet-5-5",
+      "provider": "claude",
+      "model": "claude-sonnet-5-5",
+      "tokens": 73259404,
+      "turns": 450,
+      "share": 0.0020085517407672647,
+      "inputTokens": 946,
+      "cachedInputTokens": 68689984,
+      "outputTokens": 561592,
+      "cacheWriteTokens": 4006882,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 16.888095399999976,
+      "estimatedOutputUsd": 5.61592,
+      "estimatedApiUsd": 22.504015399999975,
       "pricingKnown": true
     },
     {
       "key": "codex:gpt-5.6-sol",
       "provider": "codex",
       "model": "gpt-5.6-sol",
-      "tokens": 54971298,
-      "turns": 426,
-      "share": 0.006783323881432146,
-      "inputTokens": 661481,
-      "cachedInputTokens": 54164608,
-      "outputTokens": 145209,
+      "tokens": 56702972,
+      "turns": 462,
+      "share": 0.0015546243471660985,
+      "inputTokens": 1710394,
+      "cachedInputTokens": 54510464,
+      "outputTokens": 194927,
       "cacheWriteTokens": 0,
-      "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 24.311767200000002,
-      "estimatedOutputUsd": 2.90418,
-      "estimatedApiUsd": 27.215947200000002,
+      "unknownBreakdownTokens": 287187,
+      "estimatedInputUsd": 28.64576160000001,
+      "estimatedOutputUsd": 3.89854,
+      "estimatedApiUsd": 32.54430160000001,
       "pricingKnown": true
     },
     {
-      "key": "claude:claude-sonnet-5-5",
-      "provider": "claude",
-      "model": "claude-sonnet-5-5",
-      "tokens": 2563607,
-      "turns": 31,
-      "share": 0.00031634284105328236,
-      "inputTokens": 64,
-      "cachedInputTokens": 2349295,
-      "outputTokens": 26820,
-      "cacheWriteTokens": 187428,
+      "key": "agy:gemini-3.8-flash-medium",
+      "provider": "agy",
+      "model": "gemini-3.8-flash-medium",
+      "tokens": 27878828,
+      "turns": 258,
+      "share": 0.000764353317834133,
+      "inputTokens": 2532248,
+      "cachedInputTokens": 25193555,
+      "outputTokens": 153025,
+      "cacheWriteTokens": 0,
       "unknownBreakdownTokens": 0,
-      "estimatedInputUsd": 0.7036275000000002,
-      "estimatedOutputUsd": 0.2682,
-      "estimatedApiUsd": 0.9718275000000002,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-hydrogen-tiered-xhigh",
+      "provider": "agy",
+      "model": "gemini-4-hydrogen-tiered-xhigh",
+      "tokens": 19896408,
+      "turns": 83,
+      "share": 0.0005454994545603419,
+      "inputTokens": 1657544,
+      "cachedInputTokens": 18118876,
+      "outputTokens": 119988,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:unknown",
+      "provider": "agy",
+      "model": "unknown",
+      "tokens": 9018539,
+      "turns": 81,
+      "share": 0.00024726111896334105,
+      "inputTokens": 1829990,
+      "cachedInputTokens": 7088989,
+      "outputTokens": 99560,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:claude-opus-5-5-medium",
+      "provider": "agy",
+      "model": "claude-opus-5-5-medium",
+      "tokens": 3919206,
+      "turns": 27,
+      "share": 0.00010745279928465577,
+      "inputTokens": 312933,
+      "cachedInputTokens": 3591252,
+      "outputTokens": 15021,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "codex:unknown",
+      "provider": "codex",
+      "model": "unknown",
+      "tokens": 1367077,
+      "turns": 2,
+      "share": 0.000037481125127811435,
+      "inputTokens": 0,
+      "cachedInputTokens": 0,
+      "outputTokens": 0,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 1367077,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "codex:gpt-6-luna",
+      "provider": "codex",
+      "model": "gpt-6-luna",
+      "tokens": 1068529,
+      "turns": 5,
+      "share": 0.000029295840067308007,
+      "inputTokens": 419209,
+      "cachedInputTokens": 645888,
+      "outputTokens": 3432,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 0.048379780000000004,
+      "estimatedOutputUsd": 0.001716,
+      "estimatedApiUsd": 0.050095780000000006,
       "pricingKnown": true
+    },
+    {
+      "key": "agy:claude-opus-5-5-high",
+      "provider": "agy",
+      "model": "claude-opus-5-5-high",
+      "tokens": 553485,
+      "turns": 6,
+      "share": 0.000015174888130929504,
+      "inputTokens": 99428,
+      "cachedInputTokens": 401156,
+      "outputTokens": 52901,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "agy:gemini-4-hydrogen-tiered-high",
+      "provider": "agy",
+      "model": "gemini-4-hydrogen-tiered-high",
+      "tokens": 140852,
+      "turns": 20,
+      "share": 0.0000038617367101505595,
+      "inputTokens": 53813,
+      "cachedInputTokens": 71906,
+      "outputTokens": 15133,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
+    },
+    {
+      "key": "codex:gpt-6.1-terra",
+      "provider": "codex",
+      "model": "gpt-6.1-terra",
+      "tokens": 36861,
+      "turns": 2,
+      "share": 0.000001010617363423024,
+      "inputTokens": 11334,
+      "cachedInputTokens": 25088,
+      "outputTokens": 439,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": 0.0125884,
+      "estimatedOutputUsd": 0.002195,
+      "estimatedApiUsd": 0.014783399999999999,
+      "pricingKnown": true
+    },
+    {
+      "key": "agy:gemini-3.8-flash-high",
+      "provider": "agy",
+      "model": "gemini-3.8-flash-high",
+      "tokens": 8553,
+      "turns": 2,
+      "share": 2.344974447073363e-7,
+      "inputTokens": 4431,
+      "cachedInputTokens": 2305,
+      "outputTokens": 1817,
+      "cacheWriteTokens": 0,
+      "unknownBreakdownTokens": 0,
+      "estimatedInputUsd": null,
+      "estimatedOutputUsd": null,
+      "estimatedApiUsd": null,
+      "pricingKnown": false
     }
   ],
   "daily": [
     {
       "period": "Day 1",
-      "tokens": 6384652,
-      "turns": 15
+      "tokens": 2135874463,
+      "turns": 15966
     },
     {
       "period": "Day 2",
-      "tokens": 450984668,
-      "turns": 1319
+      "tokens": 1928042011,
+      "turns": 13314
     },
     {
       "period": "Day 3",
-      "tokens": 1104220108,
-      "turns": 3615
+      "tokens": 3577969836,
+      "turns": 11536
     },
     {
       "period": "Day 4",
-      "tokens": 265279435,
-      "turns": 414
+      "tokens": 3490739509,
+      "turns": 10004
     },
     {
       "period": "Day 5",
-      "tokens": 1035628551,
-      "turns": 4219
+      "tokens": 4753994620,
+      "turns": 12912
     },
     {
       "period": "Day 6",
-      "tokens": 4181336624,
-      "turns": 17164
+      "tokens": 461029162,
+      "turns": 2272
     },
     {
       "period": "Day 7",
-      "tokens": 1060054109,
-      "turns": 7463
+      "tokens": 1096551750,
+      "turns": 3900
     }
   ],
   "dailyByModel": [
     {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-01",
+      "key": "agy:gemini-3.8-flash-medium",
+      "model": "gemini-3.8-flash-medium",
+      "date": "2026-11-16",
       "period": "Day 1",
-      "tokens": 6384652
-    },
-    {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-02",
-      "period": "Day 2",
-      "tokens": 108327196
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-02",
-      "period": "Day 2",
-      "tokens": 341435221
-    },
-    {
-      "key": "codex:gpt-6-astra",
-      "model": "gpt-6-astra",
-      "date": "2026-11-02",
-      "period": "Day 2",
-      "tokens": 1222251
-    },
-    {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-04",
-      "period": "Day 3",
-      "tokens": 30500148
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-04",
-      "period": "Day 3",
-      "tokens": 953831454
+      "tokens": 16961708
     },
     {
       "key": "codex:codex-auto-review",
       "model": "codex-auto-review",
-      "date": "2026-11-04",
-      "period": "Day 3",
-      "tokens": 5147957
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 350334383
     },
     {
       "key": "codex:gpt-5.6-luna",
       "model": "gpt-5.6-luna",
-      "date": "2026-11-04",
-      "period": "Day 3",
-      "tokens": 44220479
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 501990780
     },
     {
       "key": "codex:gpt-6-astra",
       "model": "gpt-6-astra",
-      "date": "2026-11-04",
-      "period": "Day 3",
-      "tokens": 70520070
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 577940816
     },
     {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-05",
-      "period": "Day 4",
-      "tokens": 17377988
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-05",
-      "period": "Day 4",
-      "tokens": 247901447
-    },
-    {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 41888050
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 854677114
-    },
-    {
-      "key": "claude:claude-sonnet-5-5",
-      "model": "claude-sonnet-5-5",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 2563607
-    },
-    {
-      "key": "codex:codex-auto-review",
-      "model": "codex-auto-review",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 14632822
-    },
-    {
-      "key": "codex:gpt-5.6-luna",
-      "model": "gpt-5.6-luna",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 34257731
-    },
-    {
-      "key": "codex:gpt-5.6-sol",
-      "model": "gpt-5.6-sol",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 54971298
-    },
-    {
-      "key": "codex:gpt-6-astra",
-      "model": "gpt-6-astra",
-      "date": "2026-11-06",
-      "period": "Day 5",
-      "tokens": 32637929
-    },
-    {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-07",
-      "period": "Day 6",
-      "tokens": 186300770
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-07",
-      "period": "Day 6",
-      "tokens": 2923135294
-    },
-    {
-      "key": "codex:codex-auto-review",
-      "model": "codex-auto-review",
-      "date": "2026-11-07",
-      "period": "Day 6",
-      "tokens": 170055155
-    },
-    {
-      "key": "codex:gpt-5.6-luna",
-      "model": "gpt-5.6-luna",
-      "date": "2026-11-07",
-      "period": "Day 6",
-      "tokens": 566923745
-    },
-    {
-      "key": "codex:gpt-6-astra",
-      "model": "gpt-6-astra",
-      "date": "2026-11-07",
-      "period": "Day 6",
-      "tokens": 334921660
-    },
-    {
-      "key": "claude:claude-fable-5-1",
-      "model": "claude-fable-5-1",
-      "date": "2026-11-08",
-      "period": "Day 7",
-      "tokens": 52119864
-    },
-    {
-      "key": "claude:claude-opus-5-5",
-      "model": "claude-opus-5-5",
-      "date": "2026-11-08",
-      "period": "Day 7",
-      "tokens": 59819293
-    },
-    {
-      "key": "codex:codex-auto-review",
-      "model": "codex-auto-review",
-      "date": "2026-11-08",
-      "period": "Day 7",
-      "tokens": 106946785
-    },
-    {
-      "key": "codex:gpt-5.6-luna",
-      "model": "gpt-5.6-luna",
-      "date": "2026-11-08",
-      "period": "Day 7",
-      "tokens": 430595990
-    },
-    {
-      "key": "codex:gpt-6-astra",
-      "model": "gpt-6-astra",
-      "date": "2026-11-08",
-      "period": "Day 7",
-      "tokens": 294621480
+      "key": "codex:gpt-6-sol",
+      "model": "gpt-6-sol",
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 181242992
     },
     {
       "key": "codex:gpt-6.1-sol",
       "model": "gpt-6.1-sol",
-      "date": "2026-11-08",
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 507366923
+    },
+    {
+      "key": "codex:gpt-6.1-terra",
+      "model": "gpt-6.1-terra",
+      "date": "2026-11-16",
+      "period": "Day 1",
+      "tokens": 36861
+    },
+    {
+      "key": "agy:gemini-3.8-flash-medium",
+      "model": "gemini-3.8-flash-medium",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 10917120
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 108294232
+    },
+    {
+      "key": "codex:gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 653506565
+    },
+    {
+      "key": "codex:gpt-5.6-sol",
+      "model": "gpt-5.6-sol",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 2057369
+    },
+    {
+      "key": "codex:gpt-6-astra",
+      "model": "gpt-6-astra",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 239167019
+    },
+    {
+      "key": "codex:gpt-6.2-astra",
+      "model": "gpt-6.2-astra",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 285790953
+    },
+    {
+      "key": "codex:gpt-6.2-sol",
+      "model": "gpt-6.2-sol",
+      "date": "2026-11-17",
+      "period": "Day 2",
+      "tokens": 628308753
+    },
+    {
+      "key": "claude:claude-fable-5-2",
+      "model": "claude-fable-5-2",
+      "date": "2026-11-18",
+      "period": "Day 3",
+      "tokens": 2345848657
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-18",
+      "period": "Day 3",
+      "tokens": 755638782
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-18",
+      "period": "Day 3",
+      "tokens": 7081090
+    },
+    {
+      "key": "codex:gpt-6.2-astra",
+      "model": "gpt-6.2-astra",
+      "date": "2026-11-18",
+      "period": "Day 3",
+      "tokens": 245883164
+    },
+    {
+      "key": "codex:gpt-6.2-sol",
+      "model": "gpt-6.2-sol",
+      "date": "2026-11-18",
+      "period": "Day 3",
+      "tokens": 223518143
+    },
+    {
+      "key": "claude:claude-fable-5-2",
+      "model": "claude-fable-5-2",
+      "date": "2026-11-19",
+      "period": "Day 4",
+      "tokens": 442122994
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-19",
+      "period": "Day 4",
+      "tokens": 3048616515
+    },
+    {
+      "key": "agy:claude-opus-5-5-medium",
+      "model": "claude-opus-5-5-medium",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 2639674
+    },
+    {
+      "key": "agy:gemini-4-argon-high",
+      "model": "gemini-4-argon-high",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 48225339
+    },
+    {
+      "key": "agy:gemini-4-hydrogen-tiered-high",
+      "model": "gemini-4-hydrogen-tiered-high",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 99362
+    },
+    {
+      "key": "agy:gemini-4-neon-high",
+      "model": "gemini-4-neon-high",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 87178871
+    },
+    {
+      "key": "agy:gemini-4-neon-medium",
+      "model": "gemini-4-neon-medium",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 55815064
+    },
+    {
+      "key": "claude:claude-fable-5-2",
+      "model": "claude-fable-5-2",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 378739975
+    },
+    {
+      "key": "claude:claude-opus-5-5",
+      "model": "claude-opus-5-5",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 3942704099
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 6628291
+    },
+    {
+      "key": "codex:gpt-5.6-sol",
+      "model": "gpt-5.6-sol",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 420588
+    },
+    {
+      "key": "codex:gpt-6.2-astra",
+      "model": "gpt-6.2-astra",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 158470198
+    },
+    {
+      "key": "codex:gpt-6.2-sol",
+      "model": "gpt-6.2-sol",
+      "date": "2026-11-20",
+      "period": "Day 5",
+      "tokens": 73073159
+    },
+    {
+      "key": "agy:claude-opus-5-5-high",
+      "model": "claude-opus-5-5-high",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 553485
+    },
+    {
+      "key": "agy:claude-opus-5-5-medium",
+      "model": "claude-opus-5-5-medium",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 1279532
+    },
+    {
+      "key": "agy:gemini-4-argon-high",
+      "model": "gemini-4-argon-high",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 52609590
+    },
+    {
+      "key": "agy:gemini-4-argon-medium",
+      "model": "gemini-4-argon-medium",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 25917212
+    },
+    {
+      "key": "agy:gemini-4-carbon-high",
+      "model": "gemini-4-carbon-high",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 8729452
+    },
+    {
+      "key": "agy:gemini-4-neon-high",
+      "model": "gemini-4-neon-high",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 20212245
+    },
+    {
+      "key": "agy:gemini-4-neon-medium",
+      "model": "gemini-4-neon-medium",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 50769746
+    },
+    {
+      "key": "agy:gemini-4-neon-xhigh",
+      "model": "gemini-4-neon-xhigh",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 140891063
+    },
+    {
+      "key": "codex:codex-auto-review",
+      "model": "codex-auto-review",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 13009546
+    },
+    {
+      "key": "codex:gpt-6-luna",
+      "model": "gpt-6-luna",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 601624
+    },
+    {
+      "key": "codex:gpt-6.2-astra",
+      "model": "gpt-6.2-astra",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 14492471
+    },
+    {
+      "key": "codex:gpt-6.2-sol",
+      "model": "gpt-6.2-sol",
+      "date": "2026-11-21",
+      "period": "Day 6",
+      "tokens": 131963196
+    },
+    {
+      "key": "agy:gemini-4-argon-high",
+      "model": "gemini-4-argon-high",
+      "date": "2026-11-22",
       "period": "Day 7",
-      "tokens": 115950697
+      "tokens": 71760846
+    },
+    {
+      "key": "agy:gemini-4-carbon-high",
+      "model": "gemini-4-carbon-high",
+      "date": "2026-11-22",
+      "period": "Day 7",
+      "tokens": 270879811
+    },
+    {
+      "key": "agy:gemini-4-hydrogen-tiered-high",
+      "model": "gemini-4-hydrogen-tiered-high",
+      "date": "2026-11-22",
+      "period": "Day 7",
+      "tokens": 41490
+    },
+    {
+      "key": "agy:gemini-4-hydrogen-tiered-xhigh",
+      "model": "gemini-4-hydrogen-tiered-xhigh",
+      "date": "2026-11-22",
+      "period": "Day 7",
+      "tokens": 19896408
+    },
+    {
+      "key": "agy:gemini-4-neon-high",
+      "model": "gemini-4-neon-high",
+      "date": "2026-11-22",
+      "period": "Day 7",
+      "tokens": 78040282
+    },
+    {
+      "key": "agy:gemini-4-neon-xhigh",
+      "model": "gemini-4-neon-xhigh",
+      "date": "2026-11-22",
+      "period": "Day 7",
+      "tokens": 655932913
     }
   ],
   "pacing": {
     "fiveHour": {
       "status": "unset",
-      "usedTokens": 77350418,
-      "projectedTokens": 144871295,
-      "measuredTokensPerHour": 28974259,
+      "usedTokens": 454588570,
+      "projectedTokens": 578679165,
+      "measuredTokensPerHour": 115735833,
       "hasLocalBudget": false
     },
     "weekly": {
       "status": "unset",
-      "usedTokens": 8103888147,
-      "projectedTokens": 27022121973,
-      "measuredTokensPerHour": 28974259,
+      "usedTokens": 17444201351,
+      "projectedTokens": 19443619944,
+      "measuredTokensPerHour": 115735833,
       "hasLocalBudget": false
     }
   },
@@ -434,16 +927,64 @@
     {
       "limitId": "codex:10080:1",
       "windowMinutes": 10080,
-      "usedPercent": 12,
+      "usedPercent": 69,
       "projectedPercent": null,
-      "status": "observed",
+      "status": "stale",
+      "resetKnown": true
+    },
+    {
+      "limitId": "codex:window:2",
+      "windowMinutes": 0,
+      "usedPercent": 0,
+      "projectedPercent": null,
+      "status": "stale",
       "resetKnown": true
     }
   ],
   "subagents": {
-    "tokens": 6954785352,
-    "share": 0.8582035222900517,
-    "sessions": 694
+    "tokens": 30177519616,
+    "share": 0.8273765038650202,
+    "sessions": 2593
+  },
+  "speedStats": {
+    "fastTokens": 3668435080,
+    "ultrafastTokens": 0,
+    "standardTokens": 30997120800,
+    "unknownSpeedTokens": 1808189114,
+    "fastShare": 0.10057741755346111,
+    "fastTurns": 27859,
+    "ultrafastTurns": 0,
+    "byProvider": {
+      "claude": {
+        "fastTokens": 0,
+        "ultrafastTokens": 0,
+        "standardTokens": 25895496951,
+        "fastTurns": 0,
+        "ultrafastTurns": 0
+      },
+      "codex": {
+        "fastTokens": 3668435080,
+        "ultrafastTokens": 0,
+        "standardTokens": 5101623849,
+        "fastTurns": 27859,
+        "ultrafastTurns": 0
+      },
+      "agy": {
+        "fastTokens": 0,
+        "ultrafastTokens": 0,
+        "standardTokens": 0,
+        "fastTurns": 0,
+        "ultrafastTurns": 0
+      }
+    }
+  },
+  "swarmStats": {
+    "swarmCount": 3,
+    "swarmWorkerSessions": 53,
+    "swarmWorkerTokens": 507931401,
+    "swarmShareOfAgy": 0.3012935111721984,
+    "subagentTokens": 578804292,
+    "totalAgyTokens": 1685835845
   },
   "workflow": [
     {
@@ -469,17 +1010,22 @@
     {
       "severity": "high",
       "title": "Claude dominates this range",
-      "detail": "Claude accounts for 72% of selected tokens. That is the first place to look for limit pressure."
+      "detail": "Claude accounts for 71% of selected tokens. That is the first place to look for limit pressure."
     },
     {
       "severity": "high",
       "title": "Subagent token share",
-      "detail": "694 subagent sessions used 6.95B tokens (86% of range, ~$2010.59)."
+      "detail": "2593 subagent sessions used 30.18B tokens (83% of range, ~$7092.49)."
     },
     {
       "severity": "high",
       "title": "24 hour burn pace",
-      "detail": "3.86B tokens in the last 24 hours, about 160.8M tokens/hour on average."
+      "detail": "1.10B tokens in the last 24 hours, about 46.0M tokens/hour on average."
+    },
+    {
+      "severity": "high",
+      "title": "Current hour is spiking",
+      "detail": "The last hour used 115.7M tokens, well above the 24 hour average pace."
     },
     {
       "severity": "high",
@@ -489,15 +1035,26 @@
     {
       "severity": "info",
       "title": "Codex cache reuse",
-      "detail": "97% of Codex input tokens were cached in this range."
+      "detail": "98% of Codex input tokens were cached in this range."
     }
   ],
   "recommendations": [
     {
       "severity": "high",
+      "title": "Pause the current spike",
+      "target": "Last-hour usage",
+      "detail": "The last hour used 115.7M tokens, above the 24 hour average pace.",
+      "steps": [
+        "Stop broad follow-up prompts until you know which session or subagent swarm caused the spike.",
+        "Open Largest Turns, find the matching session, and split the next ask by file group or failing command.",
+        "Do not use /fast or xhigh/ultra effort again until the write set and acceptance test are explicit."
+      ]
+    },
+    {
+      "severity": "high",
       "title": "Trim subagent fan-out",
-      "target": "694 subagent sessions (86% of tokens)",
-      "detail": "Subagents consumed 6.95B tokens in this range. Each spawned subagent builds its own context window.",
+      "target": "2593 subagent sessions (83% of tokens)",
+      "detail": "Subagents consumed 30.18B tokens in this range. Each spawned subagent builds its own context window.",
       "steps": [
         "Keep routine multi-file changes with one implementation owner.",
         "Pass subagents exact file paths and line ranges instead of letting every worker search the repo.",
@@ -508,7 +1065,7 @@
       "severity": "info",
       "title": "Route mechanical sweeps to Codex",
       "target": "Provider split",
-      "detail": "Claude is 72% of selected tokens.",
+      "detail": "Claude is 71% of selected tokens.",
       "steps": [
         "Use Codex (GPT-6.1 Terra or GPT-6 Luna) for repo search, mechanical edits, and test-loop fixes.",
         "Bring GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, or Opus 5.5 the narrowed result for architecture, UX, or review decisions."
@@ -517,7 +1074,7 @@
     {
       "severity": "info",
       "title": "Step down from frontier models after planning",
-      "target": "6.67B frontier (Astra / Sol / Fable / Opus) tokens",
+      "target": "24.58B frontier (Astra / Sol / Fable / Opus) tokens",
       "detail": "GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Opus 5.5 are best spent on ambiguity and review. Once scope is clear, execute on Terra, Luna, Sonnet 5.5, or Haiku 5.5.",
       "steps": [
         "Ask Sol or Opus 5.5 for the write set, risks, and acceptance criteria.",

@@ -17,6 +17,15 @@ async function main(){
   assert.equal(codexUsage({rateLimits:{limitId:'codex',primary:{usedPercent:45,windowDurationMins:10080,resetsAt:Date.parse('2026-11-15T13:38:43Z')/1000}}},NOW).observations[0].windowMinutes,10080);
   const agy=agyUsage('Gemini Models\tWeekly Limit Remaining\t100%\t2026-11-15T20:00:00Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t87%\t2026-11-15T06:17:03Z',NOW);
   assert.equal(agy.observations[0].usedPercent,0);assert.equal(agy.observations[1].usedPercent,13);
+  assert.deepEqual(agy.retiredWindowIds,[],'Argon window must not be retired when Argon row is present');
+  const agyModern=agyUsage('Gemini Models\tWeekly Limit Remaining\t73%\t2026-11-15T20:00:00Z\nClaude and GPT models\tWeekly Limit Remaining\t97%\t2026-11-15T20:00:00Z',NOW);
+  assert.deepEqual(agyModern.retiredWindowIds,['gemini-argon:weekly'],'missing Argon row with gemini:weekly must retire stale gemini-argon:weekly');
+  const claudeWithBreakdown=claudeUsage({seven_day:{utilization:100,resets_at:RESET},seven_day_breakdown:{rows:[{key:'claude_code',display_name:'PRIVATE_PROSE',percent:100,percent_of_limit:100},{key:'chat',display_name:'Chats',percent:0,percent_of_limit:0}]}},NOW);
+  assert.equal(claudeWithBreakdown.claudeBreakdown.length,2);
+  assert.equal(claudeWithBreakdown.claudeBreakdown[0].label,'Claude Code');
+  assert.ok(!JSON.stringify(claudeWithBreakdown).includes('PRIVATE_PROSE'),'breakdown must never forward arbitrary prose');
+  const codexWithPlan=codexUsage({rateLimits:{limitId:'codex',planType:'pro',primary:{usedPercent:45,windowDurationMins:10080,resetsAt:Date.parse('2026-11-15T13:38:43Z')/1000}}},NOW);
+  assert.equal(codexWithPlan.planType,'pro');
   assert.throws(()=>agyUsage('Unexpected quota format',NOW));
   const sanitized=sanitizeStatus({email:'PRIVATE_EMAIL',cwd:'PRIVATE_PATH',session_id:'PRIVATE_SESSION',quota:{'gemini-weekly':{remaining_fraction:.87,reset_time:RESET}},cost:{total_usd:1.2}},'agy',NOW);
   assert.equal(sanitized.observations[0].usedPercent,13);assert.ok(!JSON.stringify(sanitized).includes('PRIVATE_'));
@@ -43,10 +52,18 @@ async function main(){
   assert.equal(requestReserve({contextWindow:100000},policy),null);
   const reserve=requestReserve(model,policy),leases=new Map([['pending',{billing:'api',taskId:'test-task',reserveUsd:reserve,day:'2026-11-08',expiresAt:NOW-100}]]);
   assert.equal(checkApiBudget(state,leases,'test-task',model,policy,NOW).code,'api-budget','expired unknown requests still reserve dollars');
-  const insight=buildUsageInsights([{provider:'codex',sessionId:'one',timestampMs:NOW,totalTokens:200000,tokens:{inputTokens:200000,cachedInputTokens:180000},isSubagent:true,reasoningEffort:'ultra',costKnown:false}],[],NOW);
+  const insight=buildUsageInsights([
+    {provider:'codex',sessionId:'one',timestampMs:NOW,totalTokens:200000,tokens:{inputTokens:200000,cachedInputTokens:180000},isSubagent:true,reasoningEffort:'ultra',serviceTier:'fast',costKnown:false},
+    {provider:'agy',sessionId:'swarm-w1',timestampMs:NOW,totalTokens:200000,tokens:{inputTokens:20000,cacheReadInputTokens:170000,outputTokens:10000},isSubagent:true,subagentKind:'swarm_worker',swarmId:'swarm-1',reasoningEffort:'xhigh',costKnown:false},
+  ],[],NOW);
+  assert.deepEqual(insight.providers.map(p=>p.provider),['claude','codex','agy'],'providers order keeps claude=0, codex=1, agy=2');
   assert.equal(insight.providers[1].metrics[1].percent,100);assert.equal(insight.providers[0].metrics[0].percent,null);
   assert.equal(insight.providers[1].metrics.find(m=>m.id==='cache').percent,90,'Codex cached input is a subset of input, not another added token count');
+  assert.equal(insight.providers[1].metrics.find(m=>m.id==='fast').percent,100,'Codex /fast share recorded');
   assert.equal(insight.providers[1].inputTokens,200000);
+  assert.equal(insight.providers[2].metrics.find(m=>m.id==='swarm').percent,100,'AGY /swarm share recorded');
+  assert.equal(insight.providers[2].metrics.find(m=>m.id==='context').percent,100,'AGY disjoint cacheReadInputTokens counts toward >150k input context');
+  assert.equal(insight.providers[2].metrics.find(m=>m.id==='cache').percent,89.5,'AGY disjoint cache read share');
   const cachedContext=buildUsageInsights([{provider:'claude',sessionId:'cache-window',timestampMs:NOW,totalTokens:160010,tokens:{inputTokens:10000,cacheCreationInputTokens:20000,cacheCreation1hInputTokens:130000,outputTokens:10}}],[],NOW);
   assert.equal(cachedContext.providers[0].metrics[1].percent,100,'one-hour cache writes contribute to Claude input context');
   console.log('Collectors: native quota formats, auth privacy, RPC, backoff, scoped limits, cost reservations and insights passed');

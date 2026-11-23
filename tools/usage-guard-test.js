@@ -15,6 +15,14 @@ async function run() {
   assert.throws(()=>observation({...row(),observedAt:new Date(NOW+HOUR).toISOString()},NOW));
   assert.throws(()=>cleanPolicy({reservePercent:101}));
   assert.throws(()=>cleanPolicy({providerOrder:['claude','claude','codex']}));
+  assert.equal(cleanPolicy({maxThinkingLevel:'xhigh'}).maxThinkingLevel,'xhigh','xhigh thinking ceiling is allowed');
+  assert.equal(cleanPolicy().maxThinkingLevel,'medium','default thinking ceiling remains medium');
+  assert.throws(()=>cleanPolicy({maxThinkingLevel:'invalid'}));
+  const xhighPreserve=state([row()]);xhighPreserve.policy.usageMode='preserve';xhighPreserve.policy.maxThinkingLevel='xhigh';
+  assert.equal(buildPlan(xhighPreserve,NOW).policy.maxThinkingLevel,'low','preserve mode clamps xhigh down to low');
+  const {defaultBindings}=require('./guard-advisor');
+  assert.equal(defaultBindings([{group:'agy',provider:'antigravity',id:'gemini-4-argon',auth:'subscription'},{group:'agy',provider:'antigravity',id:'gemini-4-neon',auth:'subscription'}],{}).agy.model,'gemini-4-neon','defaultBindings prefers neon over argon');
+  assert.equal(defaultBindings([{group:'codex',provider:'openai',id:'gpt-6-astra',auth:'subscription'},{group:'codex',provider:'openai',id:'gpt-6.1-terra',auth:'subscription'}],{}).codex.model,'gpt-6.1-terra','defaultBindings prefers terra over astra');
   const normal=buildPlan(state([row()]),NOW);
   assert.equal(normal.providers[0].status,'ready');
   assert.equal(normal.providers[0].windows[0].safePercentPerDay,20);

@@ -61,6 +61,19 @@ const CLAUDE_PRICING = [
     role: "Legacy high-capability reasoning and review (Opus 4.5-4.8)",
   },
   {
+    match: /fable-?5[.-]2/i,
+    id: "claude-fable-5-2",
+    label: "Claude Fable 5.2",
+    input: null,
+    cacheWrite5m: null,
+    cacheWrite1h: null,
+    cacheRead: null,
+    output: null,
+    pricingKnown: false,
+    contextWindow: 1000000,
+    role: "Latest Fable tier for demanding reasoning and long-horizon agentic work (API pricing unverified)",
+  },
+  {
     match: /fable-?5[.-]1/i,
     id: "claude-fable-5-1",
     label: "Claude Fable 5.1",
@@ -177,6 +190,30 @@ const CLAUDE_PRICING = [
 ];
 
 const OPENAI_PRICING = [
+  {
+    match: /^gpt-6\.2-astra/i,
+    id: "gpt-6.2-astra",
+    label: "GPT-6.2 Astra",
+    input: null,
+    cachedInput: null,
+    output: null,
+    pricingKnown: false,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Latest Astra tier for demanding reasoning and coding (API pricing unverified)",
+  },
+  {
+    match: /^gpt-6\.2-sol/i,
+    id: "gpt-6.2-sol",
+    label: "GPT-6.2 Sol",
+    input: null,
+    cachedInput: null,
+    output: null,
+    pricingKnown: false,
+    contextWindow: 1050000,
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+    role: "Latest Sol tier with fast and ultrafast speed tiers (API pricing unverified)",
+  },
   {
     match: /^gpt-6-astra/i,
     id: "gpt-6-astra",
@@ -414,50 +451,125 @@ const OPENAI_PRICING = [
   },
 ];
 
+const AGY_PRICING = [
+  {
+    match: /^gemini-4-neon/i,
+    id: "gemini-4-neon",
+    label: "Gemini 4 Neon",
+    contextWindow: 1000000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    pricingKnown: false,
+    role: "Antigravity flagship Gemini 4 model for deep reasoning and /swarm orchestration",
+  },
+  {
+    match: /^gemini-4-carbon/i,
+    id: "gemini-4-carbon",
+    label: "Gemini 4 Carbon",
+    contextWindow: 1000000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    pricingKnown: false,
+    role: "Antigravity balanced Gemini 4 coding and implementation model",
+  },
+  {
+    match: /^gemini-4-argon/i,
+    id: "gemini-4-argon",
+    label: "Gemini 4 Argon",
+    contextWindow: 1000000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    pricingKnown: false,
+    role: "Antigravity Gemini 4 Argon model",
+  },
+  {
+    match: /^gemini-4-hydrogen/i,
+    id: "gemini-4-hydrogen",
+    label: "Gemini 4 Hydrogen",
+    contextWindow: 1000000,
+    efforts: ["low", "medium", "high", "xhigh"],
+    pricingKnown: false,
+    role: "Antigravity fast Gemini 4 tiered execution model",
+  },
+  {
+    match: /^gemini-3[.-]8-flash/i,
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
+    contextWindow: 1000000,
+    efforts: ["low", "medium", "high"],
+    pricingKnown: false,
+    role: "Antigravity low-latency Flash model for quick tasks and subagents",
+  },
+];
+
 function buildModelCatalog(observedModels) {
-  const claudeRows = CLAUDE_PRICING.map((item) => ({
-    provider: "claude",
+  const claudeRows = CLAUDE_PRICING.map((item) => {
+    const knownPrice = item.pricingKnown !== false && item.input != null && item.output != null;
+    return {
+      provider: "claude",
+      id: item.id,
+      label: item.label,
+      inputPer1M: knownPrice ? item.input : null,
+      cachedInputPer1M: knownPrice ? item.cacheRead : null,
+      cacheWrite5mPer1M: knownPrice ? item.cacheWrite5m : null,
+      outputPer1M: knownPrice ? item.output : null,
+      longContextThreshold: knownPrice ? (item.longContextThreshold || 0) : 0,
+      longContextInputPer1M: knownPrice && item.longContextInput != null ? item.longContextInput : null,
+      longContextCachedInputPer1M: knownPrice && item.longContextCacheRead != null ? item.longContextCacheRead : null,
+      longContextOutputPer1M: knownPrice && item.longContextOutput != null ? item.longContextOutput : null,
+      creditInputPer1M: null,
+      creditCachedInputPer1M: null,
+      creditOutputPer1M: null,
+      contextWindow: item.contextWindow || 200000,
+      efforts: [],
+      estimated: Boolean(item.estimated),
+      pricingKnown: knownPrice,
+      role: item.role || "",
+    };
+  });
+  const codexRows = OPENAI_PRICING.map((item) => {
+    const knownPrice = item.pricingKnown !== false && item.input != null && item.output != null;
+    return {
+      provider: "codex",
+      id: item.id,
+      label: item.label,
+      inputPer1M: knownPrice ? item.input : null,
+      cachedInputPer1M: knownPrice ? item.cachedInput : null,
+      cacheWrite5mPer1M: null,
+      outputPer1M: knownPrice ? item.output : null,
+      longContextThreshold: knownPrice && item.longContextInput != null ? OPENAI_LONG_CONTEXT_THRESHOLD : 0,
+      longContextInputPer1M: knownPrice && item.longContextInput != null ? item.longContextInput : null,
+      longContextCachedInputPer1M: knownPrice && item.longContextCachedInput != null ? item.longContextCachedInput : null,
+      longContextOutputPer1M: knownPrice && item.longContextOutput != null ? item.longContextOutput : null,
+      creditInputPer1M: item.creditInput == null ? null : item.creditInput,
+      creditCachedInputPer1M: item.creditCachedInput == null ? null : item.creditCachedInput,
+      creditOutputPer1M: item.creditOutput == null ? null : item.creditOutput,
+      contextWindow: item.contextWindow || 272000,
+      efforts: item.efforts || [],
+      estimated: Boolean(item.estimated),
+      pricingKnown: knownPrice,
+      role: item.role || "",
+    };
+  });
+  const agyRows = AGY_PRICING.map((item) => ({
+    provider: "agy",
     id: item.id,
     label: item.label,
-    inputPer1M: item.input,
-    cachedInputPer1M: item.cacheRead,
-    cacheWrite5mPer1M: item.cacheWrite5m,
-    outputPer1M: item.output,
-    longContextThreshold: item.longContextThreshold || 0,
-    longContextInputPer1M: item.longContextInput == null ? null : item.longContextInput,
-    longContextCachedInputPer1M: item.longContextCacheRead == null ? null : item.longContextCacheRead,
-    longContextOutputPer1M: item.longContextOutput == null ? null : item.longContextOutput,
+    inputPer1M: null,
+    cachedInputPer1M: null,
+    cacheWrite5mPer1M: null,
+    outputPer1M: null,
+    longContextThreshold: 0,
+    longContextInputPer1M: null,
+    longContextCachedInputPer1M: null,
+    longContextOutputPer1M: null,
     creditInputPer1M: null,
     creditCachedInputPer1M: null,
     creditOutputPer1M: null,
-    contextWindow: item.contextWindow || 200000,
-    efforts: [],
-    estimated: Boolean(item.estimated),
-    pricingKnown: true,
-    role: item.role || "",
-  }));
-  const codexRows = OPENAI_PRICING.map((item) => ({
-    provider: "codex",
-    id: item.id,
-    label: item.label,
-    inputPer1M: item.input,
-    cachedInputPer1M: item.cachedInput,
-    cacheWrite5mPer1M: null,
-    outputPer1M: item.output,
-    longContextThreshold: item.longContextInput == null ? 0 : OPENAI_LONG_CONTEXT_THRESHOLD,
-    longContextInputPer1M: item.longContextInput == null ? null : item.longContextInput,
-    longContextCachedInputPer1M: item.longContextCachedInput == null ? null : item.longContextCachedInput,
-    longContextOutputPer1M: item.longContextOutput == null ? null : item.longContextOutput,
-    creditInputPer1M: item.creditInput == null ? null : item.creditInput,
-    creditCachedInputPer1M: item.creditCachedInput == null ? null : item.creditCachedInput,
-    creditOutputPer1M: item.creditOutput == null ? null : item.creditOutput,
-    contextWindow: item.contextWindow || 272000,
+    contextWindow: item.contextWindow || 1000000,
     efforts: item.efforts || [],
-    estimated: Boolean(item.estimated),
-    pricingKnown: true,
+    estimated: false,
+    pricingKnown: false,
     role: item.role || "",
   }));
-  const rows = [...claudeRows, ...codexRows];
+  const rows = [...claudeRows, ...codexRows, ...agyRows];
   const known = new Set(rows.map((row) => `${row.provider}:${row.id}`));
   for (const observed of observedModels || []) {
     const provider = String(observed.provider || "imported").toLowerCase();
@@ -467,10 +579,11 @@ function buildModelCatalog(observedModels) {
       continue;
     }
     known.add(key);
+    const agyMatch = provider === "agy" ? findAgyPricing(id) : null;
     rows.push({
       provider,
       id,
-      label: id,
+      label: agyMatch ? `${agyMatch.label} (${id})` : id,
       inputPer1M: null,
       cachedInputPer1M: null,
       cacheWrite5mPer1M: null,
@@ -482,11 +595,13 @@ function buildModelCatalog(observedModels) {
       creditInputPer1M: null,
       creditCachedInputPer1M: null,
       creditOutputPer1M: null,
-      contextWindow: 0,
-      efforts: [],
+      contextWindow: agyMatch ? (agyMatch.contextWindow || 1000000) : 0,
+      efforts: agyMatch ? (agyMatch.efforts || []) : [],
       estimated: false,
       pricingKnown: false,
-      role: "Observed in local usage; pricing is not configured for this model ID.",
+      role: agyMatch
+        ? agyMatch.role
+        : "Observed in local usage; pricing is not configured for this model ID.",
     });
   }
   return rows;
@@ -659,14 +774,25 @@ function applySessionIdentityToEvents(session) {
   }
 }
 
-function cacheHitRatio(tokens) {
-  const cached = numberValue(tokens.cachedInputTokens) + numberValue(tokens.cacheReadInputTokens);
-  const inputLike = numberValue(tokens.inputTokens)
-    + numberValue(tokens.cachedInputTokens)
-    + numberValue(tokens.cacheCreationInputTokens)
-    + numberValue(tokens.cacheCreation1hInputTokens)
-    + numberValue(tokens.cacheReadInputTokens);
-  return inputLike > 0 ? cached / inputLike : 0;
+function cacheHitRatio(tokens, provider) {
+  const input = numberValue(tokens.inputTokens);
+  const cachedSubset = Math.min(input, numberValue(tokens.cachedInputTokens));
+  const cacheRead = numberValue(tokens.cacheReadInputTokens);
+  const cacheWrite = numberValue(tokens.cacheCreationInputTokens)
+    + numberValue(tokens.cacheCreation1hInputTokens);
+  const cached = provider === "codex"
+    ? cachedSubset
+    : provider === "claude" || provider === "agy"
+      ? cacheRead
+      : cachedSubset + cacheRead;
+  // Codex inputTokens already includes cachedInputTokens and cache_write_input_tokens;
+  // Claude and AGY report cache reads/writes disjoint from inputTokens.
+  const total = numberValue(tokens.totalTokens);
+  const output = numberValue(tokens.outputTokens);
+  const codexInclusive = provider === "codex"
+    || (!provider && cachedSubset > 0 && cacheRead === 0 && total > 0 && input + output === total);
+  const inputLike = codexInclusive ? input : (input + cacheWrite + cacheRead);
+  return inputLike > 0 ? Math.min(1, cached / inputLike) : 0;
 }
 
 function emptyTokens() {
@@ -788,10 +914,44 @@ function findOpenAiPricing(model) {
   return OPENAI_PRICING.find((pricing) => pricing.match.test(modelName)) || null;
 }
 
+function findAgyPricing(model) {
+  const modelName = String(model || "");
+  return AGY_PRICING.find((pricing) => pricing.match.test(modelName)) || null;
+}
+
+const MODEL_EFFORT_SUFFIX = /-(xhigh|high|medium|low|max|ultra)$/i;
+
+function extractEffortFromModel(model) {
+  const match = MODEL_EFFORT_SUFFIX.exec(String(model || "").trim());
+  return match ? match[1].toLowerCase() : "";
+}
+
+function normalizeSpeed(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw === "ultrafast" || raw === "ultra_fast" || raw === "ultra-fast") return "ultrafast";
+  if (raw === "fast" || raw === "priority") return "fast";
+  if (raw === "standard" || raw === "default") return "standard";
+  return "";
+}
+
+function pickSpeed(...values) {
+  let fallback = "";
+  for (const value of values) {
+    const normalized = normalizeSpeed(value);
+    if (normalized === "ultrafast") return "ultrafast";
+    if (normalized === "fast") return "fast";
+    if (normalized && !fallback) fallback = normalized;
+  }
+  return fallback;
+}
+
 function estimateCost(provider, model, tokens) {
   if (provider === "claude") {
     const pricing = findClaudePricing(model);
-    if (!pricing) return { usd: 0, known: false, label: "Unknown Claude model" };
+    if (!pricing || pricing.pricingKnown === false || pricing.input == null || pricing.output == null) {
+      return { usd: 0, known: false, label: pricing ? pricing.label : "Unknown Claude model" };
+    }
     const promptTokens = numberValue(tokens.inputTokens)
       + numberValue(tokens.cacheCreationInputTokens)
       + numberValue(tokens.cacheCreation1hInputTokens)
@@ -820,7 +980,9 @@ function estimateCost(provider, model, tokens) {
 
   if (provider === "codex") {
     const pricing = findOpenAiPricing(model);
-    if (!pricing) return { usd: 0, known: false, label: "Unknown OpenAI model" };
+    if (!pricing || pricing.pricingKnown === false || pricing.input == null || pricing.output == null) {
+      return { usd: 0, known: false, label: pricing ? pricing.label : "Unknown OpenAI model" };
+    }
     const input = numberValue(tokens.inputTokens);
     const cached = Math.min(numberValue(tokens.cachedInputTokens), input);
     const uncached = Math.max(0, input - cached);
@@ -840,6 +1002,11 @@ function estimateCost(provider, model, tokens) {
       estimated: Boolean(pricing.estimated),
       pricingTier: isLongContext ? "long" : "standard",
     };
+  }
+
+  if (provider === "agy") {
+    const pricing = findAgyPricing(model);
+    return { usd: 0, known: false, label: pricing ? pricing.label : "Antigravity model" };
   }
 
   return { usd: 0, known: false, label: "Unknown provider" };
@@ -899,6 +1066,10 @@ function normalizeClaudeUsage(usage) {
   }
   tokens.cacheCreationInputTokens = fiveMinute;
   tokens.cacheCreation1hInputTokens = oneHour;
+  tokens.reasoningOutputTokens = numberValue(
+    usage.thinking_tokens
+      || (usage.output_tokens_details && usage.output_tokens_details.thinking_tokens),
+  );
 
   tokens.totalTokens = tokenTotal(tokens);
   return tokens;
@@ -909,9 +1080,20 @@ function normalizeCodexUsage(usage) {
   if (!usage || typeof usage !== "object") return tokens;
   tokens.inputTokens = numberValue(usage.input_tokens);
   tokens.cachedInputTokens = numberValue(usage.cached_input_tokens);
+  tokens.cacheCreationInputTokens = numberValue(usage.cache_write_input_tokens);
   tokens.outputTokens = numberValue(usage.output_tokens);
   tokens.reasoningOutputTokens = numberValue(usage.reasoning_output_tokens);
   tokens.totalTokens = numberValue(usage.total_tokens) || (tokens.inputTokens + tokens.outputTokens);
+  return tokens;
+}
+
+function normalizeAgyUsage(record) {
+  const tokens = emptyTokens();
+  if (!record || typeof record !== "object") return tokens;
+  tokens.inputTokens = numberValue(record.input_tokens);
+  tokens.cacheReadInputTokens = numberValue(record.cache_read_tokens);
+  tokens.outputTokens = numberValue(record.output_tokens);
+  tokens.totalTokens = tokens.inputTokens + tokens.cacheReadInputTokens + tokens.outputTokens;
   return tokens;
 }
 
@@ -1056,6 +1238,7 @@ function diffCodexTotals(current, previous) {
   const prior = previous || {};
   out.inputTokens = Math.max(0, numberValue(current.input_tokens) - numberValue(prior.input_tokens));
   out.cachedInputTokens = Math.max(0, numberValue(current.cached_input_tokens) - numberValue(prior.cached_input_tokens));
+  out.cacheCreationInputTokens = Math.max(0, numberValue(current.cache_write_input_tokens) - numberValue(prior.cache_write_input_tokens));
   out.outputTokens = Math.max(0, numberValue(current.output_tokens) - numberValue(prior.output_tokens));
   out.reasoningOutputTokens = Math.max(0, numberValue(current.reasoning_output_tokens) - numberValue(prior.reasoning_output_tokens));
   out.totalTokens = Math.max(0, numberValue(current.total_tokens) - numberValue(prior.total_tokens));
@@ -1104,9 +1287,11 @@ function createSession(provider, fileInfo, root) {
     agentId: subagentInfo.agentId || "",
     isSubagent: subagentInfo.isSubagent,
     subagentKind: subagentInfo.isSubagent ? "sidechain" : "",
+    swarmId: "",
     liveStatus: "",
     livePid: 0,
     reasoningEffort: "",
+    serviceTier: "",
     sourceType: "jsonl",
     file: filePath,
     relativeFile: relPath,
@@ -1139,6 +1324,16 @@ function addEvent(session, event) {
   session.model = session.model === "unknown" && event.model ? event.model : session.model;
   if (!session.reasoningEffort && event.reasoningEffort) {
     session.reasoningEffort = event.reasoningEffort;
+  }
+  const eventSpeed = pickSpeed(event.serviceTier, event.speed);
+  if (eventSpeed) {
+    session.serviceTier = pickSpeed(session.serviceTier, eventSpeed);
+  }
+  if (!session.swarmId && event.swarmId) {
+    session.swarmId = event.swarmId;
+  }
+  if (!session.subagentKind && event.subagentKind) {
+    session.subagentKind = event.subagentKind;
   }
   addTokens(session.tokens, event.tokens);
   session.costUsd += event.costUsd;
@@ -1373,6 +1568,7 @@ async function parseClaude(root, sinceMs, options) {
     const session = createSession("claude", fileInfo, root);
     const eventsByMessageId = new Map();
     let sessionSlug = "";
+    let lastRequestEffort = "";
     let turnIndex = 0;
     try {
       await readJsonLines(fileInfo.path, (record) => {
@@ -1412,6 +1608,9 @@ async function parseClaude(root, sinceMs, options) {
         if (record.type === "agent-name") {
           setSessionTitle(session, record.agentName, "Claude agent name", 4);
         }
+        if (record.type === "api-request" && record.params && record.params.output_config && record.params.output_config.effort) {
+          lastRequestEffort = sanitizeSessionTitle(record.params.output_config.effort, 24).toLowerCase();
+        }
 
         const message = record.message && typeof record.message === "object" ? record.message : null;
         const usage = message && message.usage ? message.usage : null;
@@ -1423,10 +1622,25 @@ async function parseClaude(root, sinceMs, options) {
         if (tokenTotal(tokens) <= 0) {
           return;
         }
+        const rawEffort = record.effort
+          || record.perTurnEffort
+          || (message.output_config && message.output_config.effort)
+          || lastRequestEffort
+          || "";
+        const reasoningEffort = sanitizeSessionTitle(rawEffort, 24).toLowerCase();
+        const serviceTier = pickSpeed(usage.speed, usage.service_tier);
         const usageId = String(message.id || record.requestId || "");
         const existingEvent = usageId ? eventsByMessageId.get(usageId) : null;
         if (existingEvent) {
           duplicateUsageRecords += 1;
+          if (!existingEvent.reasoningEffort && reasoningEffort) {
+            existingEvent.reasoningEffort = reasoningEffort;
+            if (!session.reasoningEffort) session.reasoningEffort = reasoningEffort;
+          }
+          if (serviceTier) {
+            existingEvent.serviceTier = pickSpeed(existingEvent.serviceTier, serviceTier);
+            session.serviceTier = pickSpeed(session.serviceTier, existingEvent.serviceTier);
+          }
           if (growEventTokens(session, existingEvent, tokens)) {
             mergedUsageRecords += 1;
           }
@@ -1445,12 +1659,15 @@ async function parseClaude(root, sinceMs, options) {
           sessionId: session.id,
           parentSessionId: session.parentSessionId || "",
           isSubagent: Boolean(session.isSubagent),
+          subagentKind: session.subagentKind || "",
+          swarmId: "",
           turnIndex,
           file: session.relativeFile,
           project: session.project,
           cwd: session.cwd,
           model,
-          reasoningEffort: "",
+          reasoningEffort,
+          serviceTier,
           timestampMs,
           timestamp: new Date(timestampMs).toISOString(),
           date: localDateKey(timestampMs),
@@ -1611,6 +1828,7 @@ async function parseCodex(root, sinceMs, options) {
     let sessionMetaSeen = false;
     let rootSessionId = "";
     let forked = false;
+    let currentServiceTier = "";
     const touchTimestamp = (timestampMs) => {
       session.startMs = session.startMs ? Math.min(session.startMs, timestampMs) : timestampMs;
       session.endMs = Math.max(session.endMs || 0, timestampMs);
@@ -1620,7 +1838,7 @@ async function parseCodex(root, sinceMs, options) {
       if (!head) return false;
       const type = head[2];
       if (type === "session_meta" || type === "turn_context") return false;
-      if (type === "event_msg" && (!head[3] || head[3] === "token_count")) return false;
+      if (type === "event_msg" && (!head[3] || head[3] === "token_count" || head[3] === "thread_settings_applied")) return false;
       if (line.includes("rate_limit")) return false;
       touchTimestamp(parseTimestampMs(head[1], fileInfo.mtimeMs || Date.now()));
       return true;
@@ -1675,6 +1893,10 @@ async function parseCodex(root, sinceMs, options) {
           if (metaEffort && (ownMeta || !session.reasoningEffort)) {
             session.reasoningEffort = metaEffort;
           }
+          const metaTier = pickSpeed(payload.service_tier, payload.serviceTier, payload.speed);
+          if (metaTier && (ownMeta || !currentServiceTier)) {
+            currentServiceTier = metaTier;
+          }
           return;
         }
 
@@ -1689,6 +1911,38 @@ async function parseCodex(root, sinceMs, options) {
           const turnEffort = codexReasoningEffort(payload);
           if (turnEffort) {
             session.reasoningEffort = turnEffort;
+          }
+          const collabSettings = payload.collaboration_mode && payload.collaboration_mode.settings;
+          const turnTier = pickSpeed(
+            payload.service_tier,
+            payload.serviceTier,
+            payload.speed,
+            collabSettings && collabSettings.service_tier,
+          );
+          if (turnTier) {
+            currentServiceTier = turnTier;
+          }
+          return;
+        }
+
+        if (record.type === "event_msg" && payload.type === "thread_settings_applied") {
+          const ts = payload.thread_settings && typeof payload.thread_settings === "object"
+            ? payload.thread_settings
+            : payload;
+          if (ts.cwd) {
+            session.cwd = String(ts.cwd);
+            session.project = path.basename(session.cwd);
+          }
+          if (ts.model) {
+            session.model = String(ts.model);
+          }
+          const tsEffort = codexReasoningEffort(ts);
+          if (tsEffort) {
+            session.reasoningEffort = tsEffort;
+          }
+          const tsTier = pickSpeed(ts.service_tier, ts.serviceTier, ts.speed);
+          if (tsTier) {
+            currentServiceTier = tsTier;
           }
           return;
         }
@@ -1740,6 +1994,7 @@ async function parseCodex(root, sinceMs, options) {
 
         turnIndex += 1;
         const model = String(info.model || payload.model || session.model || "unknown");
+        const serviceTier = pickSpeed(info.service_tier, payload.service_tier, currentServiceTier);
         const cost = estimateCost("codex", model, tokens);
         const credit = estimateCredits("codex", model, tokens);
         const event = {
@@ -1748,12 +2003,15 @@ async function parseCodex(root, sinceMs, options) {
           sessionId: session.id,
           parentSessionId: session.parentSessionId || "",
           isSubagent: Boolean(session.isSubagent),
+          subagentKind: session.subagentKind || "",
+          swarmId: "",
           turnIndex,
           file: session.relativeFile,
           project: session.project,
           cwd: session.cwd,
           model,
           reasoningEffort: session.reasoningEffort || "",
+          serviceTier,
           timestampMs,
           timestamp: new Date(timestampMs).toISOString(),
           date: localDateKey(timestampMs),
@@ -1912,6 +2170,453 @@ async function parseCodex(root, sinceMs, options) {
     events,
     errors,
     rateLimitSnapshots,
+  };
+}
+
+function listAgyTranscriptFiles(root) {
+  const out = [];
+  if (!root || !fs.existsSync(root)) return out;
+  const brainDir = path.join(root, "brain");
+  if (!fs.existsSync(brainDir)) return out;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(brainDir, { withFileTypes: true });
+  } catch (_) {
+    return out;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const transcriptPath = path.join(brainDir, entry.name, ".system_generated", "logs", "transcript.jsonl");
+    let stat = null;
+    try {
+      stat = fs.statSync(transcriptPath);
+    } catch (_) {
+      stat = null;
+    }
+    if (!stat || !stat.isFile()) continue;
+    out.push({
+      path: transcriptPath,
+      conversationId: entry.name,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+    });
+  }
+  out.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return out;
+}
+
+function extractAgyWorkspace(workspaceUris) {
+  let list = [];
+  if (Array.isArray(workspaceUris)) {
+    list = workspaceUris;
+  } else if (typeof workspaceUris === "string") {
+    const trimmed = workspaceUris.trim();
+    if (trimmed.startsWith("[")) {
+      const parsed = safeJsonParse(trimmed);
+      if (Array.isArray(parsed)) list = parsed;
+    } else if (trimmed) {
+      list = [trimmed];
+    }
+  }
+  for (const raw of list) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    let uri = raw.trim();
+    if (/^file:\/\//i.test(uri)) {
+      uri = uri.replace(/^file:\/\//i, "");
+      if (/^\/[A-Za-z]:/.test(uri)) {
+        uri = uri.slice(1);
+      }
+      try {
+        uri = decodeURIComponent(uri);
+      } catch (_) {
+        // Keep raw decoded fallback on malformed percent-encoding
+      }
+    }
+    const cleanPath = uri.replace(/[\\/]+$/, "");
+    if (!cleanPath) continue;
+    const project = sanitizeSessionTitle(path.basename(cleanPath), 64);
+    if (project) {
+      return { cwd: cleanPath, project };
+    }
+  }
+  return { cwd: "", project: "" };
+}
+
+function readAgySwarmMembers(brainDir) {
+  const membersByConversation = new Map();
+  const swarmIds = new Set();
+  if (!brainDir || !fs.existsSync(brainDir)) {
+    return { membersByConversation, swarmIds };
+  }
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(brainDir, { withFileTypes: true });
+  } catch (_) {
+    return { membersByConversation, swarmIds };
+  }
+  for (const dir of dirs) {
+    if (!dir.isDirectory()) continue;
+    const swarmDir = path.join(brainDir, dir.name, ".system_generated", "swarm");
+    const membersPath = path.join(swarmDir, "members.json");
+    if (!fs.existsSync(membersPath)) continue;
+    let membersDoc = null;
+    try {
+      membersDoc = safeJsonParse(fs.readFileSync(membersPath, "utf8"));
+    } catch (_) {
+      continue;
+    }
+    if (!membersDoc || typeof membersDoc !== "object" || !membersDoc.members || typeof membersDoc.members !== "object") {
+      continue;
+    }
+    let swarmId = dir.name;
+    const swarmJsonPath = path.join(swarmDir, "swarm.json");
+    if (fs.existsSync(swarmJsonPath)) {
+      try {
+        const swarmDoc = safeJsonParse(fs.readFileSync(swarmJsonPath, "utf8"));
+        if (swarmDoc && swarmDoc.swarm_id) {
+          swarmId = String(swarmDoc.swarm_id);
+        }
+      } catch (_) {
+        // Fallback to parent directory UUID
+      }
+    }
+    swarmIds.add(swarmId);
+    for (const [memberName, info] of Object.entries(membersDoc.members)) {
+      if (!info || typeof info !== "object" || !info.conversation_id) continue;
+      const conversationId = String(info.conversation_id);
+      const role = sanitizeSessionTitle(info.role || "", 32);
+      const isCoordinator = memberName === "coordinator"
+        || role.toLowerCase() === "coordinator"
+        || conversationId === dir.name;
+      membersByConversation.set(conversationId, {
+        swarmId,
+        parentConversationId: dir.name,
+        memberName: sanitizeSessionTitle(memberName, 48),
+        role,
+        isCoordinator,
+        model: String(info.applied_model || info.model || info.desired_model || "").trim(),
+      });
+    }
+  }
+  return { membersByConversation, swarmIds };
+}
+
+function readAgySubagents(brainDir) {
+  const subagentsByConversation = new Map();
+  if (!brainDir || !fs.existsSync(brainDir)) {
+    return subagentsByConversation;
+  }
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(brainDir, { withFileTypes: true });
+  } catch (_) {
+    return subagentsByConversation;
+  }
+  for (const dir of dirs) {
+    if (!dir.isDirectory()) continue;
+    const subDir = path.join(brainDir, dir.name, ".system_generated", "subagents");
+    if (!fs.existsSync(subDir)) continue;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(subDir, { withFileTypes: true });
+    } catch (_) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".json")) continue;
+      try {
+        const parsed = safeJsonParse(fs.readFileSync(path.join(subDir, entry.name), "utf8"));
+        if (!parsed || typeof parsed !== "object") continue;
+        const conversationId = String(parsed.conversationId || path.basename(entry.name, ".json"));
+        const descriptor = parsed.subagentDescriptor && typeof parsed.subagentDescriptor === "object"
+          ? parsed.subagentDescriptor
+          : {};
+        subagentsByConversation.set(conversationId, {
+          conversationId,
+          parentConversationId: dir.name,
+          typeName: sanitizeSessionTitle(descriptor.typeName || "", 48),
+          role: sanitizeSessionTitle(descriptor.role || "", 48),
+          state: sanitizeSessionTitle(parsed.state || "", 32),
+          workspaceUris: parsed.workspaceUris,
+        });
+      } catch (_) {
+        continue;
+      }
+    }
+  }
+  return subagentsByConversation;
+}
+
+function readAgyConversationSummaries(root) {
+  const summaries = new Map();
+  const dbPath = path.join(root, "conversation_summaries.db");
+  if (!root || !fs.existsSync(dbPath)) {
+    return summaries;
+  }
+  let db = null;
+  try {
+    const { DatabaseSync } = require("node:sqlite");
+    db = new DatabaseSync(dbPath, { readOnly: true });
+    // Read-only metadata columns ONLY: never select title, preview, or raw_summary.
+    const rows = db.prepare(`
+      SELECT
+        conversation_id,
+        step_count,
+        last_modified_time,
+        workspace_uris,
+        status,
+        project_id,
+        agent_name,
+        parent_conversation_id,
+        nesting_depth,
+        killed
+      FROM conversation_summaries
+    `).all();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (row && row.conversation_id) {
+        summaries.set(String(row.conversation_id), row);
+      }
+    }
+    return summaries;
+  } catch (_) {
+    return summaries;
+  } finally {
+    if (db) {
+      try {
+        db.close();
+      } catch (_) {
+        // Ignore close errors on read-only handle
+      }
+    }
+  }
+}
+
+const AGY_CREATED_AT_PATTERN = /"created_at"\s*:\s*"([^"]{10,40})"/;
+
+async function parseAgy(root, sinceMs, options) {
+  const opts = options || {};
+  const collect = opts.collect !== false;
+  const resolvedRoot = root || process.env.AGY_ROOT || process.env.AI_SPEND_AGY_ROOT || path.join(os.homedir(), ".gemini", "antigravity-cli");
+  if (!resolvedRoot || !fs.existsSync(resolvedRoot)) {
+    return {
+      provider: "agy",
+      root: resolvedRoot,
+      files: 0,
+      scannedFiles: 0,
+      swarms: 0,
+      sessions: [],
+      events: [],
+      errors: [],
+    };
+  }
+
+  const brainDir = path.join(resolvedRoot, "brain");
+  const files = listAgyTranscriptFiles(resolvedRoot);
+  const { membersByConversation, swarmIds } = readAgySwarmMembers(brainDir);
+  const subagentsByConversation = readAgySubagents(brainDir);
+  const summariesByConversation = readAgyConversationSummaries(resolvedRoot);
+  const sessions = [];
+  const events = [];
+  const errors = [];
+  let scannedFiles = 0;
+
+  for (const fileInfo of files) {
+    if (sinceMs && fileInfo.mtimeMs && fileInfo.mtimeMs < sinceMs - 7 * MS_PER_DAY) {
+      continue;
+    }
+    if (!fileAllowed(opts, fileInfo)) {
+      continue;
+    }
+    scannedFiles += 1;
+    if (typeof opts.onFile === "function") {
+      opts.onFile(fileInfo, scannedFiles, files.length);
+    }
+
+    const conversationId = fileInfo.conversationId;
+    const session = createSession("agy", fileInfo, resolvedRoot);
+    session.id = conversationId;
+    const swarmMeta = membersByConversation.get(conversationId) || null;
+    const subagentMeta = subagentsByConversation.get(conversationId) || null;
+    const dbMeta = summariesByConversation.get(conversationId) || null;
+
+    const workspace = extractAgyWorkspace(
+      (dbMeta && dbMeta.workspace_uris) || (subagentMeta && subagentMeta.workspaceUris),
+    );
+    session.cwd = workspace.cwd;
+    const dbProjectId = dbMeta && dbMeta.project_id && dbMeta.project_id !== "default-cli-project"
+      ? sanitizeSessionTitle(dbMeta.project_id, 64)
+      : "";
+    session.project = workspace.project || dbProjectId || "antigravity";
+
+    if (dbMeta && String(dbMeta.status || "").toUpperCase().includes("RUNNING") && !dbMeta.killed) {
+      session.liveStatus = "running";
+    }
+    if (dbMeta && numberValue(dbMeta.step_count) > 0) {
+      session.messageCount = numberValue(dbMeta.step_count);
+    }
+
+    if (swarmMeta) {
+      session.swarmId = swarmMeta.swarmId;
+      if (!swarmMeta.isCoordinator) {
+        session.isSubagent = true;
+        session.subagentKind = "swarm_worker";
+        session.parentSessionId = swarmMeta.parentConversationId || String((dbMeta && dbMeta.parent_conversation_id) || "");
+        session.agentId = swarmMeta.memberName || "";
+        setSessionTitle(session, `${swarmMeta.memberName || "worker"} (swarm) - ${session.project}`, "AGY swarm worker", 5);
+      } else {
+        setSessionTitle(session, `${session.project} (swarm coordinator)`, "AGY swarm coordinator", 4);
+      }
+    } else if (subagentMeta || (dbMeta && (numberValue(dbMeta.nesting_depth) > 0 || dbMeta.parent_conversation_id))) {
+      session.isSubagent = true;
+      session.subagentKind = "subagent";
+      session.parentSessionId = (subagentMeta && subagentMeta.parentConversationId)
+        || String((dbMeta && dbMeta.parent_conversation_id) || "");
+      const subagentLabel = sanitizeSessionTitle(
+        (dbMeta && dbMeta.agent_name) || (subagentMeta && subagentMeta.typeName) || "",
+        48,
+      );
+      session.agentId = subagentLabel;
+      setSessionTitle(
+        session,
+        `${subagentLabel || "subagent"} (AGY subagent) - ${session.project}`,
+        "AGY subagent",
+        4,
+      );
+    } else {
+      const agentLabel = sanitizeSessionTitle((dbMeta && dbMeta.agent_name) || "", 48);
+      if (agentLabel) {
+        session.agentId = agentLabel;
+        setSessionTitle(session, `${agentLabel} - ${session.project}`, "AGY agent", 3);
+      } else {
+        setSessionTitle(session, `${session.project} #${conversationId.slice(0, 8)}`, "AGY session", 2);
+      }
+    }
+
+    const fallbackModel = (swarmMeta && swarmMeta.model) || "";
+    if (fallbackModel) {
+      session.model = fallbackModel;
+    }
+
+    let currentModel = fallbackModel;
+    let turnIndex = 0;
+    const seenSteps = new Set();
+
+    const touchTimestamp = (ms) => {
+      session.startMs = session.startMs ? Math.min(session.startMs, ms) : ms;
+      session.endMs = Math.max(session.endMs || 0, ms);
+    };
+    const skipNonTokenLine = (line) => {
+      if (line.includes('"input_tokens"') || line.includes('"cache_read_tokens"') || line.includes('"output_tokens"')) {
+        return false;
+      }
+      const match = AGY_CREATED_AT_PATTERN.exec(line);
+      if (match) {
+        touchTimestamp(parseTimestampMs(match[1], fileInfo.mtimeMs || Date.now()));
+      }
+      return true;
+    };
+
+    try {
+      await readJsonLines(fileInfo.path, (record) => {
+        const timestampMs = parseTimestampMs(record.created_at || record.timestamp, fileInfo.mtimeMs || Date.now());
+        touchTimestamp(timestampMs);
+
+        if (typeof record.model === "string" && record.model.trim()) {
+          currentModel = record.model.trim();
+        }
+        const tokens = normalizeAgyUsage(record);
+        if (tokenTotal(tokens) <= 0) {
+          return;
+        }
+        if (record.step_index != null) {
+          const stepKey = String(record.step_index);
+          if (seenSteps.has(stepKey)) {
+            return;
+          }
+          seenSteps.add(stepKey);
+        }
+
+        turnIndex += 1;
+        const model = String(
+          (typeof record.model === "string" && record.model.trim())
+            || currentModel
+            || fallbackModel
+            || session.model
+            || "unknown",
+        );
+        if (model !== "unknown") {
+          session.model = model;
+          currentModel = model;
+        }
+        const reasoningEffort = sanitizeSessionTitle(
+          record.reasoning_effort || record.effort || extractEffortFromModel(model),
+          24,
+        ).toLowerCase();
+        const serviceTier = pickSpeed(record.speed, record.service_tier);
+        const cost = estimateCost("agy", model, tokens);
+        const event = {
+          provider: "agy",
+          id: `${session.id}:${turnIndex}`,
+          sessionId: session.id,
+          parentSessionId: session.parentSessionId || "",
+          isSubagent: Boolean(session.isSubagent),
+          subagentKind: session.subagentKind || "",
+          swarmId: session.swarmId || "",
+          turnIndex,
+          file: session.relativeFile,
+          project: session.project,
+          cwd: session.cwd,
+          model,
+          reasoningEffort,
+          serviceTier,
+          timestampMs,
+          timestamp: new Date(timestampMs).toISOString(),
+          date: localDateKey(timestampMs),
+          hour: localHourKey(timestampMs),
+          tokens,
+          totalTokens: tokenTotal(tokens),
+          costUsd: cost.usd,
+          costKnown: cost.known,
+          pricingLabel: cost.label,
+          pricingEstimated: Boolean(cost.estimated),
+          pricingTier: cost.pricingTier || "standard",
+          credits: 0,
+          creditKnown: false,
+        };
+        addEvent(session, event);
+      }, skipNonTokenLine);
+    } catch (err) {
+      errors.push({ file: fileInfo.path, error: err && err.message ? err.message : String(err) });
+    }
+
+    if (session.eventCount > 0) {
+      for (const event of session.events) {
+        if ((!event.model || event.model === "unknown") && session.model && session.model !== "unknown") {
+          event.model = session.model;
+          const cost = estimateCost("agy", event.model, event.tokens);
+          event.pricingLabel = cost.label;
+        }
+        if (!event.reasoningEffort && event.model && event.model !== "unknown") {
+          event.reasoningEffort = extractEffortFromModel(event.model);
+        }
+      }
+      if (!session.reasoningEffort && session.model && session.model !== "unknown") {
+        session.reasoningEffort = extractEffortFromModel(session.model);
+      }
+      applySessionIdentityToEvents(session);
+      emitSession(opts, collect, sessions, events, session);
+    }
+  }
+
+  return {
+    provider: "agy",
+    root: resolvedRoot,
+    files: files.length,
+    scannedFiles,
+    swarms: swarmIds.size,
+    sessions,
+    events,
+    errors,
   };
 }
 
@@ -2085,9 +2790,11 @@ function finalizeSession(session) {
     agentId: session.agentId || "",
     isSubagent: Boolean(session.isSubagent),
     subagentKind: session.subagentKind || "",
+    swarmId: session.swarmId || "",
     liveStatus: session.liveStatus || "",
     livePid: session.livePid || 0,
     reasoningEffort: session.reasoningEffort || "",
+    serviceTier: session.serviceTier || "",
     sourceType: session.sourceType || "jsonl",
     file: session.relativeFile,
     project: session.project || "",
@@ -2105,7 +2812,7 @@ function finalizeSession(session) {
     messageCount: session.messageCount,
     tokens,
     totalTokens: tokenTotal(tokens),
-    cacheHitRatio: cacheHitRatio(tokens),
+    cacheHitRatio: cacheHitRatio(tokens, session.provider),
     costUsd: session.costUsd,
     knownCostUsd: session.knownCostUsd,
     unknownCostTokens: session.unknownCostTokens,
@@ -2141,6 +2848,8 @@ function compactEvent(event) {
     sessionId: event.sessionId,
     parentSessionId: event.parentSessionId || "",
     isSubagent: Boolean(event.isSubagent),
+    subagentKind: event.subagentKind || "",
+    swarmId: event.swarmId || "",
     turnIndex: event.turnIndex,
     file: event.file,
     project: event.project,
@@ -2150,6 +2859,7 @@ function compactEvent(event) {
     nameSource: event.nameSource || "",
     model: event.model,
     reasoningEffort: event.reasoningEffort || "",
+    serviceTier: event.serviceTier || "",
     timestamp: event.timestamp,
     timestampMs: event.timestampMs,
     totalTokens: event.totalTokens,
@@ -2200,6 +2910,102 @@ function buildSubagentStats(sessions, events, totalTokens) {
     mainSessionCount,
     subagentShare: totalTokens > 0 ? subagentTokens / totalTokens : 0,
     effortTotals: Array.from(effortMap.values()).sort((a, b) => b.totalTokens - a.totalTokens),
+  };
+}
+
+function buildSpeedStats(events, totalTokens) {
+  let fastTokens = 0;
+  let ultrafastTokens = 0;
+  let standardTokens = 0;
+  let unknownSpeedTokens = 0;
+  let fastTurns = 0;
+  let ultrafastTurns = 0;
+  const byProvider = {};
+
+  for (const event of events) {
+    const tokens = numberValue(event.totalTokens);
+    const provider = String(event.provider || "unknown");
+    const tier = pickSpeed(event.serviceTier, event.speed);
+    if (!byProvider[provider]) {
+      byProvider[provider] = {
+        provider,
+        fastTokens: 0,
+        ultrafastTokens: 0,
+        standardTokens: 0,
+        unknownSpeedTokens: 0,
+        fastTurns: 0,
+        ultrafastTurns: 0,
+        totalTokens: 0,
+        fastShare: 0,
+      };
+    }
+    const row = byProvider[provider];
+    row.totalTokens += tokens;
+    if (tier === "ultrafast") {
+      ultrafastTokens += tokens;
+      ultrafastTurns += 1;
+      row.ultrafastTokens += tokens;
+      row.ultrafastTurns += 1;
+    } else if (tier === "fast") {
+      fastTokens += tokens;
+      fastTurns += 1;
+      row.fastTokens += tokens;
+      row.fastTurns += 1;
+    } else if (tier === "standard") {
+      standardTokens += tokens;
+      row.standardTokens += tokens;
+    } else {
+      unknownSpeedTokens += tokens;
+      row.unknownSpeedTokens += tokens;
+    }
+  }
+
+  for (const row of Object.values(byProvider)) {
+    row.fastShare = row.totalTokens > 0 ? (row.fastTokens + row.ultrafastTokens) / row.totalTokens : 0;
+  }
+
+  return {
+    fastTokens,
+    ultrafastTokens,
+    standardTokens,
+    unknownSpeedTokens,
+    fastShare: totalTokens > 0 ? (fastTokens + ultrafastTokens) / totalTokens : 0,
+    fastTurns,
+    ultrafastTurns,
+    byProvider,
+  };
+}
+
+function buildSwarmStats(sessions) {
+  const swarmIds = new Set();
+  let swarmWorkerSessions = 0;
+  let swarmWorkerTokens = 0;
+  let subagentTokens = 0;
+  let totalAgyTokens = 0;
+
+  for (const session of sessions) {
+    if (session.provider !== "agy") continue;
+    const tokens = numberValue(session.totalTokens);
+    totalAgyTokens += tokens;
+    if (session.swarmId) {
+      swarmIds.add(session.swarmId);
+    }
+    if (session.isSubagent) {
+      subagentTokens += tokens;
+    }
+    if (session.subagentKind === "swarm_worker" || (session.swarmId && session.isSubagent)) {
+      swarmWorkerSessions += 1;
+      swarmWorkerTokens += tokens;
+    }
+  }
+
+  return {
+    swarmCount: swarmIds.size,
+    swarmWorkerSessions,
+    swarmWorkerTokens,
+    swarmShareOfAgy: totalAgyTokens > 0 ? swarmWorkerTokens / totalAgyTokens : 0,
+    subagentTokens,
+    totalAgyTokens,
   };
 }
 
@@ -2342,6 +3148,8 @@ function buildSummary(parsed, options) {
   }
 
   const subagentStats = buildSubagentStats(allSessions, allEvents, totals.totalTokens);
+  const speedStats = buildSpeedStats(allEvents, totals.totalTokens);
+  const swarmStats = buildSwarmStats(allSessions);
   const modelCatalog = buildModelCatalog(modelTotals);
   const rateLimitSnapshots = parsed.flatMap((source) => source.rateLimitSnapshots || []);
   const observedRateLimits = buildObservedRateLimits(rateLimitSnapshots, nowMs);
@@ -2361,6 +3169,8 @@ function buildSummary(parsed, options) {
     budgetSessions,
     planPace,
     subagentStats,
+    speedStats,
+    swarmStats,
     observedRateLimits,
     task: String(opts.task || "auto"),
   };
@@ -2372,6 +3182,7 @@ function buildSummary(parsed, options) {
     roots: {
       claude: parsed.find((source) => source.provider === "claude"),
       codex: parsed.find((source) => source.provider === "codex"),
+      agy: parsed.find((source) => source.provider === "agy"),
       imported: parsed.find((source) => source.provider === "imported"),
     },
     totals,
@@ -2379,6 +3190,8 @@ function buildSummary(parsed, options) {
     providerTotals,
     modelTotals,
     subagentStats,
+    speedStats,
+    swarmStats,
     modelCatalog,
     observedRateLimits,
     daily,
@@ -2406,9 +3219,12 @@ function addRangeSession(map, key, event, sessionMeta) {
       parentSessionId: event.parentSessionId || meta.parentSessionId || "",
       agentId: meta.agentId || "",
       isSubagent: Boolean(event.isSubagent || meta.isSubagent),
+      subagentKind: event.subagentKind || meta.subagentKind || "",
+      swarmId: event.swarmId || meta.swarmId || "",
       liveStatus: meta.liveStatus || "",
       livePid: meta.livePid || 0,
       reasoningEffort: event.reasoningEffort || meta.reasoningEffort || "",
+      serviceTier: pickSpeed(event.serviceTier, meta.serviceTier),
       sourceType: meta.sourceType || "jsonl",
       file: event.file,
       project: event.project || meta.project || "",
@@ -2452,6 +3268,16 @@ function addEventToRangeSession(session, event) {
   if (!session.reasoningEffort && event.reasoningEffort) {
     session.reasoningEffort = event.reasoningEffort;
   }
+  const eventSpeed = pickSpeed(event.serviceTier, event.speed);
+  if (eventSpeed) {
+    session.serviceTier = pickSpeed(session.serviceTier, eventSpeed);
+  }
+  if (!session.swarmId && event.swarmId) {
+    session.swarmId = event.swarmId;
+  }
+  if (!session.subagentKind && event.subagentKind) {
+    session.subagentKind = event.subagentKind;
+  }
   if ((!session.title || !session.displayName) && (event.title || event.displayName)) {
     session.title = event.title || session.title || "";
     session.displayName = event.displayName || event.title || session.displayName || "";
@@ -2459,7 +3285,7 @@ function addEventToRangeSession(session, event) {
   }
   addTokens(session.tokens, event.tokens);
   session.totalTokens = tokenTotal(session.tokens);
-  session.cacheHitRatio = cacheHitRatio(session.tokens);
+  session.cacheHitRatio = cacheHitRatio(session.tokens, session.provider);
   session.costUsd += event.costUsd;
   session.credits += numberValue(event.credits);
   if (event.creditKnown) {
@@ -2797,6 +3623,12 @@ function dominantModelRow(modelMap) {
 
 function codexModelLimitKey(model) {
   const value = String(model || "");
+  if (/^gpt-6\.2-astra/i.test(value)) {
+    return "gpt6astra";
+  }
+  if (/^gpt-6\.2-sol/i.test(value)) {
+    return "gpt61sol";
+  }
   if (/^gpt-6-astra/i.test(value)) {
     return "gpt6astra";
   }
@@ -2887,6 +3719,9 @@ function providerDisplay(provider) {
   if (provider === "codex") {
     return "Codex CLI";
   }
+  if (provider === "agy") {
+    return "Antigravity (AGY)";
+  }
   return sanitizeSessionTitle(provider || "AI CLI");
 }
 
@@ -2902,14 +3737,19 @@ function sessionDisplayName(session) {
   );
 }
 
-function contextTokenRatio(tokens) {
-  const inputLike = numberValue(tokens.inputTokens)
-    + numberValue(tokens.cachedInputTokens)
-    + numberValue(tokens.cacheCreationInputTokens)
-    + numberValue(tokens.cacheCreation1hInputTokens)
-    + numberValue(tokens.cacheReadInputTokens);
+function contextTokenRatio(tokens, provider) {
+  // Codex inputTokens already includes cachedInputTokens and cache_write_input_tokens;
+  // Claude and AGY report cache reads/writes disjoint from inputTokens.
+  const input = numberValue(tokens.inputTokens);
+  const cacheWrite = numberValue(tokens.cacheCreationInputTokens)
+    + numberValue(tokens.cacheCreation1hInputTokens);
+  const cacheRead = numberValue(tokens.cacheReadInputTokens);
   const total = tokenTotal(tokens);
-  return total > 0 ? inputLike / total : 0;
+  const output = numberValue(tokens.outputTokens);
+  const codexInclusive = provider === "codex"
+    || (!provider && numberValue(tokens.cachedInputTokens) > 0 && cacheRead === 0 && total > 0 && input + output === total);
+  const inputLike = codexInclusive ? input : (input + cacheWrite + cacheRead);
+  return total > 0 ? Math.min(1, inputLike / total) : 0;
 }
 
 function sumModelTokens(modelTotals, pattern) {
@@ -3070,7 +3910,7 @@ function quotePowerShellPath(value) {
 }
 
 function launchCommandForSession(session) {
-  const tool = session.provider === "claude" ? "claude" : session.provider === "codex" ? "codex" : "";
+  const tool = session.provider === "claude" ? "claude" : session.provider === "codex" ? "codex" : session.provider === "agy" ? "agy" : "";
   if (!tool) {
     return "";
   }
@@ -3103,14 +3943,16 @@ function scopePrompt(session) {
 function buildSessionRecommendation(session, totals) {
   const totalTokens = tokenTotal(session.tokens);
   const share = totals && totals.totalTokens > 0 ? totalTokens / totals.totalTokens : 0;
-  const cacheRatio = cacheHitRatio(session.tokens);
-  const contextRatio = contextTokenRatio(session.tokens);
+  const cacheRatio = cacheHitRatio(session.tokens, session.provider);
+  const contextRatio = contextTokenRatio(session.tokens, session.provider);
   const durationMinutes = numberValue(session.durationMinutes);
   const name = sessionDisplayName(session);
   const launch = launchCommandForSession(session);
   const restartCli = session.provider === "claude"
     ? "After the summary, type /clear in that Claude Code window or close the terminal and start a new Claude session."
-    : "After the handoff, close that Codex CLI tab/window and start a new Codex session for the next task.";
+    : session.provider === "agy"
+      ? "After the handoff, start a fresh Antigravity session for the next task."
+      : "After the handoff, close that Codex CLI tab/window and start a new Codex session for the next task.";
 
   if (share >= 0.25 || (durationMinutes >= 240 && totalTokens >= 100000)) {
     const longLivedNote = durationMinutes >= 240
@@ -3186,13 +4028,14 @@ function buildSessionRecommendation(session, totals) {
 function buildTurnRecommendation(event) {
   const total = numberValue(event.totalTokens);
   const tokens = event.tokens || emptyTokens();
-  const contextRatio = contextTokenRatio(tokens);
-  const cached = numberValue(tokens.cachedInputTokens) + numberValue(tokens.cacheReadInputTokens);
-  const inputLike = numberValue(tokens.inputTokens)
-    + numberValue(tokens.cachedInputTokens)
-    + numberValue(tokens.cacheCreationInputTokens)
-    + numberValue(tokens.cacheCreation1hInputTokens)
-    + numberValue(tokens.cacheReadInputTokens);
+  const contextRatio = contextTokenRatio(tokens, event.provider);
+  const cacheRatio = cacheHitRatio(tokens, event.provider);
+  const inputLike = event.provider === "codex"
+    ? numberValue(tokens.inputTokens)
+    : numberValue(tokens.inputTokens)
+      + numberValue(tokens.cacheCreationInputTokens)
+      + numberValue(tokens.cacheCreation1hInputTokens)
+      + numberValue(tokens.cacheReadInputTokens);
 
   if (total >= TOKENS_PER_MILLION || contextRatio >= 0.9) {
     return {
@@ -3206,7 +4049,7 @@ function buildTurnRecommendation(event) {
     };
   }
 
-  if (inputLike > 0 && cached / inputLike < 0.2 && total >= 10000) {
+  if (inputLike > 0 && cacheRatio < 0.2 && total >= 10000) {
     return {
       label: "Avoid fresh-context repeat",
       detail: "This turn did not reuse much cache. Repeating it broadly will spend again.",
@@ -3386,14 +4229,14 @@ function buildRecommendations(summary) {
   }
 
   const lowCacheSession = summary.topSessions
-    .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens) < 0.2)
+    .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens, session.provider) < 0.2)
     .sort((a, b) => b.totalTokens - a.totalTokens)[0];
   if (lowCacheSession) {
     push(`low-cache:${lowCacheSession.provider}:${lowCacheSession.id}:${lowCacheSession.file}`, {
       severity: "high",
       title: "Stop repeating uncached context",
       target: targetCliWindow(lowCacheSession),
-      reason: `"${sessionDisplayName(lowCacheSession)}" has ${Math.round(cacheHitRatio(lowCacheSession.tokens) * 100)}% cache reuse in this range.`,
+      reason: `"${sessionDisplayName(lowCacheSession)}" has ${Math.round(cacheHitRatio(lowCacheSession.tokens, lowCacheSession.provider) * 100)}% cache reuse in this range.`,
       doNow: [
         "Do a local search or file list first.",
         "Ask the agent to work only from that narrowed context.",
@@ -3542,6 +4385,18 @@ function buildInsights(summary) {
     }
   }
 
+  const agy = summary.providerTotals.find((item) => item.provider === "agy");
+  if (agy && summary.totals.totalTokens > 0) {
+    const agyShare = agy.totalTokens / summary.totals.totalTokens;
+    if (agyShare >= 0.65) {
+      insights.push({
+        severity: "info",
+        title: "Antigravity dominates this range",
+        detail: `Antigravity (AGY) accounts for ${Math.round(agyShare * 100)}% of selected tokens across local sessions and /swarm workers.`,
+      });
+    }
+  }
+
   if (numberValue(subagentStats.subagentTokens) > 0 && summary.totals.totalTokens > 0) {
     const subShare = Math.round(numberValue(subagentStats.subagentShare) * 100);
     insights.push({
@@ -3590,14 +4445,14 @@ function buildInsights(summary) {
     : summary.topSessions.filter((session) => session.endMs >= recentCutoffMs);
   if (recentSessions.length >= 2) {
     const lowCache = recentSessions
-      .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens) < 0.2)
+      .filter((session) => session.totalTokens >= 10000 && cacheHitRatio(session.tokens, session.provider) < 0.2)
       .sort((a, b) => b.totalTokens - a.totalTokens)[0];
     if (lowCache) {
       const name = lowCache.displayName || lowCache.id.slice(0, 10);
       insights.push({
         severity: "high",
         title: "Recent session without much cache",
-        detail: `${recentSessions.length} sessions were active in the last 2 hours. "${name}" ran for ${formatDurationMinutes(lowCache.durationMinutes)} with ${formatCount(lowCache.totalTokens)} tokens and ${Math.round(cacheHitRatio(lowCache.tokens) * 100)}% cache reuse.`,
+        detail: `${recentSessions.length} sessions were active in the last 2 hours. "${name}" ran for ${formatDurationMinutes(lowCache.durationMinutes)} with ${formatCount(lowCache.totalTokens)} tokens and ${Math.round(cacheHitRatio(lowCache.tokens, lowCache.provider) * 100)}% cache reuse.`,
       });
     } else {
       insights.push({
@@ -3686,13 +4541,18 @@ async function parseAllUsage(options) {
   const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
   const claudeRoot = path.resolve(opts.claudeRoot || process.env.CLAUDE_PROJECTS_ROOT || path.join(os.homedir(), ".claude", "projects"));
   const codexRoot = path.resolve(opts.codexRoot || process.env.CODEX_SESSIONS_ROOT || path.join(codexHome, "sessions"));
+  const agyRoot = path.resolve(opts.agyRoot || process.env.AGY_ROOT || process.env.AI_SPEND_AGY_ROOT || path.join(os.homedir(), ".gemini", "antigravity-cli"));
   const importRoot = opts.importRoot || process.env.AI_SPEND_IMPORT_ROOT || process.env.AI_SPEND_IMPORT || "";
-  const [claude, codex, imported] = await Promise.all([
+  const includeAgy = opts.includeAgy !== false && fs.existsSync(agyRoot);
+  const [claude, codex, agy, imported] = await Promise.all([
     parseClaude(claudeRoot, sinceMs, opts),
     parseCodex(codexRoot, sinceMs, opts),
+    includeAgy
+      ? parseAgy(agyRoot, sinceMs, opts)
+      : Promise.resolve({ provider: "agy", root: agyRoot, files: 0, scannedFiles: 0, swarms: 0, sessions: [], events: [], errors: [] }),
     parseImportedUsage(importRoot, sinceMs),
   ]);
-  return [claude, codex, imported];
+  return [claude, codex, agy, imported];
 }
 
 function respond(res, status, body, contentType) {
@@ -3724,7 +4584,7 @@ function parseQuery(req) {
 function createServer() {
   return http.createServer(async (req, res) => {
     const parsed = parseQuery(req);
-    if(req.method==='GET' && parsed.path==='/api/guard'){
+    if(req.method==='GET' && (parsed.path==='/api/guard' || parsed.path==='/api/guard-proxy')){
       try{
         const target=new URL(process.env.AI_SPEND_GUARD_URL || 'http://127.0.0.1:9021');
         if(target.protocol!=='http:' || !['127.0.0.1','localhost'].includes(target.hostname))throw Error();
@@ -3820,6 +4680,8 @@ async function main() {
       modelTotals: summary.modelTotals,
       observedRateLimits: summary.observedRateLimits,
       subagentStats: summary.subagentStats,
+      speedStats: summary.speedStats,
+      swarmStats: summary.swarmStats,
       budgetPace: summary.budgetPace,
       planPace: summary.planPace,
       weeklyPace: summary.weeklyPace,
@@ -3849,20 +4711,30 @@ module.exports = {
   addTokens,
   buildModelCatalog,
   buildObservedRateLimits,
+  buildSpeedStats,
   buildSummary,
+  buildSwarmStats,
+  buildWorkflowGuidance,
+  cacheHitRatio,
+  contextTokenRatio,
   createServer,
   emptyTokens,
   estimateCost,
   estimateCredits,
-  buildWorkflowGuidance,
+  extractEffortFromModel,
+  findAgyPricing,
   findClaudePricing,
   findOpenAiPricing,
+  listAgyTranscriptFiles,
   listJsonlFiles,
   localDateKey,
+  normalizeAgyUsage,
   normalizeClaudeUsage,
   normalizeCodexUsage,
   normalizeImportedUsage,
+  normalizeSpeed,
   numberValue,
+  parseAgy,
   parseAllUsage,
   parseClaude,
   parseCodex,

@@ -1,152 +1,92 @@
 # AI Spend Live
 
-Release 0.6.4 routes Antigravity (Gemini 4 Argon, Hydrogen, Flash) through the
-official `agy acp` server, so an idle Antigravity allowance can carry work while
-Claude and Codex recover. Release 0.6.3 makes `/guard` activate protection, enforce efficient habits,
-and repair repeated-tool loops once within the original budget. Its impact
-report explains net text removed, estimated input tokens/cost avoided on
-completed replays, blocked work, and repair overhead. Detailed settings stay
-under Advanced. Pi Guard 0.3.3 keeps protected routing active across model picks.
-Optional [native hooks](integrations/native/README.md) cover supported Claude,
-Codex and Antigravity boundaries, with their limitations visible in the report.
+**Release 0.7.0** turns AI Spend Live into a **native-first Multi-Subscription Command Center** across **Claude**, **Codex**, and **Antigravity (AGY)**. Measure real local usage across all three subscriptions — including AGY `transcript.jsonl` + `/swarm` workers, Codex `/fast` (`service_tier`) + reasoning effort, and Claude tiers/subagents — then run `npm run check` in any terminal for a 1-second verdict on what to use next.
 
-See the [release history](CHANGELOG.md), [Pi setup](integrations/pi/README.md),
-and [recorded Pi walkthrough](public/guard-walkthrough.gif). The GIF replays
-real Pi RPC output with offline fixture providers and scripted allowances.
+- **Know when to accelerate**: spot expiring surplus allowance before a weekly reset and launch **`/swarm`** (3–4 workers + verifier) in AGY, enable **`/fast` + high/xhigh effort** in Codex, or run Opus/Fable planning in Claude.
+- **Protect tight quotas**: see both Antigravity buckets (**Gemini** and **Claude/GPT** lanes) alongside Codex and Claude, know immediately when to turn `/fast` OFF, and offload coding work to an open lane while a tight subscription recovers.
+- **Optional Pi Guard routing**: keep working across subscriptions automatically inside Pi with `pi-guard` (`/guard`, `/guard-check`, `/guard-order`, `/guard-block`), loop repair, context compaction, and banked reset inventory tracking.
 
-Release 0.6.0 adds live Claude, Codex, and Antigravity allowance/reset readers,
-24-hour protection insights, and Pi Guard 0.2.0. Guard checks subscription
-reserves, pace, context, reasoning, task time, requests, and known subagent
-calls; its API fallback stays off until you set dollar caps. Request counters
-and cost estimates update live, while account allowances refresh about every
-five minutes. One-hour Claude cache writes now count toward large-context
-insights. The public playground uses synthetic readings and cannot spend tokens.
-
-Release 0.5.1 adds measured limit-pressure warnings, focused-check and compact
-handoff recommendations, stale-window guards, and public insight examples.
-The landing page can demonstrate five-hour and weekly alerts without exposing
-private sessions or presenting sample pressure as a visitor's live allowance.
-
-Release 0.5.0 adds a merging history export (`npm run history:export`) so usage
-survives transcript cleanup, and corrects Claude content-block double counting
-and Codex fork-replay double counting in the parsers. 0.4.1 added canonical
-per-model daily burn, reconciled token components, and explicit unknown pricing.
-
-See what is burning your local AI usage, then decide what to do next.
-
-AI Spend Live turns supported local usage records into model-level totals,
-cache and context signals, measured 5-hour/weekly pacing, and deterministic
-workflow suggestions. It helps you choose a model tier for the task in front
-of you, preserve useful cache reuse, split a runaway thread, and checkpoint
-before a rolling limit is reached. The core dashboard does not change models
-or install skills. The optional Pi Guard extension can route explicitly guarded
-requests between your configured subscriptions.
-
-Keep working with fresh allowance, stretch toward a preferred provider's reset,
-or use current allowance now. Guard reads Codex banked reset inventory and
-expiry without redeeming it. A credit is never added to the live meter; a new
-provider reading must confirm the refill. See the [Pi setup and work modes](integrations/pi/README.md).
-
-## What It Shows
-
-- **Supported local sources**: Claude JSONL project logs, Codex JSONL
-  rollouts, Codex state SQLite recovery, and an optional normalized JSON/JSONL
-  import for other tools. This is not an all-cloud or all-chat tracker.
-- **Model coverage without a whitelist wall**: known pricing is shown when
-  configured, while every observed/new/unknown model ID remains in totals and
-  the model catalog with a clear “pricing not configured” state.
-- **Subagent & live-session attribution**:
-  - Resolves `~/.claude/sessions/*.json` live process status (`busy`, `idle`, `shell`, PID) and session names
-  - Attributes `<project>/<sessionId>/subagents/agent-<id>.jsonl` sidechains to their true project and parent session + subagent slug (`launch-taketoon-platform / parallel-pudding #a0145c`)
-  - Tracks **Main Threads vs Subagents** token share and **Reasoning Effort** (`low`, `medium`, `high`, `xhigh`, `max`, `ultra`)
-- **Largest single turns** for sudden spike detection (excluding synthetic full-thread SQLite totals so genuine single-turn spikes stand out)
-- **Session duration, reconciled fresh/cache/write/output token totals, and estimated API-equivalent cost**
-- **Provider, model, subagent, and reasoning-effort splits**
-- **Daily token burn chart** across `1`, `7`, `30`, `90`, and `365` day windows
-- **Measured pacing** for rolling 5-hour and weekly envelopes when you set
-  local budgets. Projections use observed token rates and an optional local
-  reset timestamp; they are not provider quota counters.
-- **Selectable Claude and Codex plan presets** that convert published message windows into local token estimates
-- **Actionable recommendations & copyable prompts** for when to split, summarize, restart, `/clear`, cap subagents, close stale CLI windows, or step down from frontier models
-
-No prompt text is exposed in the dashboard payload. Session names come from metadata only for the local view. Public demo exports contain aggregate counts, model IDs, and anonymized time buckets only; they contain no prompts, titles, paths, IDs, environment values, or credentials.
-
-- Claude: `custom-title`, live `~/.claude/sessions/*.json` `name`, `agent-name`, subagent `slug` / `agentId`
-- Codex: `~/.codex/session_index.jsonl` `thread_name`, `agent_nickname` / `agent_role`
-- Fallback: project path or short session ID (raw prompt text in SQLite `threads.title` is never exposed)
-
-Normalized import records may be JSONL rows or a JSON array. The minimal
-contract is:
-
-```json
-{"timestamp":"2026-11-07T12:00:00Z","provider":"local-runner","model":"example-model","session_id":"optional","usage":{"input_tokens":1200,"cached_input_tokens":300,"output_tokens":400}}
-```
-
-Set `AI_SPEND_IMPORT_ROOT` or `AI_SPEND_IMPORT` to a file or directory. Keep
-imports aggregate-safe if the dashboard is ever exported.
+See the [release history](CHANGELOG.md), [Pi setup and work modes](integrations/pi/README.md), [native hooks](integrations/native/README.md), and [recorded Pi walkthrough](public/guard-walkthrough.gif).
 
 ## Quick Start
 
 ```powershell
 npm install
+
+# 1. Instant 3-subscription check-in (works even if Guard server isn't running)
+npm run check
+
+# 2. Local 3-provider command center at http://127.0.0.1:9020/
 npm run dashboard
+
+# 3. Optional Guard controller at http://127.0.0.1:9021/
+npm run guard
 ```
 
-Open:
+## What It Shows
 
-```text
-http://127.0.0.1:9020/
+- **Supported local sources (3 native providers + imports)**:
+  - **Claude**: `~/.claude/projects` JSONL logs + `~/.claude/sessions/*.json` live status + subagent sidechains, capturing effort (`record.effort` / `output_config.effort`), `speed`/`service_tier`, and thinking tokens.
+  - **Codex**: `~/.codex/sessions` (or `CODEX_HOME`) streaming JSONL rollouts (handles multi-GB files), `session_index.jsonl`, and `state_5.sqlite` recovery, capturing `thread_settings_applied` `/fast` (`priority` / `ultrafast`), reasoning effort, and `cache_write_input_tokens`.
+  - **Antigravity (AGY)**: `~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl`, `swarm/members.json`, `subagents/*.json`, and read-only `conversation_summaries.db`, with accurate disjoint token math (`input + cache_read + output`) and effort-suffix extraction (`-xhigh`, `-high`, `-medium`).
+  - **Normalized import**: optional JSON/JSONL import via `AI_SPEND_IMPORT_ROOT` or `AI_SPEND_IMPORT`.
+- **Multi-Subscription Value Optimizer (`tools/subscription-optimizer.js`)**:
+  - Evaluates Claude, Codex, and Antigravity (both **Gemini** and **Claude/GPT** lanes) plus banked reset credits and 24-hour usage insights.
+  - Classifies each subscription (`surplus`, `on-pace`, `hot`, `exhausted`, `blocked`) with safe daily burn targets (`%/day`), next unlock countdowns, and per-tool tactical playbooks (`/swarm` sizing, `/fast` ON/OFF + effort, model tiers, and copyable commands).
+  - Powers `npm run check`, the local dashboard cockpit, the Guard controller UI, and the static browser playground (`public/guard.html`).
+- **Model coverage without a whitelist wall**: known API prices are shown where verified, while newer or unpriced models (such as `claude-fable-5-2`, `gpt-6.2-*`, `gemini-4-neon`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-4-hydrogen`, `gemini-3.8-flash`) stay in totals with an explicit “pricing not configured” state rather than fabricated dollars.
+- **`/swarm`, `/fast`, subagent, and reasoning-effort splits**: tracks Main Threads vs Subagents, AGY `/swarm` share, Codex/Claude `/fast` & ultrafast share, and largest single turns.
+- **Daily 3-provider token burn chart** across `1`, `7`, `30`, `90`, and `365` day windows (Claude, Codex, and Antigravity stacked cleanly).
+- **Zero-PII public site & counter (`www.aispend.live`)**: aggregate-only telemetry export (`demo-data.json`), path-free Guard + Optimizer snapshot (`guard-snapshot.json`), interactive browser Check-In Simulator, live GitHub repo stats, and a zero-PII aggregate integer counter (`public/counter.php` + `public/.htaccess`) with zero cookies, IPs, or trackers.
+
+No prompt text is exposed in any dashboard payload, CLI output, or export. Public exports contain aggregate counts, model IDs, optimizer guidance, and anonymized time buckets only; they never export prompts, titles, paths, session IDs, environment values, or credentials.
+
+Normalized import record contract:
+
+```json
+{"timestamp":"2026-11-22T12:00:00Z","provider":"local-runner","model":"example-model","session_id":"optional","usage":{"input_tokens":1200,"cached_input_tokens":300,"output_tokens":400}}
 ```
 
 ## Scripts
 
 ```powershell
-npm run dashboard
-npm run summary
-npm run demo:export
-npm run history:export -- --out <ledger.json>
-npm run test:public-demo
-npm run test:history
-npm test
-```
+# Multi-subscription check-in CLI
+npm run check                  # fast check via Guard controller, or auto-fallback to live collectors
+npm run check:live             # force direct live poll of Claude + Codex + AGY
+npm run check:watch            # auto-refreshing terminal cockpit (60s)
 
-`npm run demo:export` writes an aggregate-only public example. Pass `--out`
-to place it in a static landing folder; it never exports prompts, titles,
-paths, session IDs, environment values, or credentials.
+# Local dashboards & controllers
+npm run dashboard              # 3-provider dashboard on http://127.0.0.1:9020/
+npm run summary                # CLI summary output (--days 7|30)
+npm run guard                  # Guard controller on http://127.0.0.1:9021/
+npm run guard:demo             # Synthetic Guard demo on http://127.0.0.1:9022/
+
+# Exports & site preview
+npm run demo:export            # sanitized public/demo-data.json (supports --days 30)
+npm run guard:snapshot         # sanitized public/guard-snapshot.json (includes optimizer summary)
+npm run guard:export           # rebuild static public/guard.html playground with real optimizer
+npm run history:export -- --out <ledger.json>
+npm run site:preview           # serve public/ on http://127.0.0.1:9023/ (includes /counter.php mock)
+
+# Tests
+npm test                       # dashboard & history export tests
+npm run test:guard             # Guard, collectors, advisor, recovery, watchdog & optimizer tests
+npm run test:optimizer         # standalone multi-subscription optimizer tests
+npm run test:public-demo       # public demo breakdown, AGY, speed/swarm & privacy tests
+npm run test:pi                # real Pi offline RPC integration suite
+```
 
 ## History Export
 
-Claude Code prunes transcripts after roughly 30 days and the dashboard only
-reads what is still on disk. `npm run history:export` walks every local record
-for both providers with the same parsers and merges the aggregates into a
-durable ledger, so a year-long "where did my tokens go" analysis survives log
-cleanup:
+Claude Code prunes transcripts after roughly 30 days and the dashboard only reads what is still on disk. `npm run history:export` walks local records with the same parsers and merges aggregates into a durable ledger so long-term analysis survives log cleanup:
 
 ```powershell
 npm run history:export -- --out D:\aispend-ledger\ai-spend-ledger.json --since 2026-01-01 --summary-out D:\aispend-ledger\ai-spend-summary.md
 ```
 
-- One row per **day x provider x model x project** with fresh input, cache
-  read, cache write, output, reasoning output, turns, sessions touched,
-  subagent tokens, reasoning-effort buckets, and estimated API-equivalent USD
-  (`null` when pricing is unknown, never zero), plus per-day totals, hashed
-  per-session summaries, the 100 largest single turns, and a `coverage` block
-  with first/last record per source and explicit missing-day ranges.
-- **Merge semantics**: when `--out` already exists, rows merge by
-  (day, provider, model, project) taking the max of each token field.
-  Re-scanning the same logs never double counts, and a day whose logs were
-  pruned keeps its old row. Run it weekly; the previous file is kept as `.bak`.
-- `stats-cache.json` whole-history model totals and its patchy daily series are
-  folded in as separate `claudeStatsCacheTotals` / `claudeStatsCacheDaily`
-  blocks and never mixed into the rows.
-- `--since` / `--until` limit the aggregated days (files that cannot overlap
-  the window are skipped), `--provider claude|codex` scans one source, and
-  `--summary-only` regenerates the Markdown summary from an existing ledger.
-  Files stream through the parser, so a 50 GB Codex history runs in a few
-  hundred MB of memory.
-- Project names are directory basenames (`H--devland-aiv-git` becomes
-  `aiv-git`; Codex uses the rollout `cwd`, else `unknown`). Session ids are
-  hashed. No prompt text, titles, or user content is written.
+- One row per **day × provider × model × project** with fresh input, cache read, cache write, output, reasoning output, turns, sessions touched, subagent tokens, reasoning-effort buckets, and estimated API-equivalent USD (`null` when pricing is unknown, never zero).
+- **Merge semantics**: re-scanning merges by `(day, provider, model, project)` taking the max of each token field so re-runs never double-count and pruned days keep their history. Previous file is backed up as `.bak`.
+- Streams multi-GB rollouts in bounded memory. Session IDs are hashed; no prompt text, titles, or user content is written.
 
 ## Expected Local Log Paths
 
@@ -158,13 +98,10 @@ By default the dashboard reads:
 %USERPROFILE%\.codex\sessions
 %USERPROFILE%\.codex\session_index.jsonl
 %USERPROFILE%\.codex\state_5.sqlite
+%USERPROFILE%\.gemini\antigravity-cli
 ```
 
-If Codex uses a separate home, `CODEX_HOME` is honored automatically (for
-example `H:\CodexData`). Explicit `CODEX_SESSIONS_ROOT`, `CODEX_SESSION_INDEX`,
-and `CODEX_STATE_DB` values still take precedence.
-
-You can override paths and budgets with environment variables:
+If Codex uses a separate home, `CODEX_HOME` is honored automatically (for example `H:\CodexData`). Explicit overrides take precedence:
 
 ```powershell
 $env:CLAUDE_PROJECTS_ROOT="C:\path\to\.claude\projects"
@@ -172,58 +109,27 @@ $env:CLAUDE_SESSIONS_ROOT="C:\path\to\.claude\sessions"
 $env:CODEX_SESSIONS_ROOT="C:\path\to\.codex\sessions"
 $env:CODEX_SESSION_INDEX="C:\path\to\.codex\session_index.jsonl"
 $env:CODEX_STATE_DB="C:\path\to\.codex\state_5.sqlite"
+$env:AGY_ROOT="C:\path\to\.gemini\antigravity-cli"
 $env:AI_SPEND_PORT="9020"
-$env:AI_SPEND_CLAUDE_PLAN="claude-ultra"
-$env:AI_SPEND_CODEX_PLAN="codex-pro-200"
-$env:AI_SPEND_5H_TOKEN_BUDGET="8000000"
-$env:AI_SPEND_WEEKLY_TOKEN_BUDGET="50000000"
-$env:AI_SPEND_5H_RESET_AT="2026-11-07T17:00:00-05:00"
-$env:AI_SPEND_WEEKLY_RESET_AT="2026-11-10T00:00:00-05:00"
+$env:AI_SPEND_GUARD_URL="http://127.0.0.1:9021"
 npm run dashboard
 ```
 
 ## Prompt And Token Pacing
 
-The dashboard separates raw token burn from workflow guidance:
-
-- **Use GPT-6 Astra, GPT-6.1 Sol, Claude Fable 5.1, and Claude Opus 5.5 for planning gates**: ambiguous goals, architecture tradeoffs, write sets, risk checks, acceptance criteria, and final review.
-- **Step down for bounded execution**: route scoped implementation and worker subagents to **GPT-6.1 Terra / GPT-6 Luna** or **Claude Sonnet 5.5 / Haiku 5.5** once the files, allowed side effects, and test commands are clear.
-- **Cap subagent fan-out**: every spawned subagent builds its own context window. Keep routine multi-file work with a single implementation owner and give subagents explicit file lists rather than open repo searches.
-- **Treat `/fast` and `xhigh`/`ultra` effort as targeted tools**: avoid `/fast` during repo-wide discovery, and reserve `xhigh`/`ultra` reasoning effort on Sol for genuinely complex architecture or race/memory debugging.
-- **Protect the 5-hour and weekly windows**: pick your Claude and Codex plan in the dashboard or set `AI_SPEND_5H_TOKEN_BUDGET` and `AI_SPEND_WEEKLY_TOKEN_BUDGET` to track projected runout risk.
-
-Plan and price sources:
-
-- Claude API pricing: <https://platform.claude.com/docs/en/about-claude/pricing>
-- Claude Pro, Max, and Ultra plans: <https://support.claude.com/en/articles/8324991-about-claude-s-pro-plan-usage>, <https://support.claude.com/en/articles/11014257-about-claude-s-max-plan-usage>, and <https://support.claude.com/en/articles/13680274-about-claude-s-ultra-plan-usage>
-- OpenAI plans and Standard-speed credits: <https://learn.chatgpt.com/docs/pricing>
-- OpenAI API pricing: <https://developers.openai.com/api/docs/pricing>
+- **Maximize expiring surplus intentionally**: when an Antigravity lane (`Gemini` or `Claude/GPT`) or Codex weekly window has heavy headroom before reset, use `/swarm` or `/fast` deliberately instead of letting paid allowance expire unused.
+- **Protect tight windows early**: turn Codex `/fast` OFF below 20% remaining, keep frontier models (`GPT-6 Astra`, `GPT-6.1/6.2 Sol`, `Claude Fable`, `Claude Opus`) for architecture and review gates, and step down to `Terra`/`Luna`, `Sonnet`/`Haiku`, or `Hydrogen`/`Flash` for bounded execution.
+- **Keep context compact**: high cache reuse still burns rolling allowances when giant threads replay every turn. Use `/clear` or compact handoffs when a task changes direction.
 
 ## Notes On Cost
 
-Costs and credit equivalents are estimates based on local token logs, SQLite
-thread totals, and pricing tables in `tools/ai-spend-dashboard-server.js`.
-They are not provider invoices, subscription limit counters, or guaranteed
-billing totals. Subscription plans publish message windows and fair-use limits
-rather than a fixed included token balance, so the dashboard keeps those
-signals separate from API dollars and credits. Guard automatically reads provider
-allowances and reset timestamps using local Claude, Codex, and AGY logins.
+Costs and credit equivalents are estimates based on local token logs, SQLite thread totals, and configured pricing tables in `tools/ai-spend-dashboard-server.js`. They are not provider invoices or guaranteed billing totals. Live provider allowances and reset timestamps come directly from local Claude, Codex, and AGY logins via read-only collectors.
 
-## AI Spend Guard (Pi preview)
+## AI Spend Guard (Optional Pi Routing)
 
-Guard adds subscription reset planning and per-task work budgets to Pi. Run
-`npm run guard` for the local controller at <http://127.0.0.1:9021>, or
-`npm run guard:demo` for a synthetic scenario at <http://127.0.0.1:9022>.
-The public playground is `public/guard.html` and can never authorize model calls.
-The local dashboard also shows live allowance readings from Guard. Choose your
-provider order and models, reserve, reasoning ceiling, task time budget, and
-optional API dollar caps in Guard. API spending stays off until explicitly enabled.
+Guard adds subscription reset planning, multi-subscription optimizer verdicts, and per-task budgets to Pi. Run `npm run guard` for the local controller at <http://127.0.0.1:9021>, or `npm run guard:demo` for a synthetic scenario at <http://127.0.0.1:9022>. The static public playground (`public/guard.html`) bundles the same policy and optimizer modules and can never authorize model calls. API spending stays off until explicitly enabled.
 
-See [Pi setup and limits](integrations/pi/README.md) and
-[the Pi/HerdR analysis](doc/PI-GUARD-ANALYSIS.md). Run `npm run test:guard` for
-policy and HTTP checks, and `npm run test:pi` after installing the pinned local
-Pi runtime. `npm run guard:export` rebuilds the public playground from the same
-policy implementation. `npm run site:preview` serves the public site on port 9023.
+See [Pi setup and limits](integrations/pi/README.md) and [the Pi/HerdR analysis](doc/PI-GUARD-ANALYSIS.md).
 
 ## License
 

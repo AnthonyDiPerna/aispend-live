@@ -1,4 +1,4 @@
-// Build a static, browser-only playground from the same policy and UI as the controller.
+// Build a static, browser-only playground from the same policy, optimizer, and UI as the controller.
 // Never reads local usage, auth, task state, or machine paths.
 const fs=require('node:fs');
 const path=require('node:path');
@@ -12,15 +12,20 @@ const policy=fs.readFileSync(path.join(__dirname,'usage-guard.js'),'utf8')
 const adapter=`
 const {initialState,cleanPolicy,buildPlan,mergeObservations}=GuardPolicy;
 const {buildAdvice,applyAdvice}=GuardAdvice;
+const {buildOptimizationPlan}=GuardOptimizer;
 ${demoState.toString()}
 ${demoModels.toString()}
 let playgroundState=demoState();
 playgroundState.bindings={claude:{provider:'claude-code',model:'example-claude-balanced'},codex:{provider:'openai',model:'example-codex-balanced'}};
 applyAdvice(playgroundState);
-function playgroundView(){return {demo:true,...buildPlan(playgroundState),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries(${JSON.stringify(COVERAGE)}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};}
+function playgroundView(){
+  const plan=buildPlan(playgroundState);
+  return {demo:true,...plan,optimizer:buildOptimizationPlan(plan,playgroundState.insights),impact:GuardImpact.impactReport(playgroundState),harnesses:Object.entries(${JSON.stringify(COVERAGE)}).map(([id,value])=>({id,...value})),models:demoModels(),advice:buildAdvice(playgroundState),advisor:playgroundState.advisor,insights:playgroundState.insights,tasks:[],events:playgroundState.events};
+}
 async function playgroundApi(route,body){
   if(route==='/api/state'||route==='/api/sync')return playgroundView();
-  if(route==='/api/simulate')return {demo:true,simulation:true,...buildPlan(demoState(),Date.now()+Number(body.hours)*3600000)};
+  if(route==='/api/checkin'){const v=playgroundView();return {demo:true,generatedAt:new Date().toISOString(),recommendedProvider:v.recommendedProvider,optimizer:v.optimizer,windows:v.providers,collectors:{}};}
+  if(route==='/api/simulate'){const simNow=Date.now()+Number(body.hours)*3600000;const simPlan=buildPlan(demoState(),simNow);return {demo:true,simulation:true,...simPlan,optimizer:buildOptimizationPlan(simPlan,playgroundState.insights,simNow)};}
   if(route==='/api/policy')playgroundState.policy=cleanPolicy({...playgroundState.policy,...body});
   else if(route==='/api/advice')applyAdvice(playgroundState,Date.now(),true);
   else if(route==='/api/binding'){
@@ -44,6 +49,8 @@ const advice=fs.readFileSync(path.join(__dirname,'guard-advisor.js'),'utf8')
   .replace("const {cleanPolicy, buildPlan} = require('./usage-guard');",'const {cleanPolicy,buildPlan}=GuardPolicy;')
   .replace('module.exports =','globalThis.GuardAdvice =');
 const impact=fs.readFileSync(path.join(__dirname,'guard-impact.js'),'utf8').replace('module.exports=','globalThis.GuardImpact=');
+const optimizer=fs.readFileSync(path.join(__dirname,'subscription-optimizer.js'),'utf8');
+const optimizerBundle='(function(){const module={exports:{}};const exports=module.exports;const require=id=>id==="./usage-guard"?GuardPolicy:{};\n'+optimizer+'\nglobalThis.GuardOptimizer=module.exports;})();';
 let html=fs.readFileSync(path.join(__dirname,'usage-guard.html'),'utf8');
 html=html.replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
   .replace('href="/"','href="index.html"')
@@ -51,7 +58,7 @@ html=html.replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
   .replace('Refresh allowances','Refresh playground')
   .replace('Connecting…','Loading playground…')
   .replace(/async function api\(route,body\)\{[^\n]+\}/,'async function api(route,body){return playgroundApi(route,body);}')
-  .replace('<script>','<script>\n(function(){'+policy+'})();\n(function(){'+advice+'})();\n(function(){'+impact+'})();\n'+adapter+'\n');
+  .replace('<script>','<script>\n(function(){'+policy+'})();\n(function(){'+advice+'})();\n(function(){'+impact+'})();\n'+optimizerBundle+'\n'+adapter+'\n');
 fs.mkdirSync(path.join(root,'public'),{recursive:true});
 fs.writeFileSync(path.join(root,'public','guard.html'),html);
 fs.copyFileSync(path.join(__dirname,'usage-guard.css'),path.join(root,'public','usage-guard.css'));

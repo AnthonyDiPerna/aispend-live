@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="application-version" content="0.6.3">
+<meta name="application-version" content="0.7.0">
 <title>AI Spend Guard — Plan through your next reset</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050505'/%3E%3Cpath d='M8 24V16h4v8m4 0V8h4v16' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="usage-guard.css">
 </head>
 <body><main>
-<header><a class="brand" href="/">AI Spend <span class="tag">/ Guard 0.3.2</span></a><nav class="topnav" aria-label="Main"><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
+<header><a class="brand" href="/">AI Spend <span class="tag">/ Guard 0.4.0</span></a><nav class="topnav" aria-label="Main"><a href="#playbook">Playbook</a><a href="#timeline">Resets</a><a href="#policy">Rules</a><a class="optional" href="#connect">Connect Pi</a></nav></header>
 <div id="demoBanner" class="banner hidden">Demo data. This server cannot authorize model requests. Change the simulator clock without spending tokens.</div>
 <div class="intro"><span class="tag">Your subscriptions. One work plan.</span><h1>Make your allowance<br>last through the week.</h1>
-<p class="lead">Plan around each subscription’s reset. Use the allowance you have, reduce unnecessary work, and plan the next handoff before the current subscription runs dry.</p>
+<p class="lead">Plan around each subscription’s reset. Use the allowance you have, maximize value across Antigravity, Codex, and Claude, and plan the next handoff before the current subscription runs dry.</p>
 <div class="toolbar"><button id="sync" class="secondary">Refresh allowances</button><span id="updated" class="caption">Connecting…</span></div>
 </div><div id="error" class="banner error hidden" role="alert"></div>
 <div class="workspace-label"><span>allowance / overview</span><span class="optional" id="routingOrder">CLAUDE &rarr; CODEX &rarr; AGY</span></div><section id="decision" class="decision" aria-live="polite"><div><h2>Loading your reset plan…</h2></div></section>
+<section class="section box playbook-section" id="playbook" aria-live="polite">
+<div class="playbook-topbar">
+<div><span class="tag">Max-Value Playbook (/swarm · /fast · Tiers)</span><h2 id="optimizerHeadline">Calculating multi-subscription strategy…</h2></div>
+<div class="playbook-meta-right"><span id="optimizerStrategy" class="opt-pill">Balanced</span><span id="optimizerUnlock" class="opt-unlock hidden"></span></div>
+</div>
+<div id="optimizerOrder" class="opt-order"></div>
+<div id="optimizerAlerts" class="opt-alerts"></div>
+<div id="optimizerCards" class="opt-grid"></div>
+<div id="optimizerQuick" class="opt-quick"></div>
+<p id="optimizerNote" class="notes"></p>
+</section>
 <section class="section box" id="continuity"><div class="row"><h2>How do you want to work?</h2><span class="tag" id="modeLabel"></span></div>
 <div class="work-modes" role="group" aria-label="Usage mode"><button class="secondary" data-mode="continuous"><strong>Keep working</strong><span>Use available allowance. Trim waste automatically.</span></button><button class="secondary" data-mode="preserve"><strong>Stretch to the next reset</strong><span>Smaller context. Lower effort.</span></button><button class="secondary" data-mode="max"><strong>Use it now</strong><span>Use your preferred subscription down to its limit.</span></button></div>
 <p id="continuityPlan" class="notes"></p><p class="notes">Pacing is a warning in these modes. Exhausted or stale allowances still stop requests. Task budgets remain in force, and switching modes never enables API spending.</p></section>
@@ -51,7 +62,7 @@
 <label>Repeated operation tripwire<input name="repeatedToolLimit" type="number" min="2" max="10" required></label>
 <label>Concurrent guarded requests<input name="maxConcurrentRequests" type="number" min="1" max="8" required></label>
 <label>Task time budget (minutes)<input name="maxTaskMinutes" type="number" min="5" max="1440" required></label>
-<label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option>medium</option><option>high</option></select></label>
+<label>Reasoning ceiling<select name="maxThinkingLevel"><option>off</option><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option></select></label>
 <label>Subagent calls per task<input name="maxSubagentCalls" type="number" min="0" max="20" required></label>
 <label>Requested output tokens<input name="maxOutputTokens" type="number" min="512" max="32000" required></label>
 <label class="full">Paid API fallback<select name="allowApiSpend"><option value="false">Off — subscriptions only</option><option value="true">On — use the selected API model after subscriptions</option></select></label>
@@ -61,25 +72,100 @@
 <section class="box"><h2>Test the reset logic</h2><p class="caption">An isolated scenario: Claude is consuming its allowance too quickly; Codex has room. This does not change your readings or rules.</p><div class="simcontrols" style="margin-top:16px"><label>Hours ahead<input id="simHours" type="number" value="0" min="0" max="336"></label><button id="simulate" class="secondary">Run scenario</button><button id="pastReset" class="secondary">Jump past Claude reset</button></div><div id="simulation" class="simresult" aria-live="polite"></div>
 <details class="section" id="connect"><summary>Connect Pi</summary><ol class="setup"><li>Start the local controller with <code>npm run guard</code>.</li><li>Install the extension using <code>integrations/pi/README.md</code>.</li><li>Sign in to each provider in Pi, then run <code>/guard</code>. Models are selected automatically.</li><li>Guard activates <code>aispend/guard</code>. Every routed request checks these rules.</li></ol><p class="caption">Reading an allowance and connecting a Pi model are separate. Antigravity monitoring works through agy; routing needs a compatible Pi subscription connector. API fallback requires explicit dollar caps. Radius is a separate gateway, not a transfer of your plan allowances.</p></details>
 </section></div>
-<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> activates protection and shows balances, resets, and measured impact.</p><p><code>/guard preserve</code> stretches toward the next reset. <code>/guard max</code> prioritizes using current allowance. <code>/guard continuous</code> restores the default.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
+<section class="section box walkthrough"><h2>See Guard make a decision</h2><p class="caption">The real Pi runtime, with offline fixture providers and scripted allowance readings. No subscription or API credits are spent in this recording.</p><a href="guard-walkthrough.gif" class="secondary">Open the Pi walkthrough GIF</a><details class="section"><summary>Play the walkthrough</summary><img src="guard-walkthrough.gif" alt="Recorded Pi Guard decisions: inspect limits, switch subscriptions, checkpoint context, save a handoff and start fresh." loading="lazy" width="1000" height="620"></details><div class="command-guide"><p><code>/guard</code> activates protection and shows balances, resets, and measured impact.</p><p><code>/guard-check</code> prints the live multi-subscription optimizer verdict (<code>/swarm</code>, <code>/fast</code>, tiers, next unlock).</p><p><code>/guard preserve</code> stretches toward the next reset. <code>/guard max</code> prioritizes using current allowance. <code>/guard continuous</code> restores the default.</p><p><code>/guard-handoff</code> writes bounded local notes without a model call.</p><p><code>/guard-new</code> opens a fresh session from those notes and keeps the old one.</p><p><code>/guard-import path/to/handoff.md</code> starts from another agent’s notes.</p></div><p class="notes">Guard compacts at its context ceiling; it does not silently clear your work. Fresh sessions are explicit. Handoffs are bounded excerpts, so review unfinished checks before continuing.</p></section>
 <section class="section box"><h2>Guarded tasks</h2><div id="tasks" class="tasks"></div><p class="notes">Task IDs are hashed. The dashboard receives counters and decisions, not prompts, tool output, credentials, or repository paths. Renewing a task budget is a deliberate local action; it does not refill a provider allowance.</p></section>
 <section class="section box"><h2>Recent decisions</h2><div id="activity" class="activity"></div></section>
 <footer class="foot">In interactive Pi, allowance pauses wait for a fresh reading and resume automatically. Use <code>/guard-hold</code> to cancel waiting. Repeated operations get one bounded repair; exhausted budgets and repeated repair failures pause for review. No savings percentage is promised; cached tokens are useful when the context is still relevant.</footer>
 </main>
 <script>
 const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const names={claude:'Claude',codex:'Codex',agy:'Antigravity',api:'API fallback'}, nf=new Intl.NumberFormat(), date=value=>new Date(value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}), pct=n=>Number(n).toFixed(1)+'%';
+const names={claude:'Claude',codex:'Codex',agy:'Antigravity',api:'API fallback'}, nf=new Intl.NumberFormat(), date=value=>{if(value==null||value==='')return 'Unknown';const ms=typeof value==='number'?value:value instanceof Date?value.getTime():Date.parse(value);return Number.isFinite(ms)?new Date(ms).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Unknown';}, pct=n=>n==null||!Number.isFinite(Number(n))?'—':Number(n).toFixed(1)+'%';
+const spanHours=(h,resetAt)=>{let val=(h!=null&&h!==''&&Number.isFinite(Number(h)))?Number(h):null;if(val===null&&resetAt!=null&&resetAt!==''){const ms=typeof resetAt==='number'?resetAt:resetAt instanceof Date?resetAt.getTime():Date.parse(resetAt);if(Number.isFinite(ms))val=(ms-Date.now())/3600000;}if(val===null||!Number.isFinite(val))return 'reset unknown';if(val<=0)return 'reset passed';if(val<1)return Math.max(1,Math.round(val*60))+'m';if(val<48)return (val<10?val.toFixed(1):Math.round(val))+'h';const tot=Math.round(val),d=Math.floor(tot/24),r=tot%24;return r?d+'d '+r+'h':d+'d';};
 let current, formLoaded=false;
 async function api(route,body){const result=await fetch(route,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await result.json();if(!result.ok)throw new Error(data.error||'Request failed');return data;}
 function failure(error){$('error').textContent=error.message;$('error').classList.remove('hidden');}
+async function copyChip(cmd,btn){if(!cmd)return;try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(cmd);else{const ta=document.createElement('textarea');ta.value=cmd;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}if(btn){const orig=btn.dataset.orig||btn.textContent;btn.dataset.orig=orig;btn.classList.add('copied');btn.textContent='Copied ✓';clearTimeout(btn._t);btn._t=setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig;},1200);}}catch{}}
+document.addEventListener('click',event=>{const chip=event.target.closest('[data-copy]');if(chip)copyChip(chip.getAttribute('data-copy'),chip);});
+function bankedOf(p,data){if(typeof p.bankedResets==='number'&&Number.isFinite(p.bankedResets))return p.bankedResets;if(p.bankedResets&&typeof p.bankedResets==='object'){const v=p.bankedResets.usableCount??p.bankedResets.availableCount;if(typeof v==='number'&&Number.isFinite(v))return v;}const c=(data.resetCredits||[]).find(x=>x.provider===p.provider);return typeof c?.usableCount==='number'?c.usableCount:typeof c?.availableCount==='number'?c.availableCount:null;}
+function laneName(w){if(w.label)return w.label;const fam=String(w.modelFamily||'').toLowerCase(),id=String(w.windowId||'').toLowerCase();const f=fam==='claude-gpt'?'Claude / GPT':fam==='gemini-argon'?'Gemini Argon':fam==='gemini'?'Gemini':fam==='fable'?'Fable':fam||'All models';const s=id.includes('session')||w.windowMinutes===300?'5h Session':id.includes('weekly')||w.windowMinutes>=1440?'Weekly':id||'Window';return f+' · '+s;}
+function renderPlaybook(data){
+const opt=data.optimizer;
+const box=$('playbook');
+if(!opt){
+  box.dataset.strategy='balanced';
+  $('optimizerHeadline').textContent='Multi-subscription playbook unavailable in this snapshot';
+  $('optimizerStrategy').className='opt-pill';$('optimizerStrategy').textContent='Awaiting optimizer';
+  $('optimizerUnlock').classList.add('hidden');
+  $('optimizerOrder').innerHTML='';
+  $('optimizerAlerts').innerHTML='';
+  $('optimizerCards').innerHTML='<p class="caption">Refresh allowances or run <code>npm run check -- --live</code> to view the per-subscription /swarm, /fast, and tier recommendations.</p>';
+  $('optimizerQuick').innerHTML='';
+  $('optimizerNote').textContent='';
+  return;
+}
+const strat=String(opt.strategy||'balanced').toLowerCase();
+const stratLabels={accelerate:'ACCELERATE · SURPLUS',balanced:'BALANCED',conserve:'CONSERVE',wait:'WAIT · RESET'};
+box.dataset.strategy=strat;
+$('optimizerHeadline').textContent=opt.headline||'Multi-subscription strategy ready';
+$('optimizerStrategy').className='opt-pill opt-'+strat;
+$('optimizerStrategy').textContent=stratLabels[strat]||strat.toUpperCase();
+if(opt.nextUnlock&&(opt.nextUnlock.resetAt||opt.nextUnlock.hoursLeft!=null||opt.nextUnlock.label)){
+  $('optimizerUnlock').classList.remove('hidden');
+  const uLabel=String(opt.nextUnlock.label||'').trim(), uSpan=spanHours(opt.nextUnlock.hoursLeft,opt.nextUnlock.resetAt);
+  const hasSpan=/\b(resets?\s+in|reset\s+passed|in\s+\d+(?:\.\d+)?\s*[dhm])\b/i.test(uLabel);
+  $('optimizerUnlock').textContent='Next unlock: '+(uLabel?(hasSpan?uLabel:uLabel+' in '+uSpan):(names[opt.nextUnlock.provider]||opt.nextUnlock.provider)+' in '+uSpan);
+}else{$('optimizerUnlock').classList.add('hidden');}
+const order=Array.isArray(opt.recommendedOrder)&&opt.recommendedOrder.length?opt.recommendedOrder:(opt.providers||[]).map(p=>p.provider);
+$('optimizerOrder').innerHTML='<span class="caption">Recommended order:</span> '+order.map((p,i)=>'<span class="opt-rank'+(i===0?' opt-rank-first':'')+'">'+(i+1)+'. '+esc(names[p]||p)+'</span>').join(' <span class="caption">→</span> ');
+$('optimizerAlerts').innerHTML=(opt.alerts||[]).map(a=>{
+  const sev=String(a.severity||a.kind||'info').toLowerCase();
+  const cls=sev.includes('crit')||sev==='high'||sev==='error'?'opt-alert-crit':sev.includes('warn')||sev==='medium'?'opt-alert-warn':'opt-alert-opp';
+  return '<div class="opt-alert '+cls+'"><div><strong>'+esc(a.title||a.kind||'Signal')+'</strong><p class="caption">'+esc(a.detail||'')+'</p></div>'+(a.command?'<button type="button" class="cmd-chip" data-copy="'+esc(a.command)+'">'+esc(a.command)+'</button>':'')+'</div>';
+}).join('');
+const provMap=new Map((opt.providers||[]).map(p=>[p.provider,p]));
+const ordered=[];for(const id of order)if(provMap.has(id)){ordered.push(provMap.get(id));provMap.delete(id);}for(const rest of provMap.values())ordered.push(rest);
+$('optimizerCards').innerHTML=ordered.map(p=>{
+  const util=String(p.utilizationState||p.status||'unknown').toLowerCase(), pb=p.playbook||{}, pbMode=String(pb.mode||'steady').toLowerCase();
+  const isPrimary=opt.primaryProvider===p.provider, banked=bankedOf(p,data);
+  const rem=p.remainingPercent!=null&&Number.isFinite(Number(p.remainingPercent))?Number(p.remainingPercent):null;
+  const fill=rem!=null?Math.max(0,Math.min(100,rem)):0;
+  const tone=rem!=null?(rem<=10?'opt-fill-crit':rem<=25?'opt-fill-warn':'opt-fill-'+p.provider):'';
+  const lanes=(p.windows||[]).map(w=>{
+    const wRem=w.remainingPercent!=null&&Number.isFinite(Number(w.remainingPercent))?Number(w.remainingPercent):(w.usedPercent!=null?Math.max(0,100-Number(w.usedPercent)):null);
+    const wFill=wRem!=null?Math.max(0,Math.min(100,wRem)):0;
+    const fam=String(w.modelFamily||'').toLowerCase();
+    const laneCls=fam==='claude-gpt'?'opt-lane-cg':fam.includes('gemini')?'opt-lane-gem':'';
+    return '<div class="opt-lane '+laneCls+'"><div class="row"><span class="caption">'+esc(laneName(w))+'</span><strong>'+(wRem!=null?pct(wRem)+' left':'—')+'</strong></div><div class="meter opt-meter"><span class="'+(wRem!=null&&wRem<=10?'opt-fill-crit':wRem!=null&&wRem<=25?'opt-fill-warn':'opt-fill-'+(fam==='claude-gpt'?'claude':p.provider))+'" style="width:'+wFill+'%"></span></div><div class="row"><span class="caption">'+(w.resetAt?'Reset '+date(w.resetAt):'Reset unknown')+'</span><span class="caption mono">'+esc(spanHours(w.hoursLeft,w.resetAt))+'</span></div></div>';
+  }).join('')||'<p class="caption">No windows measured yet.</p>';
+  const stats=[
+    ['Reset',spanHours(p.hoursLeft,p.resetAt)],
+    ['Target/day',p.targetPercentPerDay!=null&&Number.isFinite(Number(p.targetPercentPerDay))?Number(p.targetPercentPerDay).toFixed(1)+'%':'—'],
+    ['Burn/hr',p.burnPercentPerHour!=null&&Number.isFinite(Number(p.burnPercentPerHour))?Number(p.burnPercentPerHour).toFixed(1)+'%':'—'],
+    p.provider==='codex'&&banked!=null?['Banked',banked+' avail']:['Proj. unused',p.projectedUnusedAtReset!=null&&Number.isFinite(Number(p.projectedUnusedAtReset))?Math.round(Number(p.projectedUnusedAtReset))+'%':'—']
+  ].map(([k,v])=>'<div><span class="caption">'+k+'</span><strong class="mono">'+esc(v)+'</strong></div>').join('');
+  return '<article class="opt-card'+(isPrimary?' opt-card-primary':'')+'"><div class="cardhead"><div><h3>'+esc(p.label||names[p.provider]||p.provider)+(isPrimary?' <span class="opt-primary-tag">Primary</span>':'')+'</h3></div><span class="status opt-state-'+esc(util)+'">'+esc(util.replace(/-/g,' '))+'</span></div>'+
+    '<div class="opt-rem"><strong class="mono">'+(rem!=null?pct(rem):'—')+'</strong><span class="caption">'+(p.usablePercent!=null?pct(p.usablePercent)+' usable':esc(p.status||''))+(banked!=null&&p.provider!=='codex'?' · '+banked+' banked':'')+'</span></div>'+
+    '<div class="meter"><span class="'+tone+'" style="width:'+fill+'%"></span></div>'+
+    '<div class="opt-stats">'+stats+'</div>'+
+    '<div class="opt-lanes">'+lanes+'</div>'+
+    '<div class="opt-pb"><div class="row"><strong>'+esc(pb.headline||'Playbook')+'</strong><span class="status opt-state-'+esc(pbMode)+'">'+esc(pbMode)+'</span></div>'+
+    ((pb.badges||[]).length?'<div class="opt-badges">'+pb.badges.map(b=>'<span class="opt-badge">'+esc(b)+'</span>').join('')+'</div>':'')+
+    ((pb.guidance||[]).length?'<ul class="opt-guidance">'+pb.guidance.map(g=>'<li>'+esc(g)+'</li>').join('')+'</ul>':'')+
+    ((pb.commands||[]).length?'<div class="opt-chips">'+pb.commands.map(c=>'<button type="button" class="cmd-chip" data-copy="'+esc(c)+'">'+esc(c)+'</button>').join('')+'</div>':'')+
+    '</div></article>';
+}).join('');
+$('optimizerQuick').innerHTML=(opt.quickCommands||[]).length?'<div class="opt-quick-head"><span class="tag">Copyable quick commands</span></div><div class="opt-quick-grid">'+opt.quickCommands.map(q=>'<div class="opt-quick-item"><div class="row"><strong>'+esc(q.label||q.tool||'Command')+'</strong><span class="caption">'+esc(q.tool||'')+'</span></div><button type="button" class="cmd-chip" data-copy="'+esc(q.command||'')+'">'+esc(q.command||'')+'</button>'+(q.why?'<p class="caption">'+esc(q.why)+'</p>':'')+'</div>').join('')+'</div>':'';
+$('optimizerNote').textContent=opt.note||'';
+}
 function render(data){current=data;$('error').classList.add('hidden');$('demoBanner').classList.toggle('hidden',!data.demo);$('updated').textContent=`Updated ${date(data.generatedAt)} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
 const selected=data.providers.find(p=>p.provider===data.recommendedProvider), bound=selected?.configured;
 $('decision').innerHTML=`<div><span class="tag">${data.demo?'Example plan':'Current plan'}</span><h2>${selected?(bound?`Use ${names[selected.provider]}`:`${names[selected.provider]} has allowance`):'Refresh readings or queue the next task'}</h2><p>${selected?(bound?'Guard uses fresh positive allowance and keeps useful context stable through tool follow-ups. Mode, work limits and the selected route determine each request.':selected.provider==='agy'?'A supported Antigravity subscription connector is not available in this installation. This reading is for planning; guarded work stays paused until a supported provider is ready.':'Connect a subscription model below before Guard can route work to this allowance.'):'No provider has a fresh allowance that fits the plan. Existing work stays saved; a scheduled reset alone does not unlock spending.'}</p></div><div><span class="big">${data.policy.reservePercent}%</span><br><span class="caption">${data.policy.usageMode==='strict'?'reserved per allowance':'reserve target · advisory'}</span></div>`;
+renderPlaybook(data);
 $('providers').innerHTML=data.providers.map(p=>{
 const c=data.collectors?.[p.provider];
 return '<article class="card"><div class="cardhead"><h3>'+names[p.provider]+'</h3><span class="status '+esc(p.status)+'">'+esc(p.status.replace('-',' '))+'</span></div><p class="caption" style="margin-top:10px">'+esc(p.message)+'</p>'+
 (c?'<div class="collector caption">'+esc(c.status)+' · '+(c.lastSuccessAt?'checked '+date(c.lastSuccessAt):'awaiting first reading')+(c.error?'<br>'+esc(c.error):'')+(c.nextAttemptAt?'<br>Next check '+date(c.nextAttemptAt):'')+'</div>':'')+
-p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(w.modelFamily||'All models')+' · '+(w.windowMinutes>=1440?'Weekly':'Five-hour')+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
+p.windows.map(w=>'<div class="window '+(w.applies?'':'inactive-window')+'"><div class="row"><span class="caption">'+esc(laneName(w))+'</span><strong>'+pct(w.remainingPercent)+' left</strong></div><div class="meter"><span style="width:'+Math.max(0,Math.min(100,w.remainingPercent))+'%"></span></div><p class="caption">'+pct(w.usablePercent)+' above reserve'+(w.applies?'':' · different model scope')+'</p><p class="caption">Reset '+date(w.resetAt)+'</p><p class="caption">'+(w.safePercentPerDay!==null?pct(w.safePercentPerDay)+' per day to '+date(w.planningUntil||w.resetAt):'Awaiting reset confirmation')+'</p>'+(w.depletionHours!==null?'<p class="caption">Recent pace: about '+Number(w.depletionHours).toFixed(1)+' hours to empty; usage can change.</p>':'')+(w.refillObservedAt?'<p class="caption">Usage counter dropped '+date(w.refillObservedAt)+'; trend restarted.</p>':'')+'<p class="caption">Read '+date(w.observedAt)+' · '+esc(w.source)+'</p></div>').join('')+
 (p.provider!=='api' && !p.windows.length?'<div class="window caption">No measured allowance yet.</div>':'')+
 '<details class="binding"><summary>'+(data.demo?'Try example models':p.configured?'Model selected · change':'Connect a model')+'</summary><label>'+(data.demo?'Example model':'Preferred Pi model')+'<select data-bind="'+p.provider+'"><option value="">'+(data.demo?'Select an example model':esc(p.binding?.model||'No connected model yet'))+'</option>'+(data.models||[]).filter(m=>m.group===p.provider).map(m=>'<option value="'+esc(m.provider+'|'+m.id)+'"'+(p.binding?.provider===m.provider && p.binding?.model===m.id?' selected':'')+'>'+esc(m.label||m.id)+'</option>').join('')+'</select></label><p class="caption">'+(data.demo?'Illustrative choices only. Your real model list comes from Pi.':p.configured?'Selected for guarded requests.':p.provider==='agy'?'Allowance monitoring is separate; routing needs a compatible Pi connector.':'Sign in with /login in Pi, then run /guard. Available subscription models are selected automatically.')+'</p></details></article>';
 }).join('');renderLive(data);renderImpact(data);renderContinuity(data);
@@ -109,7 +195,7 @@ $('routingOrder').textContent=data.policy.providerOrder.map(p=>names[p]).join(' 
 $('reportedInsights').innerHTML=Object.entries(data.reportedInsights||{}).map(([provider,s])=>'<details class="section"><summary>'+esc(names[provider])+' native snapshot'+(s.recordedAt?' · saved '+date(s.recordedAt):'')+'</summary><p class="caption">'+esc(s.source)+'; retained for reference, not a live quota reading.</p>'+s.metrics.map(m=>'<p>'+pct(m.percent)+' · '+esc(m.label)+'</p>').join('')+(s.contextTokens!==null?'<p>Context: '+nf.format(s.contextTokens)+' tokens</p>':'')+(s.referenceCostUsd!==null?'<p>Session API-price reference: '+usd(s.referenceCostUsd)+'</p>':'')+'</details>').join('');
 $('spend').innerHTML=[['API estimate today',usd(a.apiEstimateUsd)],['Reserved for API requests',usd(a.apiReservedUsd)],['Subscription reference cost',usd(a.subscriptionReferenceUsd)],['Requests in guarded tasks',nf.format((data.tasks||[]).reduce((n,t)=>n+t.requests,0))]].map(([label,value])=>'<div><span class="caption">'+label+'</span><div class="big">'+value+'</div></div>').join('')+'<p class="caption full">API cap: '+usd(data.policy.apiDailyBudgetUsd)+' / day. '+Number(a.unknownCostRequests||0)+' requests have incomplete cost telemetry. Subscription reference cost is an API-price comparison, not a charge.</p>';
 const insight=data.insights;
-$('insights').innerHTML=insight?'<p class="caption">'+(data.demo?'Synthetic example · ':'Last 24 hours · analyzed ')+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+names[p.provider]+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
+$('insights').innerHTML=insight?'<p class="caption">'+(data.demo?'Synthetic example · ':'Last 24 hours · analyzed ')+date(insight.generatedAt)+'</p><div class="insight-grid">'+insight.providers.map(p=>'<div><h3>'+esc(names[p.provider]||p.provider)+'</h3>'+p.metrics.map(m=>'<div class="insight"><strong>'+(m.percent===null?'Unknown':pct(m.percent))+'</strong><span>'+esc(m.label)+'</span><p class="caption">'+esc(m.action)+(m.coveragePercent!==undefined?' Effort recorded for '+pct(m.coveragePercent||0)+' of tokens.':'')+'</p></div>').join('')+'</div>').join('')+'</div>':'<p class="caption">'+(data.demo?'Your connected dashboard analyzes local usage. This public preview contains no personal history.':'Analyzing local history. Quota checks and guarded requests continue independently.')+'</p>';
 }
 
 function renderImpact(data){

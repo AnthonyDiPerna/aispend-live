@@ -1,0 +1,20 @@
+# Block direct public access to aggregate counter storage.
+<Files "counter-data.json">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</Files>
+
+# Ensure refreshed public telemetry and Guard snapshots appear immediately.
+<IfModule mod_headers.c>
+  <FilesMatch "^(demo-data|guard-snapshot)\.json$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <Files "counter.php">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </Files>
+</IfModule>

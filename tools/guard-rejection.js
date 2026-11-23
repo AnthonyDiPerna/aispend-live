@@ -15,7 +15,7 @@ function resetDelayMs(text){
 }
 function family(group,model){
   const m=String(model||'').toLowerCase();
-  if(group==='agy')return m.includes('argon')?'gemini-argon':m.includes('gemini')?'gemini':'claude-gpt';
+  if(group==='agy')return m.includes('argon')?'gemini-argon':/(?:gemini|neon|carbon|hydrogen|flash)/.test(m)?'gemini':'claude-gpt';
   return ['opus','sonnet','haiku','fable'].find(f=>m.includes(f))||null;
 }
 // Returns null for an ordinary reply; otherwise the observation to post plus a user-facing note.
