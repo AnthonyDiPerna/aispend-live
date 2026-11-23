@@ -1,10 +1,12 @@
 # AI Spend Live
 
-**Release 0.7.0** turns AI Spend Live into a **native-first Multi-Subscription Command Center** across **Claude**, **Codex**, and **Antigravity (AGY)**. Measure real local usage across all three subscriptions — including AGY `transcript.jsonl` + `/swarm` workers, Codex `/fast` (`service_tier`) + reasoning effort, and Claude tiers/subagents — then run `npm run check` in any terminal for a 1-second verdict on what to use next.
+**Release 0.7.1** expands AI Spend Live's **native-first Multi-Subscription Command Center** across **Claude**, **Codex**, and **Antigravity (AGY)** with **6 live per-harness tuning knobs** per subscription (beyond `/swarm` and `/fast`), permanent cache-busted Guard UI styling, and real local usage telemetry. Measure real usage across all three subscriptions — including AGY `transcript.jsonl` + `/swarm` workers, Codex `/fast` (`service_tier`) + reasoning effort, and Claude tiers/subagents — then run `npm run check` in any terminal for a 1-second verdict on every lever to pull next.
 
-- **Know when to accelerate**: spot expiring surplus allowance before a weekly reset and launch **`/swarm`** (3–4 workers + verifier) in AGY, enable **`/fast` + high/xhigh effort** in Codex, or run Opus/Fable planning in Claude.
-- **Protect tight quotas**: see both Antigravity buckets (**Gemini** and **Claude/GPT** lanes) alongside Codex and Claude, know immediately when to turn `/fast` OFF, and offload coding work to an open lane while a tight subscription recovers.
-- **Optional Pi Guard routing**: keep working across subscriptions automatically inside Pi with `pi-guard` (`/guard`, `/guard-check`, `/guard-order`, `/guard-block`), loop repair, context compaction, and banked reset inventory tracking.
+- **Full per-harness tuning knobs (6 live levers per subscription)**:
+  - **Antigravity (AGY)**: `/swarm` sizing, Gemini vs Claude/GPT dual-pool arbitrage, per-worker model tiering (`Neon` + `Hydrogen`/`Flash`), model effort suffix (`-xhigh`/`-high`/`-medium`), 5h burst window guard, and `/compact` + `/goal` surplus scheduling.
+  - **Codex CLI**: `/fast` speed tier (2x priority / 8x ultrafast vs standard), reasoning effort, model stepping (`Sol`/`Astra` -> `Terra`/`Luna`), `272k` long-context cliff guard, subagent/auto-review routing, and banked reset inventory + prefix cache hygiene.
+  - **Claude Code**: Opus/Fable vs Sonnet/Haiku tier split (or AGY Claude/GPT overflow at 0%), per-turn effort level, subagent fan-out cap (reacting to 24h sidechain share), context gravity & `/clear` (reacting to >150k turns), cache TTL batching, and scoped vs account-wide weekly tracking.
+- **Optional Pi Guard routing**: keep working across subscriptions automatically inside Pi with `pi-guard` (`/guard`, `/guard-check`, `/guard-order auto`, `/guard-rule`, `/guard-block`), work modes, tool archiving + loop recovery, silent refusal fallback, and unattended watchdog recovery.
 
 See the [release history](CHANGELOG.md), [Pi setup and work modes](integrations/pi/README.md), [native hooks](integrations/native/README.md), and [recorded Pi walkthrough](public/guard-walkthrough.gif).
 

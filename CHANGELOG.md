@@ -3,6 +3,48 @@
 Dates below identify releases, not reconstructed commit dates. Existing Git
 history is preserved. Annotated tags explain the older 0.4 and 0.5 changes.
 
+## 0.7.1 — 2026-11-23
+
+- **Expanded Per-Harness Tuning Knobs (6 live levers per subscription)**:
+  - Expanded `tools/subscription-optimizer.js` so every provider's `playbook`
+    exposes a structured, deterministic `knobs` array (`[{ id, label, state,
+    value, reason, command? }]`, states `boost | steady | tighten | off`)
+    computed from live allowance windows, reset countdowns, banked resets, and
+    24h local `insights`:
+    - **Antigravity (AGY)**: `/swarm` sizing, Gemini vs Claude/GPT dual-pool
+      arbitrage, per-worker model tiering, effort suffix (`-xhigh`/`-high`/
+      `-medium`), 5-hour burst window guard, and `/compact` + `/goal` scheduling.
+    - **Codex**: `/fast` speed tier (2x/8x vs standard), reasoning effort,
+      model stepping (`Sol`/`Astra` -> `Terra`/`Luna`), `272k` long-context
+      cliff guard, subagent/auto-review routing, and banked resets + prefix cache.
+    - **Claude**: Opus/Fable vs Sonnet/Haiku tier split (plus AGY Claude/GPT
+      overflow), per-turn effort, subagent fan-out cap, context gravity &
+      `/clear`, 5m/1h cache TTL batching, and scoped vs account weekly tracking.
+  - Updated `tools/checkin-cli.js` to display color-coded `[BOOST]` / `[STEADY]`
+    / `[TIGHTEN]` / `[OFF]` tuning knobs cleanly in terminal check-ins.
+  - Preserved sanitized `playbook.knobs` inside `public/guard-snapshot.json`
+    (`tools/export-guard-snapshot.js`) with zero filesystem paths or PII.
+- **Guard UI Polish & Permanent Cache-Busting Fix (Guard 0.4.1)**:
+  - Fixed the stale-CSS deployment bug where `guard.html` loaded unversioned
+    `usage-guard.css`: `tools/usage-guard.html` and `tools/export-guard-demo.js`
+    now emit `usage-guard.css?v=0.7.1`, `public/index.html` bumps all CSS/JSON/
+    GIF query strings to `?v=0.7.1`, and `public/.htaccess` sets
+    `Cache-Control: no-cache, must-revalidate` for `.html`, `.css`, and `.json`
+    while keeping `no-store` on `counter.php` and denying `counter-data.json`.
+  - Visually modernized `tools/usage-guard.css` & `tools/usage-guard.html` to
+    match the dark obsidian `#050709` / `#0b0e12` aesthetic of `aispend.live`,
+    with dark-styled `.cmd-chip` controls, semantic tuning-knob cards, and
+    defensive inline separators (`Reset: 24h`, `84.0% · 74.0% usable`) so
+    labels never collide visually.
+- **Expanded Tuning Knobs Across Local Dashboard & Website**:
+  - Rendered live `playbook.knobs` inside each subscription card in
+    `tools/ai-spend-dashboard.html`, `tools/usage-guard.html`, and
+    `public/index.html`.
+  - Added a 6-knob **"All Tuning Knobs for This Harness"** grid inside all four
+    `#harnesses` tabs (`Antigravity (AGY)`, `Codex CLI`, `Claude Code`,
+    `Pi Guard`) and upgraded the Interactive Quick Check-In Simulator to flip
+    all 6 knobs per subscription live as sliders move.
+
 ## 0.7.0 — 2026-11-23
 
 - **Multi-Subscription Value Optimizer (`tools/subscription-optimizer.js`)**:

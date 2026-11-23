@@ -17,6 +17,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     json: false,
     watchSeconds: null,
     color: !process.env.NO_COLOR && Boolean(process.stdout.isTTY),
+    knobs: 'default',
+    compact: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -26,7 +28,15 @@ function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--json') opts.json = true;
     else if (arg === '--no-color') opts.color = false;
     else if (arg === '--color') opts.color = true;
-    else if (arg === '--url') {
+    else if (arg === '--knobs') {
+      opts.knobs = 'full';
+      opts.compact = false;
+    } else if (arg === '--no-knobs') {
+      opts.knobs = 'off';
+    } else if (arg === '--compact') {
+      opts.compact = true;
+      if (opts.knobs === 'full') opts.knobs = 'default';
+    } else if (arg === '--url') {
       if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('--url requires a local Guard controller URL');
       opts.url = argv[++i];
     } else if (arg.startsWith('--url=')) {
@@ -60,6 +70,9 @@ function usageText() {
     '  --live              Poll Claude, Codex, and AGY collectors directly (read-only)',
     '  --json              Emit machine-readable JSON (no ANSI colors)',
     '  --watch [seconds]   Refresh continuously (default: 60s, min: 5s)',
+    '  --knobs             Show all tuning knobs with detailed rationale',
+    '  --compact           Compact layout (condense tuning knobs and extra guidance)',
+    '  --no-knobs          Hide per-harness tuning knobs',
     '  --no-color          Disable ANSI terminal colors',
     '  -h, --help          Show this help message',
   ].join('\n');
@@ -237,7 +250,28 @@ function strategyBadge(strategy, p) {
   return p.bold(p.red(`[${s}]`));
 }
 
-function renderTerminal(data, { color = false } = {}) {
+function knobStateBadge(state, p) {
+  const s = String(state || 'steady').toLowerCase();
+  const raw = `[${s.toUpperCase()}]`;
+  const pad = ' '.repeat(Math.max(0, 9 - raw.length));
+  if (s === 'boost') return p.green(raw) + pad;
+  if (s === 'steady') return p.cyan(raw) + pad;
+  if (s === 'tighten') return p.yellow(raw) + pad;
+  if (s === 'off') return p.red(raw) + pad;
+  return p.dim(raw) + pad;
+}
+
+function selectCompactKnobs(knobs, maxCount = 3) {
+  const priority = { off: 0, tighten: 1, boost: 2, steady: 3 };
+  return knobs
+    .map((knob, idx) => ({ knob, idx, pri: priority[knob.state] ?? 4 }))
+    .sort((a, b) => a.pri - b.pri || a.idx - b.idx)
+    .slice(0, maxCount)
+    .sort((a, b) => a.idx - b.idx)
+    .map((entry) => entry.knob);
+}
+
+function renderTerminal(data, { color = false, knobs = 'default', compact = false } = {}) {
   const p = makePalette(color);
   const opt = data?.optimizer || {};
   const lines = [];
@@ -292,11 +326,32 @@ function renderTerminal(data, { color = false } = {}) {
     if (prov.playbook) {
       const modeColor = prov.playbook.mode === 'accelerate' ? p.green : prov.playbook.mode === 'steady' ? p.cyan : prov.playbook.mode === 'conserve' ? p.yellow : p.red;
       lines.push(`  ${modeColor('Playbook:')} ${prov.playbook.headline}`);
-      if (prov.playbook.badges && prov.playbook.badges.length) {
-        lines.push(`  ${p.dim('Tags:')} ${prov.playbook.badges.map((b) => `[${b}]`).join(' ')}`);
+      if (!compact) {
+        if (prov.playbook.badges && prov.playbook.badges.length) {
+          lines.push(`  ${p.dim('Tags:')} ${prov.playbook.badges.map((b) => `[${b}]`).join(' ')}`);
+        }
+        for (const tip of (prov.playbook.guidance || []).slice(0, 2)) {
+          lines.push(`    - ${tip}`);
+        }
       }
-      for (const tip of (prov.playbook.guidance || []).slice(0, 2)) {
-        lines.push(`    - ${tip}`);
+      if (knobs !== 'off' && Array.isArray(prov.playbook.knobs) && prov.playbook.knobs.length) {
+        const allKnobs = prov.playbook.knobs;
+        const shown = compact ? selectCompactKnobs(allKnobs, 3) : allKnobs;
+        lines.push(`  ${p.dim(compact ? 'Key Knobs:' : 'Tuning Knobs:')}`);
+        for (const k of shown) {
+          const badge = knobStateBadge(k.state, p);
+          const lbl = String(k.label || k.id).padEnd(24, ' ').slice(0, 24);
+          const cmdSuffix = !compact && k.command && !String(k.value || '').toLowerCase().includes(String(k.command).toLowerCase())
+            ? `  ${p.dim(`(${k.command})`)}`
+            : '';
+          lines.push(`    ${badge} ${lbl}  ${p.bold(k.value)}${cmdSuffix}`);
+          if (knobs === 'full' && k.reason) {
+            lines.push(`              ${p.dim(k.reason)}`);
+          }
+        }
+        if (compact && allKnobs.length > shown.length) {
+          lines.push(`    ${p.dim(`+${allKnobs.length - shown.length} more knobs (run with --knobs for all ${allKnobs.length} + rationale)`)}`);
+        }
       }
     }
     lines.push('');
@@ -304,7 +359,7 @@ function renderTerminal(data, { color = false } = {}) {
 
   if (opt.alerts && opt.alerts.length) {
     lines.push(p.bold('Alerts & Opportunities'));
-    for (const a of opt.alerts.slice(0, 5)) {
+    for (const a of opt.alerts.slice(0, compact ? 3 : 5)) {
       const tag = a.severity === 'opportunity' ? p.green('[OPPORTUNITY]') : a.severity === 'critical' ? p.red('[CRITICAL]') : a.severity === 'warn' ? p.yellow('[WARN]') : p.dim('[INFO]');
       lines.push(`  ${tag} ${p.bold(a.title)} — ${a.detail}`);
     }
@@ -340,7 +395,7 @@ async function runCli(argv = process.argv.slice(2)) {
     if (clearScreen && process.stdout.isTTY) {
       process.stdout.write('\x1b[2J\x1b[H');
     }
-    process.stdout.write(renderTerminal(result, { color: opts.color }) + '\n');
+    process.stdout.write(renderTerminal(result, { color: opts.color, knobs: opts.knobs, compact: opts.compact }) + '\n');
     if (opts.watchSeconds) {
       process.stdout.write(`\nRefreshing every ${opts.watchSeconds}s (Ctrl+C to stop)...\n`);
     }

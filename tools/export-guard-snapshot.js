@@ -114,6 +114,17 @@ function sanitizeOptimizer(opt) {
           mode: stripPath(p.playbook.mode || 'steady', 24),
           headline: stripPath(p.playbook.headline || '', 160),
           badges: Array.isArray(p.playbook.badges) ? p.playbook.badges.slice(0, 8).map((b) => stripPath(b, 48)) : [],
+          knobs: Array.isArray(p.playbook.knobs) ? p.playbook.knobs.slice(0, 8).map((k) => {
+            const st = String(k && k.state || 'steady').toLowerCase();
+            return {
+              id: stripPath(k && k.id || '', 40),
+              label: stripPath(k && k.label || '', 64),
+              state: ['boost', 'steady', 'tighten', 'off'].includes(st) ? st : 'steady',
+              value: stripPath(k && k.value || '', 80),
+              reason: stripPath(k && k.reason || '', 180),
+              ...(k && k.command ? { command: stripPath(k.command, 80) } : {}),
+            };
+          }) : [],
           guidance: Array.isArray(p.playbook.guidance) ? p.playbook.guidance.slice(0, 6).map((g) => stripPath(g, 200)) : [],
           commands: Array.isArray(p.playbook.commands) ? p.playbook.commands.slice(0, 6).map((c) => stripPath(c, 80)) : [],
         } : null,

@@ -1,6 +1,6 @@
 {
   "name": "aispend-live",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": false,
   "description": "Local multi-subscription AI usage dashboard, optimizer, and Guard for Claude, Codex, and Antigravity.",
   "main": "tools/ai-spend-dashboard-server.js",

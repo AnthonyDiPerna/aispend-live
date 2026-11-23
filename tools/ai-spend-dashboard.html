@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="application-version" content="0.7.0" />
+  <meta name="application-version" content="0.7.1" />
   <title>AI Spend Local Dashboard — Multi-Subscription Command Center</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2307090b'/%3E%3Cpath d='M7 24V15h4v9m4 0V11h4v13m4 0V7h4v17' stroke='%2349c58f' stroke-width='2.5'/%3E%3C/svg%3E" />
   <style>
@@ -609,6 +609,70 @@
       gap: 3px;
     }
 
+    /* Per-Subscription Live Tuning Knobs (clean hairline rows, zero pill clutter) */
+    .knob-section {
+      display: grid;
+      gap: 4px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .knob-section-head {
+      font: 700 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      margin-bottom: 2px;
+    }
+    .knob-list {
+      display: grid;
+      gap: 0;
+    }
+    .knob-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 2px 8px;
+      align-items: baseline;
+      padding: 6px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.055);
+      min-width: 0;
+    }
+    .knob-row:first-child { border-top: 0; padding-top: 2px; }
+    .knob-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text);
+      min-width: 0;
+    }
+    .knob-val-row {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .knob-val {
+      font: 500 11px/1.35 var(--mono);
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .knob-state {
+      font: 700 9.5px/1.2 var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+    .knob-state.boost { color: var(--green); }
+    .knob-state.steady { color: var(--cyan); }
+    .knob-state.tighten { color: var(--gold); }
+    .knob-state.off { color: var(--red); }
+    .knob-cmd {
+      padding: 1px 6px;
+      min-height: 20px;
+      font-size: 10px;
+    }
+
     /* Click-to-copy command chips */
     .chip-row {
       display: flex;
@@ -1136,9 +1200,9 @@
         <div>
           <div class="brand-title-row">
             <h1>AI Spend Command Center</h1>
-            <span class="ver-pill">v0.7.0 · Local</span>
+            <span class="ver-pill">v0.7.1 · Local</span>
           </div>
-          <div class="caption">Claude · Codex · Antigravity — live multi-subscription optimizer, /swarm &amp; /fast telemetry, and local pacing</div>
+          <div class="caption">Claude · Codex · Antigravity — live multi-subscription optimizer, per-harness tuning knobs, /swarm &amp; /fast telemetry</div>
         </div>
       </div>
       <div class="controls">
@@ -1765,7 +1829,7 @@
         providers: provs,
         recommendedOrder: order,
         quickCommands: [{ tool: "CLI", label: "Run check-in", command: "npm run check -- --live", why: "Print full multi-subscription verdict in terminal" }],
-        note: "Upgrade Guard controller to v0.7.0 for full optimizer playbooks.",
+        note: "Upgrade Guard controller to v0.7.1 for full optimizer playbooks and tuning knobs.",
       };
     }
 
@@ -1871,6 +1935,29 @@
           : `<div class="lane-list"><div class="caption">No measured allowance windows yet.</div></div>`;
 
         const pbBadges = (Array.isArray(pb.badges) ? pb.badges : []).map((b) => `<span class="pb-badge">${escapeHtml(b)}</span>`).join("");
+        const pbKnobs = (Array.isArray(pb.knobs) && pb.knobs.length)
+          ? `<div class="knob-section">
+               <div class="knob-section-head">Tuning Knobs (${pb.knobs.length})</div>
+               <div class="knob-list">${pb.knobs.map((k) => {
+                 const stRaw = String(k && k.state || "steady").toLowerCase();
+                 const st = ["boost", "steady", "tighten", "off"].includes(stRaw) ? stRaw : "steady";
+                 const tip = k && k.reason ? ` title="${escapeHtml(k.reason)}"` : "";
+                 const cmdBtn = k && k.command
+                   ? `<button type="button" class="cmd-chip knob-cmd" data-copy="${escapeHtml(k.command)}" title="Copy ${escapeHtml(k.command)}">${escapeHtml(k.command)}</button>`
+                   : "";
+                 return `
+                   <div class="knob-row"${tip}>
+                     <span class="knob-label">${escapeHtml(k.label || k.id || "Knob")}</span>
+                     <span class="knob-state ${st}">${escapeHtml(st)}</span>
+                     <div class="knob-val-row">
+                       <span class="knob-val">${escapeHtml(k.value || "")}</span>
+                       ${cmdBtn}
+                     </div>
+                   </div>
+                 `;
+               }).join("")}</div>
+             </div>`
+          : "";
         const pbGuidance = (Array.isArray(pb.guidance) && pb.guidance.length)
           ? `<ul class="pb-list">${pb.guidance.map((g) => `<li>${escapeHtml(g)}</li>`).join("")}</ul>`
           : "";
@@ -1924,6 +2011,7 @@
                 <span class="state-pill ${escapeHtml(pbMode)}">${escapeHtml(pbMode)}</span>
               </div>
               ${pbBadges ? `<div class="badge-row">${pbBadges}</div>` : ""}
+              ${pbKnobs}
               ${pbGuidance}
               ${pbCommands}
             </div>

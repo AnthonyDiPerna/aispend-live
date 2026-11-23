@@ -9,9 +9,9 @@
   </IfModule>
 </Files>
 
-# Ensure refreshed public telemetry and Guard snapshots appear immediately.
+# Ensure refreshed HTML, CSS, JSON snapshots, and GIFs revalidate immediately after deploys.
 <IfModule mod_headers.c>
-  <FilesMatch "^(demo-data|guard-snapshot)\.json$">
+  <FilesMatch "\.(html|css|json|gif)$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
   <Files "counter.php">

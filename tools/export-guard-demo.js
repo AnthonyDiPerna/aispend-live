@@ -51,8 +51,11 @@ const advice=fs.readFileSync(path.join(__dirname,'guard-advisor.js'),'utf8')
 const impact=fs.readFileSync(path.join(__dirname,'guard-impact.js'),'utf8').replace('module.exports=','globalThis.GuardImpact=');
 const optimizer=fs.readFileSync(path.join(__dirname,'subscription-optimizer.js'),'utf8');
 const optimizerBundle='(function(){const module={exports:{}};const exports=module.exports;const require=id=>id==="./usage-guard"?GuardPolicy:{};\n'+optimizer+'\nglobalThis.GuardOptimizer=module.exports;})();';
+const pkgVersion=require('../package.json').version;
 let html=fs.readFileSync(path.join(__dirname,'usage-guard.html'),'utf8');
-html=html.replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
+html=html.replace(/href="usage-guard\.css(?:\?v=[^"]*)?"/,'href="usage-guard.css?v='+pkgVersion+'"')
+  .replace(/guard-walkthrough\.gif(?:\?v=[^"]*)?/g,'guard-walkthrough.gif?v='+pkgVersion)
+  .replace('<title>AI Spend Guard','<title>Playground · AI Spend Guard')
   .replace('href="/"','href="index.html"')
   .replace('Demo data. This server cannot authorize model requests. Change the simulator clock without spending tokens.','Public playground · Synthetic readings. Changes stay in this tab and reset on reload. No accounts are connected and no model calls are possible.')
   .replace('Refresh allowances','Refresh playground')

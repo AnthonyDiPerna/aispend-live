@@ -30,6 +30,16 @@ function obs(provider, windowId, usedPercent, resetHours, { windowMinutes = 1008
   };
 }
 
+const EXPECTED_KNOB_IDS = {
+  agy: ['swarm-size', 'dual-pool', 'worker-tier', 'effort-suffix', 'session-5h', 'context-compact'],
+  codex: ['speed-tier', 'reasoning-effort', 'model-tier', 'context-cliff', 'subagents-review', 'banked-resets'],
+  claude: ['model-tier', 'effort-level', 'subagent-fanout', 'context-gravity', 'cache-ttl', 'scoped-windows'],
+};
+
+function findKnob(providerObj, id) {
+  return (providerObj?.playbook?.knobs || []).find((k) => k.id === id);
+}
+
 function assertExactSchema(opt) {
   assert.equal(typeof opt.generatedAt, 'string');
   assert.equal(typeof opt.headline, 'string');
@@ -58,6 +68,28 @@ function assertExactSchema(opt) {
     assert.ok(Array.isArray(p.playbook.badges));
     assert.ok(Array.isArray(p.playbook.guidance));
     assert.ok(Array.isArray(p.playbook.commands));
+    assert.ok(Array.isArray(p.playbook.knobs), `${p.provider} playbook must include knobs array`);
+    assert.equal(p.playbook.knobs.length, 6, `${p.provider} must expose exactly 6 knobs`);
+    assert.deepEqual(
+      Array.from(p.playbook.knobs, (k) => k.id),
+      EXPECTED_KNOB_IDS[p.provider],
+      `${p.provider} knobs must match expected IDs in order`
+    );
+    for (const k of p.playbook.knobs) {
+      assert.equal(typeof k.id, 'string');
+      assert.ok(k.id.length > 0);
+      assert.equal(typeof k.label, 'string');
+      assert.ok(k.label.length > 0);
+      assert.ok(['boost', 'steady', 'tighten', 'off'].includes(k.state), `invalid knob state ${k.state} on ${p.provider}.${k.id}`);
+      assert.equal(typeof k.value, 'string');
+      assert.ok(k.value.length > 0);
+      assert.equal(typeof k.reason, 'string');
+      assert.ok(k.reason.length > 0);
+      if (k.command !== undefined) {
+        assert.equal(typeof k.command, 'string');
+        assert.ok(k.command.length > 0);
+      }
+    }
   }
   // Strict zero-path privacy guarantee for snapshot exports.
   assert.ok(!/[A-Za-z]:\\|\/Users\/|\/home\//.test(JSON.stringify(opt)), 'optimizer output must never include filesystem paths');
@@ -128,6 +160,29 @@ async function run() {
     assert.equal(claude.remainingPercent, 0);
     assert.equal(claude.playbook.mode, 'pause');
     assert.match(claude.playbook.headline, /AGY Claude\/GPT/i);
+
+    // Per-harness tuning knobs verification on Scenario 1
+    assert.equal(findKnob(agy, 'swarm-size').state, 'boost');
+    assert.match(findKnob(agy, 'swarm-size').value, /3–4 workers/i);
+    assert.equal(findKnob(agy, 'dual-pool').state, 'boost');
+    assert.match(findKnob(agy, 'dual-pool').value, /Claude\/GPT.*97%/i);
+    assert.equal(findKnob(agy, 'worker-tier').state, 'boost');
+    assert.equal(findKnob(agy, 'effort-suffix').state, 'boost');
+    assert.match(findKnob(agy, 'effort-suffix').value, /-xhigh/i);
+    assert.equal(findKnob(agy, 'session-5h').state, 'boost');
+    assert.match(findKnob(agy, 'session-5h').value, /74%.*100%/);
+
+    assert.equal(findKnob(codex, 'speed-tier').state, 'off');
+    assert.match(findKnob(codex, 'speed-tier').value, /\/fast off/i);
+    assert.equal(findKnob(codex, 'reasoning-effort').state, 'tighten');
+    assert.equal(findKnob(codex, 'model-tier').state, 'tighten');
+    assert.equal(findKnob(codex, 'context-cliff').state, 'tighten');
+    assert.equal(findKnob(codex, 'subagents-review').state, 'tighten');
+
+    assert.equal(findKnob(claude, 'model-tier').state, 'off');
+    assert.match(findKnob(claude, 'model-tier').value, /Shift to AGY Claude\/GPT/i);
+    assert.equal(findKnob(claude, 'scoped-windows').state, 'off');
+    assert.match(findKnob(claude, 'scoped-windows').reason, /51%.*0%/);
   }
 
   // 2. Surplus / expiring-value scenario: Codex 70% left resetting in 14h -> Codex FIRST with /fast + xhigh
@@ -161,6 +216,12 @@ async function run() {
     assert.ok(codex.playbook.commands.includes('/fast'));
     assert.ok(codex.playbook.commands.includes('/effort xhigh'));
     assert.ok(opt.alerts.some((a) => a.kind === 'surplus' && a.provider === 'codex'));
+    assert.equal(findKnob(codex, 'speed-tier').state, 'boost');
+    assert.match(findKnob(codex, 'speed-tier').value, /\/fast safe/i);
+    assert.equal(findKnob(codex, 'reasoning-effort').state, 'boost');
+    assert.match(findKnob(codex, 'reasoning-effort').value, /high \/ xhigh/i);
+    assert.equal(findKnob(codex, 'model-tier').state, 'boost');
+    assert.match(findKnob(codex, 'model-tier').value, /gpt-6\.2-sol/i);
   }
 
   // 3. All-exhausted + banked reset credit scenario -> strategy 'wait', recommends redeeming banked reset or waiting
@@ -194,6 +255,10 @@ async function run() {
     assert.equal(codex.bankedResets.usableCount, 1);
     assert.match(codex.playbook.headline, /1 banked reset/i);
     assert.ok(opt.alerts.some((a) => a.kind === 'banked-reset' && a.provider === 'codex'));
+    assert.equal(findKnob(codex, 'banked-resets').state, 'boost');
+    assert.match(findKnob(codex, 'banked-resets').value, /Redeem 1 of 1/i);
+    assert.equal(findKnob(codex, 'speed-tier').state, 'off');
+    assert.equal(findKnob(opt.providers.find((p) => p.provider === 'agy'), 'swarm-size').state, 'off');
   }
 
   // 4. AGY tight (<25% Gemini and <25% Claude/GPT) -> scale /swarm down to 1-2 / Hydrogen / Flash; Claude surplus -> Opus/Fable
@@ -286,6 +351,27 @@ async function run() {
       assert.match(textOut, /\/swarm/);
       assert.match(textOut, /\/fast off/i);
       assert.match(textOut, /\[#+-+\]/, 'must include ASCII progress bar');
+      assert.match(textOut, /Tuning Knobs:/);
+      assert.match(textOut, /\[BOOST\]/);
+      assert.match(textOut, /\[TIGHTEN\]/);
+      assert.match(textOut, /\[OFF\]/);
+      assert.match(textOut, /Dual-pool routing/);
+      assert.match(textOut, /272k context cliff/);
+      assert.match(textOut, /Scoped weekly & \/fast/);
+
+      // CLI --knobs (detailed rationale) & --compact & --no-knobs tests
+      const { stdout: fullKnobsOut } = await execFileAsync(process.execPath, [path.join(__dirname, 'checkin-cli.js'), '--url', url, '--knobs', '--no-color'], { encoding: 'utf8' });
+      assert.ok(fullKnobsOut.length > textOut.length, '--knobs must include expanded knob rationales');
+      assert.match(fullKnobsOut, /272k 2x input/i);
+
+      const { stdout: compactOut } = await execFileAsync(process.execPath, [path.join(__dirname, 'checkin-cli.js'), '--url', url, '--compact', '--no-color'], { encoding: 'utf8' });
+      assert.ok(compactOut.length < textOut.length, '--compact output must be shorter than default');
+      assert.match(compactOut, /Key Knobs:/);
+      assert.match(compactOut, /\+3 more knobs/);
+      assert.ok(!compactOut.includes('Tags:'), '--compact omits redundant Tags line');
+
+      const { stdout: noKnobsOut } = await execFileAsync(process.execPath, [path.join(__dirname, 'checkin-cli.js'), '--url', url, '--no-knobs', '--no-color'], { encoding: 'utf8' });
+      assert.ok(!noKnobsOut.includes('Tuning Knobs:'), '--no-knobs hides tuning knobs');
 
       // Live fallback test when controller is unreachable
       const fallback = await fetchCheckin({
@@ -304,6 +390,9 @@ async function run() {
       const renderedFallback = renderTerminal(fallback, { color: false });
       assert.match(renderedFallback, /Direct live collectors/);
       assert.match(renderedFallback, /Antigravity CLI is unavailable/);
+      assert.match(renderedFallback, /Tuning Knobs:/);
+      const renderedColor = renderTerminal(fallback, { color: true });
+      assert.match(renderedColor, /\x1b\[32m\[BOOST\]\x1b\[0m/, 'color mode applies green ANSI to [BOOST]');
 
       // parseArgs sanity
       assert.deepEqual(parseArgs(['--live', '--json', '--watch', '30', '--no-color']), {
@@ -312,8 +401,13 @@ async function run() {
         json: true,
         watchSeconds: 30,
         color: false,
+        knobs: 'default',
+        compact: false,
         help: false,
       });
+      assert.equal(parseArgs(['--knobs']).knobs, 'full');
+      assert.equal(parseArgs(['--compact']).compact, true);
+      assert.equal(parseArgs(['--no-knobs']).knobs, 'off');
       assert.equal(parseArgs(['--watch']).watchSeconds, 60);
     } finally {
       await new Promise((r) => server.close(r));
@@ -352,6 +446,132 @@ async function run() {
     assert.equal(parseRuleRequest('fix the bug with codex'), null, 'ordinary work with "with" must not save as persistent rule');
     assert.equal(parseRuleRequest('code changes on opus'), null, 'conversational "on" must not save as persistent rule');
     assert.equal(parseRuleRequest('one two three four five six seven -> opus'), null, '>6 word match phrase rejected');
+  }
+
+  // 8. Dynamic 24h insights reactions across Claude, Codex, and AGY knobs
+  {
+    const s = initialState();
+    s.observations = [
+      obs('claude', 'weekly', 55, 72),
+      obs('codex', 'codex:primary', 58, 72),
+      obs('agy', 'gemini:weekly', 25, 18, { modelFamily: 'gemini' }),
+      obs('agy', 'gemini:session', 30, 3, { windowMinutes: 300, modelFamily: 'gemini' }),
+    ];
+    s.resetCredits = {
+      codex: {
+        source: 'codex-rpc',
+        observedAt: iso(NOW),
+        availableCount: 1,
+        detailsKnown: true,
+        credits: [{ status: 'available', resetType: 'codexRateLimits', expiresAt: iso(NOW + 12 * HOUR), expiryKnown: true }],
+      },
+    };
+    const insights = {
+      generatedAt: iso(NOW),
+      providers: [
+        {
+          provider: 'claude',
+          requests: 120,
+          metrics: [
+            { id: 'subagents', percent: 58 },
+            { id: 'context', percent: 62 },
+            { id: 'effort', percent: 55 },
+            { id: 'cache', percent: 68 },
+            { id: 'fast', percent: 22 },
+          ],
+        },
+        {
+          provider: 'codex',
+          requests: 95,
+          metrics: [
+            { id: 'effort', percent: 52 },
+            { id: 'context', percent: 48 },
+            { id: 'subagents', percent: 44 },
+            { id: 'fast', percent: 30 },
+            { id: 'cache', percent: 62 },
+          ],
+        },
+        {
+          provider: 'agy',
+          requests: 80,
+          metrics: [
+            { id: 'context', percent: 55 },
+            { id: 'swarm', percent: 8 },
+          ],
+        },
+      ],
+    };
+
+    const plan = buildPlan(s, NOW);
+    const opt = buildOptimizationPlan(plan, insights, NOW);
+    assertExactSchema(opt);
+
+    const claude = opt.providers.find((p) => p.provider === 'claude');
+    const codex = opt.providers.find((p) => p.provider === 'codex');
+    const agy = opt.providers.find((p) => p.provider === 'agy');
+
+    assert.equal(findKnob(claude, 'subagent-fanout').state, 'tighten', 'high Claude subagents must tighten subagent-fanout');
+    assert.match(findKnob(claude, 'subagent-fanout').reason, /58%.*fresh context window/i);
+    assert.equal(findKnob(claude, 'context-gravity').state, 'tighten', 'high Claude >150k context must tighten context-gravity');
+    assert.match(findKnob(claude, 'context-gravity').value, /6-bullet handoff \+ \/clear/i);
+    assert.equal(findKnob(claude, 'cache-ttl').state, 'tighten', 'low Claude cache reuse tightens cache-ttl');
+    assert.equal(findKnob(claude, 'effort-level').state, 'tighten', 'high Claude max effort tightens effort-level');
+    assert.equal(findKnob(claude, 'scoped-windows').state, 'tighten', 'high Claude /fast usage tightens scoped-windows');
+
+    assert.equal(findKnob(codex, 'reasoning-effort').state, 'tighten', 'high Codex >=40% effort tightens reasoning-effort');
+    assert.match(findKnob(codex, 'reasoning-effort').reason, /52%/);
+    assert.equal(findKnob(codex, 'context-cliff').state, 'tighten', 'high Codex >150k context tightens context-cliff');
+    assert.match(findKnob(codex, 'context-cliff').reason, /272k/);
+    assert.equal(findKnob(codex, 'subagents-review').state, 'tighten', 'high Codex subagents tightens subagents-review');
+    assert.match(findKnob(codex, 'subagents-review').reason, /luna/i);
+    assert.equal(findKnob(codex, 'speed-tier').state, 'tighten', 'high Codex /fast share on-pace tightens speed-tier');
+    assert.equal(findKnob(codex, 'banked-resets').state, 'boost', 'banked reset expiring <24h surfaces boost/redeem action');
+    assert.match(findKnob(codex, 'banked-resets').value, /Redeem soon/i);
+
+    assert.equal(findKnob(agy, 'context-compact').state, 'tighten', 'high AGY >150k context tightens context-compact');
+    assert.match(findKnob(agy, 'context-compact').value, /\/compact now/i);
+    assert.equal(findKnob(agy, 'swarm-size').state, 'boost', 'surplus AGY with low /swarm share boosts swarm-size');
+    assert.match(findKnob(agy, 'swarm-size').reason, /8%/);
+  }
+
+  // 9. AGY 5h burst wall vs healthy weekly, Claude scoped Fable tight vs open overall weekly, plus blocked/unknown states
+  {
+    const s = initialState();
+    s.policy.blockedProviders = ['codex'];
+    s.observations = [
+      obs('agy', 'gemini:weekly', 30, 120, { modelFamily: 'gemini' }),
+      obs('agy', 'gemini:session', 84, 2, { windowMinutes: 300, modelFamily: 'gemini' }),
+      obs('claude', 'weekly', 35, 80),
+      obs('claude', 'weekly:fable', 88, 80, { modelFamily: 'fable' }),
+    ];
+    const plan = buildPlan(s, NOW);
+    const opt = buildOptimizationPlan(plan, null, NOW);
+    assertExactSchema(opt);
+
+    const agy = opt.providers.find((p) => p.provider === 'agy');
+    const claude = opt.providers.find((p) => p.provider === 'claude');
+    const codex = opt.providers.find((p) => p.provider === 'codex');
+
+    assert.equal(findKnob(agy, 'swarm-size').state, 'tighten', '5h session <25% tightens AGY /swarm even when weekly is 70%');
+    assert.match(findKnob(agy, 'swarm-size').value, /1–2 workers/);
+    assert.equal(findKnob(agy, 'session-5h').state, 'tighten');
+    assert.match(findKnob(agy, 'session-5h').reason, /16%.*70%/);
+    assert.equal(findKnob(agy, 'effort-suffix').state, 'tighten');
+    assert.match(findKnob(agy, 'effort-suffix').value, /-medium/);
+
+    assert.equal(findKnob(claude, 'scoped-windows').state, 'tighten', 'tight scoped Fable vs healthy overall weekly must tighten');
+    assert.match(findKnob(claude, 'scoped-windows').reason, /12%.*65%/);
+
+    assert.equal(codex.utilizationState, 'blocked');
+    assert.ok(codex.playbook.knobs.every((k) => k.state === 'off'), 'blocked provider marks all 6 knobs off');
+
+    // Also test unknown state across all 3 providers
+    const emptyOpt = buildOptimizationPlan(buildPlan(initialState(), NOW), null, NOW);
+    assertExactSchema(emptyOpt);
+    for (const p of emptyOpt.providers) {
+      assert.equal(p.utilizationState, 'unknown');
+      assert.ok(p.playbook.knobs.every((k) => k.state === 'steady'));
+    }
   }
 
   console.log('Multi-subscription optimizer, /api/checkin, checkin-cli, browser VM bundle, and Pi guard fix tests passed');
